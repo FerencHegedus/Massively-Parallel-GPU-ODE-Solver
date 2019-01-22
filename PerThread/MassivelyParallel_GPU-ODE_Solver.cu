@@ -5,10 +5,10 @@
 #include <fstream>
 #include <cuda_runtime.h>
 
-#include "ParametricODESolver.cuh"
+#include "MassivelyParallel_GPU-ODE_Solver.cuh"
 
-#include "ParametricODESystem.cuh"
-#include "ParametricODERungeKutta.cuh"
+#include "PerThread_SystemDefinition.cuh"
+#include "PerThread_RungeKutta.cuh"
 
 #define gpuErrCHK(call)                                                                \
 {                                                                                      \
@@ -646,7 +646,7 @@ void ProblemSolver::Solve(const SolverConfiguration& Configuration)
 											  KernelParameters.NumberOfEvents*sizeof(int) + \
 											  KernelParameters.NumberOfSharedParameters*sizeof(double);
 		
-		ParametricODE_Solver_RKCK45<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
+		PerThread_RKCK45<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
 		gpuErrCHK( cudaDeviceSynchronize() );
 	}
 	
@@ -655,7 +655,7 @@ void ProblemSolver::Solve(const SolverConfiguration& Configuration)
 		size_t DynamicSharedMemoryInBytes = 2*KernelParameters.SystemDimension*sizeof(double) + \
 											  KernelParameters.NumberOfSharedParameters*sizeof(double);
 		
-		ParametricODE_Solver_RKCK45_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
+		PerThread_RKCK45_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
 		gpuErrCHK( cudaDeviceSynchronize() );
 	}
 	
@@ -666,7 +666,7 @@ void ProblemSolver::Solve(const SolverConfiguration& Configuration)
 											KernelParameters.NumberOfEvents*sizeof(int) + \
 											KernelParameters.NumberOfSharedParameters*sizeof(double);
 		
-		ParametricODE_Solver_RK4<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
+		PerThread_RK4<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
 		gpuErrCHK( cudaDeviceSynchronize() );
 	}
 	
@@ -674,7 +674,7 @@ void ProblemSolver::Solve(const SolverConfiguration& Configuration)
 	{
 		size_t DynamicSharedMemoryInBytes = KernelParameters.NumberOfSharedParameters*sizeof(double);
 		
-		ParametricODE_Solver_RK4_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
+		PerThread_RK4_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
 		gpuErrCHK( cudaDeviceSynchronize() );
 	}
 	

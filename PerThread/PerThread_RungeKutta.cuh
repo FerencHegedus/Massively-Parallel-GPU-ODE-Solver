@@ -1,5 +1,5 @@
-#ifndef PARAMETRIC_ODE_RUNGEKUTTA_H
-#define PARAMETRIC_ODE_RUNGEKUTTA_H
+#ifndef PERTHREAD_RUNGEKUTTA_H
+#define PERTHREAD_RUNGEKUTTA_H
 
 __constant__ double d_BT_RK4[1];
 __constant__ double d_BT_RKCK45[26];
@@ -22,7 +22,7 @@ __constant__ double d_BT_RKCK45[26];
 #define cBT  d_BT_RKCK45
 
 
-__global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelParameters)
+__global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
 	int i1;
@@ -44,8 +44,8 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 
 	if (threadIdx.x==0)
 	{
-		ParametricODE_Solver_OdeProperties(sRTOL, sATOL, sMaxTS, sMinTS, sTSGL, sTSSL);
-		ParametricODE_Solver_EventProperties(sED, sET, sESC, sMSIE);
+		PerThread_OdeProperties(sRTOL, sATOL, sMaxTS, sMinTS, sTSGL, sTSSL);
+		PerThread_EventProperties(sED, sET, sESC, sMSIE);
 		
 		for (int i=0; i<NSP; i++)
 			sPAR[i] = __ldg( &KernelParameters.d_SharedParameters[i] );
@@ -71,8 +71,8 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
 		
-		ParametricODE_Solver_EventFunction(tid, NT, gAEV, gAS, AT, gPAR, sPAR, gACC);
-		ParametricODE_Solver_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+		PerThread_EventFunction(tid, NT, gAEV, gAS, AT, gPAR, sPAR, gACC);
+		PerThread_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 		
 		i1=tid;
 		for (int i=0; i<NE; i++)
@@ -94,7 +94,7 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 			}
 			
 			
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[0], gAS, AT, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[0], gAS, AT, gPAR, sPAR, gACC);
 			
 			T  = AT + TS * cBT[0];
 			i1 = tid;
@@ -103,7 +103,7 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 				gST[i1] = gAS[i1] + TS * ( cBT[0]*gSTG[i1] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[i2], gST, T, gPAR, sPAR, gACC);
 			
 			T  = AT + TS * cBT[1];
 			i1 = tid;
@@ -112,7 +112,7 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 				gST[i1] = gAS[i1] + TS * ( cBT[2]*gSTG[i1] + cBT[3]*gSTG[i1+i2] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[2*i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[2*i2], gST, T, gPAR, sPAR, gACC);
 			
 			T  = AT + TS * cBT[4];
 			i1 = tid;
@@ -121,7 +121,7 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 				gST[i1] = gAS[i1] + TS * ( cBT[1]*gSTG[i1] + cBT[5]*gSTG[i1+i2] + cBT[6]*gSTG[i1+2*i2] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[3*i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[3*i2], gST, T, gPAR, sPAR, gACC);
 			
 			T  = AT + TS;
 			i1 = tid;
@@ -130,7 +130,7 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 				gST[i1] = gAS[i1] + TS * ( cBT[7]*gSTG[i1] + cBT[8]*gSTG[i1+i2] + cBT[9]*gSTG[i1+2*i2] + cBT[10]*gSTG[i1+3*i2] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[4*i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[4*i2], gST, T, gPAR, sPAR, gACC);
 
 			T  = AT + TS * cBT[11];
 			i1 = tid;
@@ -139,7 +139,7 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 				gST[i1] = gAS[i1] + TS * ( cBT[12]*gSTG[i1] + cBT[13]*gSTG[i1+i2] + cBT[14]*gSTG[i1+2*i2] + cBT[15]*gSTG[i1+3*i2] + cBT[16]*gSTG[i1+4*i2] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[5*i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[5*i2], gST, T, gPAR, sPAR, gACC);
 			
 			
 			i1 = tid;
@@ -195,7 +195,7 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 			NTS = fmax(NTS, sMinTS);
 			
 			
-			ParametricODE_Solver_EventFunction(tid, NT, gNEV, gNS, AT, gPAR, sPAR, gACC);
+			PerThread_EventFunction(tid, NT, gNEV, gNS, AT, gPAR, sPAR, gACC);
 			
 			if ( UPD == 1 )
 			{
@@ -245,8 +245,8 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 						if ( gEC[i1] == sESC[i] )
 							TRM = 1;
 						
-						ParametricODE_Solver_ActionAfterEventDetection(tid, NT, i, gEC[i1], AT, TS, gTD, gAS, gPAR, sPAR, gACC);
-						ParametricODE_Solver_EventFunction(tid, NT, gNEV, gAS, AT, gPAR, sPAR, gACC);
+						PerThread_ActionAfterEventDetection(tid, NT, i, gEC[i1], AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+						PerThread_EventFunction(tid, NT, gNEV, gAS, AT, gPAR, sPAR, gACC);
 					}
 					
 					if ( ( abs(gAEV[i1]) <  sET[i] ) && ( abs(gNEV[i1]) > sET[i] ) )
@@ -262,18 +262,18 @@ __global__ void ParametricODE_Solver_RKCK45(IntegratorInternalVariables KernelPa
 					i1 += NT;
 				}
 				
-				ParametricODE_Solver_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+				PerThread_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 			}
 			
 			TS = NTS;
 		}
 		
-		ParametricODE_Solver_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+		PerThread_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 	}
 }
 
 
-__global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables KernelParameters)
+__global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
 	int i1;
@@ -291,7 +291,7 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 	
 	if (threadIdx.x==0)
 	{
-		ParametricODE_Solver_OdeProperties(sRTOL, sATOL, sMaxTS, sMinTS, sTSGL, sTSSL);
+		PerThread_OdeProperties(sRTOL, sATOL, sMaxTS, sMinTS, sTSGL, sTSSL);
 	
 		for (int i=0; i<NSP; i++)
 			sPAR[i] = __ldg( &KernelParameters.d_SharedParameters[i] );
@@ -315,7 +315,7 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
 		
-		ParametricODE_Solver_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+		PerThread_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 		
 		while ( TRM==0 )
 		{
@@ -329,7 +329,7 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 			}
 			
 			
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[0], gAS, AT, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[0], gAS, AT, gPAR, sPAR, gACC);
 			
 			T  = AT + TS * cBT[0];
 			i1 = tid;
@@ -338,7 +338,7 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 				gST[i1] = gAS[i1] + TS * ( cBT[0]*gSTG[i1] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[i2], gST, T, gPAR, sPAR, gACC);
 			
 			T  = AT + TS * cBT[1];
 			i1 = tid;
@@ -347,7 +347,7 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 				gST[i1] = gAS[i1] + TS * ( cBT[2]*gSTG[i1] + cBT[3]*gSTG[i1+i2] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[2*i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[2*i2], gST, T, gPAR, sPAR, gACC);
 			
 			T  = AT + TS * cBT[4];
 			i1 = tid;
@@ -356,7 +356,7 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 				gST[i1] = gAS[i1] + TS * ( cBT[1]*gSTG[i1] + cBT[5]*gSTG[i1+i2] + cBT[6]*gSTG[i1+2*i2] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[3*i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[3*i2], gST, T, gPAR, sPAR, gACC);
 			
 			T  = AT + TS;
 			i1 = tid;
@@ -365,7 +365,7 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 				gST[i1] = gAS[i1] + TS * ( cBT[7]*gSTG[i1] + cBT[8]*gSTG[i1+i2] + cBT[9]*gSTG[i1+2*i2] + cBT[10]*gSTG[i1+3*i2] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[4*i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[4*i2], gST, T, gPAR, sPAR, gACC);
 
 			T  = AT + TS * cBT[11];
 			i1 = tid;
@@ -374,7 +374,7 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 				gST[i1] = gAS[i1] + TS * ( cBT[12]*gSTG[i1] + cBT[13]*gSTG[i1+i2] + cBT[14]*gSTG[i1+2*i2] + cBT[15]*gSTG[i1+3*i2] + cBT[16]*gSTG[i1+4*i2] );
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, &gSTG[5*i2], gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, &gSTG[5*i2], gST, T, gPAR, sPAR, gACC);
 			
 			
 			i1 = tid;
@@ -436,7 +436,7 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 					i1 += NT;
 				}
 				
-				ParametricODE_Solver_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+				PerThread_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 			}
 			
 			TS = TS * TSM;
@@ -444,12 +444,12 @@ __global__ void ParametricODE_Solver_RKCK45_EH0(IntegratorInternalVariables Kern
 			TS = fmax(TS, sMinTS);
 		}
 		
-		ParametricODE_Solver_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+		PerThread_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 	}
 }
 
 
-__global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParameters)
+__global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
 	int i1;
@@ -464,7 +464,7 @@ __global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParam
 	
 	if (threadIdx.x==0)
 	{
-		ParametricODE_Solver_EventProperties(sED, sET, sESC, sMSIE);
+		PerThread_EventProperties(sED, sET, sESC, sMSIE);
 	
 		for (int i=0; i<NSP; i++)
 			sPAR[i] = __ldg( &KernelParameters.d_SharedParameters[i] );
@@ -484,8 +484,8 @@ __global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParam
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
 		
-		ParametricODE_Solver_EventFunction(tid, NT, gAEV, gAS, AT, gPAR, sPAR, gACC);
-		ParametricODE_Solver_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+		PerThread_EventFunction(tid, NT, gAEV, gAS, AT, gPAR, sPAR, gACC);
+		PerThread_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 		
 		i1=tid;
 		for (int i=0; i<NE; i++)
@@ -507,7 +507,7 @@ __global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParam
 			}
 			
 			
-			ParametricODE_Solver_OdeFunction(tid, NT, gNS, gAS, AT, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, gNS, gAS, AT, gPAR, sPAR, gACC);
 			
 			T  = AT + TSp2;
 			i1 = tid;
@@ -516,7 +516,7 @@ __global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParam
 				gST[i1] = gAS[i1] + gNS[i1] * TSp2;
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
 			
 			i1 = tid;
 			for (int i=0; i<SD; i++)
@@ -525,7 +525,7 @@ __global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParam
 				gST[i1] = gAS[i1] +   gSTG[i1] * TSp2;
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
 			
 			T = AT + TS;
 			i1 = tid;
@@ -535,7 +535,7 @@ __global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParam
 				gST[i1] = gAS[i1] +   gSTG[i1] * TS;
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
 			
 			i1 = tid;
 			for (int i=0; i<SD; i++)
@@ -550,7 +550,7 @@ __global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParam
 			}
 			
 			
-			ParametricODE_Solver_EventFunction(tid, NT, gNEV, gNS, AT, gPAR, sPAR, gACC);
+			PerThread_EventFunction(tid, NT, gNEV, gNS, AT, gPAR, sPAR, gACC);
 			
 			TE = TS;
 			i1 = tid;
@@ -591,8 +591,8 @@ __global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParam
 						
 						TS   = KernelParameters.InitialTimeStep;
 						
-						ParametricODE_Solver_ActionAfterEventDetection(tid, NT, i, gEC[i1], AT, TS, gTD, gAS, gPAR, sPAR, gACC);
-						ParametricODE_Solver_EventFunction(tid, NT, gNEV, gAS, AT, gPAR, sPAR, gACC);
+						PerThread_ActionAfterEventDetection(tid, NT, i, gEC[i1], AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+						PerThread_EventFunction(tid, NT, gNEV, gAS, AT, gPAR, sPAR, gACC);
 						
 						TSp2 = TS * 0.5;
 					}
@@ -610,16 +610,16 @@ __global__ void ParametricODE_Solver_RK4(IntegratorInternalVariables KernelParam
 					i1 += NT;
 				}
 				
-				ParametricODE_Solver_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+				PerThread_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 			}
 		}
 		
-		ParametricODE_Solver_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+		PerThread_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 	}
 }
 
 
-__global__ void ParametricODE_Solver_RK4_EH0(IntegratorInternalVariables KernelParameters)
+__global__ void PerThread_RK4_EH0(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
 	int i1;
@@ -645,7 +645,7 @@ __global__ void ParametricODE_Solver_RK4_EH0(IntegratorInternalVariables KernelP
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
 		
-		ParametricODE_Solver_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+		PerThread_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 		
 		while ( TRM==0 )
 		{
@@ -657,7 +657,7 @@ __global__ void ParametricODE_Solver_RK4_EH0(IntegratorInternalVariables KernelP
 			}
 			
 			
-			ParametricODE_Solver_OdeFunction(tid, NT, gNS, gAS, AT, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, gNS, gAS, AT, gPAR, sPAR, gACC);
 			
 			T  = AT + TSp2;
 			i1 = tid;
@@ -666,7 +666,7 @@ __global__ void ParametricODE_Solver_RK4_EH0(IntegratorInternalVariables KernelP
 				gST[i1] = gAS[i1] + gNS[i1] * TSp2;
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
 			
 			i1 = tid;
 			for (int i=0; i<SD; i++)
@@ -675,7 +675,7 @@ __global__ void ParametricODE_Solver_RK4_EH0(IntegratorInternalVariables KernelP
 				gST[i1] = gAS[i1] +   gSTG[i1] * TSp2;
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
 			
 			T = AT + TS;
 			i1 = tid;
@@ -685,7 +685,7 @@ __global__ void ParametricODE_Solver_RK4_EH0(IntegratorInternalVariables KernelP
 				gST[i1] = gAS[i1] +   gSTG[i1] * TS;
 				i1 += NT;
 			}
-			ParametricODE_Solver_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
+			PerThread_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
 			
 			i1 = tid;
 			for (int i=0; i<SD; i++)
@@ -700,10 +700,10 @@ __global__ void ParametricODE_Solver_RK4_EH0(IntegratorInternalVariables KernelP
 			}
 			AT = AT + TS;
 			
-			ParametricODE_Solver_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+			PerThread_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 		}
 		
-		ParametricODE_Solver_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
+		PerThread_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 	}
 }
 

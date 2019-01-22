@@ -14,7 +14,7 @@ Event is detected according to the following event function: x2=0. With negative
 #include <string>
 #include <fstream>
 
-#include "ParametricODESolver.cuh"
+#include "MassivelyParallel_GPU-ODE_Solver.cuh"
 
 #define gpuErrCHK(call)                                                                \
 {                                                                                      \
