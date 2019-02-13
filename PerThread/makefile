@@ -1,7 +1,7 @@
 all: Reference.exe
 
 Reference.exe: Reference.o
-			   nvcc -o	Reference.exe	Reference.o MassivelyParallel_GPU-ODE_Solver.o
+	nvcc -o	Reference.exe	Reference.o MassivelyParallel_GPU-ODE_Solver.o
 
 Reference.o: Reference.cu
 	nvcc -c Reference.cu			            -O3 -std=c++11
