@@ -127,7 +127,7 @@ int main()
 		
 		ActualPA1 = ScanKellerMiksis.SingleGetHost(0, ControlParameters, 15);
 		ActualPA2 = ScanKellerMiksis.SingleGetHost(0, ControlParameters, 17);
-		StreamFilename << "./DataRepository/KellerMiksis_Collapse_PA1_" << ActualPA1 << "_PA2_" << ActualPA2 << ".txt";
+		StreamFilename << "KellerMiksis_Collapse_PA1_" << ActualPA1 << "_PA2_" << ActualPA2 << ".txt";
 		
 		string Filename = StreamFilename.str();
 		remove( Filename.c_str() );

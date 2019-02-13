@@ -37,7 +37,7 @@ function FullFileName = GenerateFilenameWithLocation(Parameters)
 
 PressureAmplitudesString = strcat('PA1_',num2str(Parameters.PressureAmplitude1,'%6.2f'),'_',...
                                   'PA2_',num2str(Parameters.PressureAmplitude2,'%6.2f'),'.txt');
-FullFileName = strcat('DataRepository\KellerMiksis_Collapse_',PressureAmplitudesString);
+FullFileName = strcat('KellerMiksis_Collapse_',PressureAmplitudesString);
 
 
 function GenerateBifurcationDiagram(Parameters,OperationParameters,FullFileName)
