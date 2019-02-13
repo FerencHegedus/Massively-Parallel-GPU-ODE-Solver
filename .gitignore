@@ -3,3 +3,5 @@
 *.exe
 *.txt
 *.log
+*.synctex.gz
+*.nvprof

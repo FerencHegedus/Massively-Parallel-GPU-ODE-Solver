@@ -39,7 +39,7 @@ void FillProblemPool(ProblemPool&, const vector<double>&, double, double, double
 int main()
 {
 	int PoolSize        = 46080;
-	int NumberOfThreads = PoolSize;
+	int NumberOfThreads = 23040;
 	int BlockSize       = 64;
 	
 	ListCUDADevices();
@@ -57,7 +57,7 @@ int main()
 	double InitialConditions_X2 = -0.1;
 	double Parameters_B = 0.3;
 	
-	int NumberOfParameters_k = NumberOfThreads;
+	int NumberOfParameters_k = PoolSize;
 	double kRangeLower = 0.2;
     double kRangeUpper = 0.3;
 		vector<double> Parameters_k_Values(NumberOfParameters_k,0);
@@ -69,10 +69,10 @@ int main()
 		ConfigurationDuffing.PoolSize                  = PoolSize;
 		ConfigurationDuffing.NumberOfThreads           = NumberOfThreads;
 		ConfigurationDuffing.SystemDimension           = 2;
-		ConfigurationDuffing.NumberOfControlParameters = 2;
+		ConfigurationDuffing.NumberOfControlParameters = 1;
 		ConfigurationDuffing.NumberOfSharedParameters  = 1;
-		ConfigurationDuffing.NumberOfEvents            = 1;
-		ConfigurationDuffing.NumberOfAccessories       = 1;
+		ConfigurationDuffing.NumberOfEvents            = 2;
+		ConfigurationDuffing.NumberOfAccessories       = 4;
 	
 	CheckStorageRequirements(ConfigurationDuffing, SelectedDevice);
 	
@@ -90,7 +90,7 @@ int main()
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
 	
-	int NumberOfSimulationLaunches = PoolSize / NumberOfThreads; // Only one launch is required as PoolSize=NumberOfThreads.
+	int NumberOfSimulationLaunches = PoolSize / NumberOfThreads;
 	
 	SolverConfiguration SolverConfigurationSystem;
 		SolverConfigurationSystem.BlockSize       = BlockSize;
@@ -133,10 +133,13 @@ int main()
 			for (int idx=0; idx<NumberOfThreads; idx++)
 			{
 				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, ControlParameters, 0) << ',';
-				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, ControlParameters, 1) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SharedGetHost(0) << ',';
 				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, ActualState, 0) << ',';
 				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, ActualState, 1) << ',';
 				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, Accessories, 0) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, Accessories, 1) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, Accessories, 2) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, Accessories, 3) << ',';
 				DataFile << '\n';
 			}
 		}
@@ -185,9 +188,11 @@ void FillProblemPool(ProblemPool& Pool, const vector<double>& k_Values, double B
 		Pool.Set(ProblemNumber, ActualState, 1, X20 );
 		
 		Pool.Set(ProblemNumber, ControlParameters, 0, k );
-		Pool.Set(ProblemNumber, ControlParameters, 1, B ); // Also stored in shared
 		
 		Pool.Set(ProblemNumber, Accessories, 0, 0 );
+		Pool.Set(ProblemNumber, Accessories, 1, 0 );
+		Pool.Set(ProblemNumber, Accessories, 2, 0 );
+		Pool.Set(ProblemNumber, Accessories, 3, 1e-2 );
 		
 		ProblemNumber++;
 	}
