@@ -134,14 +134,14 @@ int main()
 		
 		
 		// Collect physical parameters
-		for (int idx=0; idx<NumberOfThreads; idx++)
+		for (int tid=0; tid<NumberOfThreads; tid++)
 		{
-			CollectedData[idx][0] = ScanKellerMiksis.SingleGetHost(idx, ControlParameters, 15);
-			CollectedData[idx][1] = ScanKellerMiksis.SingleGetHost(idx, ControlParameters, 16);
-			CollectedData[idx][2] = ScanKellerMiksis.SingleGetHost(idx, ControlParameters, 17);
-			CollectedData[idx][3] = ScanKellerMiksis.SingleGetHost(idx, ControlParameters, 18);
-			CollectedData[idx][4] = ScanKellerMiksis.SingleGetHost(idx, ControlParameters, 19);
-			CollectedData[idx][5] = ScanKellerMiksis.SingleGetHost(idx, ControlParameters, 20);
+			CollectedData[tid][0] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 15);
+			CollectedData[tid][1] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 16);
+			CollectedData[tid][2] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 17);
+			CollectedData[tid][3] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 18);
+			CollectedData[tid][4] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 19);
+			CollectedData[tid][5] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 20);
 		}
 		
 		
@@ -154,8 +154,8 @@ int main()
 		
 		
 		// Collect the initial time of the converged iteration
-		for (int idx=0; idx<NumberOfThreads; idx++)
-			CollectedData[idx][6] = ScanKellerMiksis.SingleGetHost(idx, TimeDomain, 0) * ScanKellerMiksis.SingleGetHost(idx, ControlParameters, 13); // Convert to [s]
+		for (int tid=0; tid<NumberOfThreads; tid++)
+			CollectedData[tid][6] = ScanKellerMiksis.SingleGetHost(tid, TimeDomain, 0) * ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 13); // Convert to [s]
 		
 		
 		// Converged simulations and their data collection
@@ -164,17 +164,17 @@ int main()
 		//	cout << "Launch: " << LaunchCounter << "  Converged: " << i << endl;
 			ScanKellerMiksis.Solve(SolverConfigurationSystem);
 			
-			for (int idx=0; idx<NumberOfThreads; idx++)
+			for (int tid=0; tid<NumberOfThreads; tid++)
 			{	
-				CollectedData[idx][8+i]    = ScanKellerMiksis.SingleGetHost(idx, Accessories, 0); // Local maxima
-				CollectedData[idx][8+i+64] = ScanKellerMiksis.SingleGetHost(idx, Accessories, 2); // Local minima
+				CollectedData[tid][8+i]    = ScanKellerMiksis.SingleGetHost(tid, Accessories, 0); // Local maxima
+				CollectedData[tid][8+i+64] = ScanKellerMiksis.SingleGetHost(tid, Accessories, 2); // Local minima
 			}
 		}
 		
 		
 		// Collect the total time of the converged iterations
-		for (int idx=0; idx<NumberOfThreads; idx++)
-			CollectedData[idx][7] = ScanKellerMiksis.SingleGetHost(idx, TimeDomain, 0) * ScanKellerMiksis.SingleGetHost(idx, ControlParameters, 13) - CollectedData[idx][6];
+		for (int tid=0; tid<NumberOfThreads; tid++)
+			CollectedData[tid][7] = ScanKellerMiksis.SingleGetHost(tid, TimeDomain, 0) * ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 13) - CollectedData[tid][6];
 		
 		
 		// Save collected data to file
@@ -184,16 +184,16 @@ int main()
 		DataFile.precision(10);
 		DataFile.flags(ios::scientific);
 		
-		for (int idx=0; idx<NumberOfThreads; idx++)
+		for (int tid=0; tid<NumberOfThreads; tid++)
 		{
 			for (int col=0; col<136; col++)
 			{
 				if ( col<(136-1) )
 				{
-					DataFile.width(Width); DataFile << CollectedData[idx][col] << ',';
+					DataFile.width(Width); DataFile << CollectedData[tid][col] << ',';
 				} else
 				{
-					DataFile.width(Width); DataFile << CollectedData[idx][col];
+					DataFile.width(Width); DataFile << CollectedData[tid][col];
 				}
 			}
 			DataFile << '\n';

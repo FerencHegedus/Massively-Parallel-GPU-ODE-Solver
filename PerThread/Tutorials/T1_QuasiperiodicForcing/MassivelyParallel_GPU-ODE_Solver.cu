@@ -100,6 +100,8 @@ void PrintPropertiesOfTheSelectedDevice(int SelectedDevice)
 	cout << "Peak memory bandwidth:      " << 2.0*SelectedDeviceProperties.memoryClockRate*(SelectedDeviceProperties.memoryBusWidth/8)/1.0e6 << " GB/s" << endl;
 	cout << endl;
 	cout << "Warp size:                  " << SelectedDeviceProperties.warpSize << endl;
+	cout << "Max. warps per multiproc:   " << SelectedDeviceProperties.maxThreadsPerMultiProcessor / SelectedDeviceProperties.warpSize << endl;
+	cout << "Max. threads per multiproc: " << SelectedDeviceProperties.maxThreadsPerMultiProcessor << endl;
 	cout << "Max. threads per block:     " << SelectedDeviceProperties.maxThreadsPerBlock << endl;
 	cout << "Max. block dimensions:      " << SelectedDeviceProperties.maxThreadsDim[0] << " * " << SelectedDeviceProperties.maxThreadsDim[1] << " * " << SelectedDeviceProperties.maxThreadsDim[2] << endl;
 	cout << "Max. grid dimensions:       " << SelectedDeviceProperties.maxGridSize[0] << " * " << SelectedDeviceProperties.maxGridSize[1] << " * " << SelectedDeviceProperties.maxGridSize[2] << endl;
@@ -151,8 +153,21 @@ void CheckStorageRequirements(const ConstructorConfiguration& Configuration, int
 		
 		cout << "Number of possible blocks / SM RKCK45:     "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RKCK45 ) << endl;
 		cout << "Number of possible blocks / SM RKCK45_EH0: "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RKCK45_EH0 ) << endl;
-		cout << "Number of possible blocks / SM RK4:        "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RK4 ) << endl;
-		cout << "Number of possible blocks / SM RK4_EH0:    "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RK4_EH0 ) << endl;
+		if (SharedMemoryRequired_RK4 > 0)
+		{
+			cout << "Number of possible blocks / SM RK4:        "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RK4 ) << endl;
+		} else
+		{
+			cout << "Number of possible blocks / SM RK4:        "; cout.width(6); cout << "inf" << endl;
+		}
+		if (SharedMemoryRequired_RK4_EH0 > 0)
+		{
+			cout << "Number of possible blocks / SM RK4_EH0:    "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RK4_EH0 ) << endl;
+		} else
+		{
+			cout << "Number of possible blocks / SM RK4_EH0:    "; cout.width(6); cout << "inf" << endl;
+		}
+		
 	cout << "-------------------------------------------------" << endl;
 	
 	// Global memory usage

@@ -130,16 +130,16 @@ int main()
 		{
 			ScanDuffing.Solve(SolverConfigurationSystem);
 			
-			for (int idx=0; idx<NumberOfThreads; idx++)
+			for (int tid=0; tid<NumberOfThreads; tid++)
 			{
-				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, ControlParameters, 0) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(tid, ControlParameters, 0) << ',';
 				DataFile.width(Width); DataFile << ScanDuffing.SharedGetHost(0) << ',';
-				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, ActualState, 0) << ',';
-				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, ActualState, 1) << ',';
-				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, Accessories, 0) << ',';
-				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, Accessories, 1) << ',';
-				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, Accessories, 2) << ',';
-				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(idx, Accessories, 3) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(tid, ActualState, 0) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(tid, ActualState, 1) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(tid, Accessories, 0) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(tid, Accessories, 1) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(tid, Accessories, 2) << ',';
+				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(tid, Accessories, 3) << ',';
 				DataFile << '\n';
 			}
 		}
