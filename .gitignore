@@ -5,3 +5,6 @@
 *.log
 *.synctex.gz
 *.nvprof
+*.tex
+*.eps
+*.fig
