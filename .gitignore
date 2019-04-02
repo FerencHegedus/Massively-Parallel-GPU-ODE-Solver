@@ -8,3 +8,9 @@
 *.tex
 *.eps
 *.fig
+
+# Don't track content of these folders
+Web/
+
+# Don't track specific files in specific folders
+PerThread/Doc/*.m

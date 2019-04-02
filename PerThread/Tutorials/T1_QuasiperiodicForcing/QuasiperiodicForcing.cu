@@ -1,5 +1,5 @@
 /*
-First tutaorial example: T1 (Quasiperiodic Forcing)
+First tutorial example: T1 (Quasiperiodic Forcing)
 */
 
 #include <iostream>
@@ -10,17 +10,6 @@ First tutaorial example: T1 (Quasiperiodic Forcing)
 #include <fstream>
 
 #include "MassivelyParallel_GPU-ODE_Solver.cuh"
-
-#define gpuErrCHK(call)                                                                \
-{                                                                                      \
-	const cudaError_t error = call;                                                    \
-	if (error != cudaSuccess)                                                          \
-	{                                                                                  \
-		cout << "Error: " << __FILE__ << ":" << __LINE__ << endl;                      \
-		cout << "code:" << error << ", reason: " << cudaGetErrorString(error) << endl; \
-		exit(1);                                                                       \
-	}                                                                                  \
-}
 
 #define PI 3.14159265358979323846
 
@@ -56,9 +45,8 @@ int main()
 	int MajorRevision  = 3;
 	int MinorRevision  = 5;
 	int SelectedDevice = SelectDeviceByClosestRevision(MajorRevision, MinorRevision);
-		gpuErrCHK( cudaSetDevice( SelectedDevice ) );
 	
-	PrintPropertiesOfTheSelectedDevice(SelectedDevice);
+	PrintPropertiesOfSpecificDevice(SelectedDevice);
 	
 	
 	// Problem Pool and Solver Object configuration
@@ -77,16 +65,16 @@ int main()
 	
 	CheckStorageRequirements(ConfigurationKellerMiksis, SelectedDevice);
 	
-	ProblemSolver ScanKellerMiksis(ConfigurationKellerMiksis);
+	ProblemSolver ScanKellerMiksis(ConfigurationKellerMiksis, SelectedDevice);
 	ProblemPool ProblemPoolKellerMiksis(ConfigurationKellerMiksis);
 	
 	FillProblemPool(ProblemPoolKellerMiksis, Frequency1, Frequency2, Amplitude1, Amplitude2);
 	
-	ProblemPoolKellerMiksis.Print(TimeDomain);
-	ProblemPoolKellerMiksis.Print(ActualState);
-	ProblemPoolKellerMiksis.Print(ControlParameters);
-	ProblemPoolKellerMiksis.Print(SharedParameters);
-	ProblemPoolKellerMiksis.Print(Accessories);
+	//ProblemPoolKellerMiksis.Print(TimeDomain);
+	//ProblemPoolKellerMiksis.Print(ActualState);
+	//ProblemPoolKellerMiksis.Print(ControlParameters);
+	//ProblemPoolKellerMiksis.Print(SharedParameters);
+	//ProblemPoolKellerMiksis.Print(Accessories);
 	
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
@@ -97,6 +85,7 @@ int main()
 		SolverConfigurationSystem.BlockSize       = 64;
 		SolverConfigurationSystem.InitialTimeStep = 1e-2;
 		SolverConfigurationSystem.Solver          = RKCK45;
+		SolverConfigurationSystem.ActiveThreads   = NumberOfThreads;
 	
 	int CopyStartIndexInPool;
 	int CopyStartIndexInSolverObject = 0;

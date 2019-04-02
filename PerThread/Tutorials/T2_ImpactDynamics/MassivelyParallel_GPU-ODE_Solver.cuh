@@ -7,6 +7,9 @@ template <class DataType>
 DataType* AllocateHostMemory(int);
 
 template <class DataType>
+DataType* AllocateHostPinnedMemory(int);
+
+template <class DataType>
 DataType* AllocateDeviceMemory(int);
 
 enum VariableSelection{	All, TimeDomain, ActualState, ControlParameters, SharedParameters, Accessories };
@@ -16,7 +19,7 @@ enum SolverAlgorithms{ RKCK45, RK4, RK4_EH0, RKCK45_EH0};
 
 void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
-void PrintPropertiesOfTheSelectedDevice(int);
+void PrintPropertiesOfSpecificDevice(int);
 
 // STRUCTURES -----------------------------------
 
@@ -35,6 +38,7 @@ struct ConstructorConfiguration
 struct SolverConfiguration
 {
 	int BlockSize;
+	int ActiveThreads;
 	double InitialTimeStep;
 	SolverAlgorithms Solver;
 };
@@ -47,6 +51,8 @@ struct IntegratorInternalVariables
 	int NumberOfSharedParameters;
 	int NumberOfEvents;
 	int NumberOfAccessories;
+	
+	int ActiveThreads;
 	
 	double* d_TimeDomain;
 	double* d_ActualState;
@@ -83,7 +89,7 @@ class ProblemPool
     friend class ProblemSolver;
 	
 	private:
-        int PoolSize;
+		int PoolSize;
 		
 		int SystemDimension;
 		int NumberOfControlParameters;
@@ -112,6 +118,15 @@ class ProblemPool
 class ProblemSolver
 {
     private:
+		int Device;
+		cudaStream_t Stream;
+		cudaEvent_t Event;
+		
+		size_t DynamicSharedMemoryRKCK45;
+		size_t DynamicSharedMemoryRKCK45_EH0;
+		size_t DynamicSharedMemoryRK4;
+		size_t DynamicSharedMemoryRK4_EH0;
+		
 		double  h_BT_RK4[1];
 		double  h_BT_RKCK45[26];
 		
@@ -124,7 +139,7 @@ class ProblemSolver
 		IntegratorInternalVariables KernelParameters;
 		
 	public:
-		ProblemSolver(const ConstructorConfiguration&);
+		ProblemSolver(const ConstructorConfiguration&, int);
 		~ProblemSolver();
 		
 		void LinearCopyFromPoolHostAndDevice(const ProblemPool&, int, int, int, VariableSelection);
@@ -137,10 +152,14 @@ class ProblemSolver
 		void SetSharedHostAndDevice(int, double);
 		
 		void SynchroniseFromHostToDevice(VariableSelection);
+		void SynchroniseFromHostToDeviceAsync(VariableSelection);
 		void SynchroniseFromDeviceToHost(VariableSelection);
+		void SynchroniseFromDeviceToHostAsync(VariableSelection);
 		
 		void SynchroniseSharedFromHostToDevice();
+		void SynchroniseSharedFromHostToDeviceAsync();
 		void SynchroniseSharedFromDeviceToHost();
+		void SynchroniseSharedFromDeviceToHostAsync();
 		
 		double SingleGetHost(int, VariableSelection, int);
 		double SharedGetHost(int);
@@ -148,6 +167,11 @@ class ProblemSolver
 		void Print(VariableSelection);
 		
 		void Solve(const SolverConfiguration&);
+		void SolveAsync(const SolverConfiguration&);
+		
+		void SynchroniseDevice();
+		void InsertSynchronisationPoint();
+		void SynchroniseSolver();
 };
 
 #endif

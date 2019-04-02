@@ -66,7 +66,7 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 	double AER;
 	double ETOL;
 	
-	if (tid < NT)
+	if (tid < KernelParameters.ActiveThreads)
 	{
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
@@ -310,7 +310,7 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 	double AER;
 	double ETOL;
 	
-	if (tid < NT)
+	if (tid < KernelParameters.ActiveThreads)
 	{
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
@@ -479,7 +479,7 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 	bool TRM = 0;
 	bool UPD;
 	
-	if (tid < NT)
+	if (tid < KernelParameters.ActiveThreads)
 	{
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
@@ -640,7 +640,7 @@ __global__ void PerThread_RK4_EH0(IntegratorInternalVariables KernelParameters)
 	
 	bool TRM = 0;
 	
-	if (tid < NT)
+	if (tid < KernelParameters.ActiveThreads)
 	{
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];

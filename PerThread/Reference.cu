@@ -16,17 +16,6 @@ Event is detected according to the following event function: x2=0. With negative
 
 #include "MassivelyParallel_GPU-ODE_Solver.cuh"
 
-#define gpuErrCHK(call)                                                                \
-{                                                                                      \
-	const cudaError_t error = call;                                                    \
-	if (error != cudaSuccess)                                                          \
-	{                                                                                  \
-		cout << "Error: " << __FILE__ << ":" << __LINE__ << endl;                      \
-		cout << "code:" << error << ", reason: " << cudaGetErrorString(error) << endl; \
-		exit(1);                                                                       \
-	}                                                                                  \
-}
-
 #define PI 3.14159265358979323846
 
 using namespace std;
@@ -35,10 +24,9 @@ void Linspace(vector<double>&, double, double, int);
 void FillProblemPool(ProblemPool&, const vector<double>&, double, double, double);
 
 
-
 int main()
 {
-	int PoolSize        = 46080;
+	int PoolSize        = 46081;
 	int NumberOfThreads = 23040;
 	int BlockSize       = 64;
 	
@@ -47,10 +35,8 @@ int main()
 	int MajorRevision  = 3;
 	int MinorRevision  = 5;
 	int SelectedDevice = SelectDeviceByClosestRevision(MajorRevision, MinorRevision);
-		gpuErrCHK( cudaSetDevice( SelectedDevice ) );
 	
-	PrintPropertiesOfTheSelectedDevice(SelectedDevice);
-	
+	PrintPropertiesOfSpecificDevice(SelectedDevice);
 	
 	
 	double InitialConditions_X1 = -0.5;
@@ -64,7 +50,6 @@ int main()
 		Linspace(Parameters_k_Values, kRangeLower, kRangeUpper, NumberOfParameters_k);
 	
 	
-	
 	ConstructorConfiguration ConfigurationDuffing;
 		ConfigurationDuffing.PoolSize                  = PoolSize;
 		ConfigurationDuffing.NumberOfThreads           = NumberOfThreads;
@@ -76,30 +61,32 @@ int main()
 	
 	CheckStorageRequirements(ConfigurationDuffing, SelectedDevice);
 	
-	ProblemSolver ScanDuffing(ConfigurationDuffing);
+	ProblemSolver ScanDuffing(ConfigurationDuffing, SelectedDevice);
 	
 	ProblemPool ProblemPoolDuffing(ConfigurationDuffing);
 		FillProblemPool(ProblemPoolDuffing, Parameters_k_Values, Parameters_B, InitialConditions_X1, InitialConditions_X2);
 	
-	ProblemPoolDuffing.Print(TimeDomain);
-	ProblemPoolDuffing.Print(ActualState);
-	ProblemPoolDuffing.Print(ControlParameters);
-	ProblemPoolDuffing.Print(SharedParameters);
-	ProblemPoolDuffing.Print(Accessories);
+	//ProblemPoolDuffing.Print(TimeDomain);
+	//ProblemPoolDuffing.Print(ActualState);
+	//ProblemPoolDuffing.Print(ControlParameters);
+	//ProblemPoolDuffing.Print(SharedParameters);
+	//ProblemPoolDuffing.Print(Accessories);
 	
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
 	
-	int NumberOfSimulationLaunches = PoolSize / NumberOfThreads;
+	int NumberOfSimulationLaunches = PoolSize / NumberOfThreads + (PoolSize % NumberOfThreads == 0 ? 0:1);
+	
 	
 	SolverConfiguration SolverConfigurationSystem;
 		SolverConfigurationSystem.BlockSize       = BlockSize;
 		SolverConfigurationSystem.InitialTimeStep = 1e-2;
 		SolverConfigurationSystem.Solver          = RKCK45;
+		SolverConfigurationSystem.ActiveThreads   = NumberOfThreads;
+	
 	
 	int CopyStartIndexInPool;
 	int CopyStartIndexInSolverObject = 0;
-	int NumberOfElementsCopied       = NumberOfThreads;
 	
 	ofstream DataFile;
 	DataFile.open ( "Duffing.txt" );
@@ -112,11 +99,17 @@ int main()
 	clock_t TransientStart;
 	clock_t TransientEnd;
 	
+	
 	ScanDuffing.SharedCopyFromPoolHostAndDevice(ProblemPoolDuffing);
 	for (int LaunchCounter=0; LaunchCounter<NumberOfSimulationLaunches; LaunchCounter++)
 	{
 		CopyStartIndexInPool = LaunchCounter * NumberOfThreads;
-			ScanDuffing.LinearCopyFromPoolHostAndDevice(ProblemPoolDuffing, CopyStartIndexInPool, CopyStartIndexInSolverObject, NumberOfElementsCopied, All);
+		
+		if ( LaunchCounter == (NumberOfSimulationLaunches-1) )
+			SolverConfigurationSystem.ActiveThreads = (PoolSize % NumberOfThreads == 0 ? NumberOfThreads : PoolSize % NumberOfThreads);
+		
+		
+		ScanDuffing.LinearCopyFromPoolHostAndDevice(ProblemPoolDuffing, CopyStartIndexInPool, CopyStartIndexInSolverObject, SolverConfigurationSystem.ActiveThreads, All);
 		
 		TransientStart = clock();
 		for (int i=0; i<1024; i++)
@@ -130,7 +123,7 @@ int main()
 		{
 			ScanDuffing.Solve(SolverConfigurationSystem);
 			
-			for (int tid=0; tid<NumberOfThreads; tid++)
+			for (int tid=0; tid<SolverConfigurationSystem.ActiveThreads; tid++)
 			{
 				DataFile.width(Width); DataFile << ScanDuffing.SingleGetHost(tid, ControlParameters, 0) << ',';
 				DataFile.width(Width); DataFile << ScanDuffing.SharedGetHost(0) << ',';

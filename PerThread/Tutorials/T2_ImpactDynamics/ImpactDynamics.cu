@@ -1,5 +1,5 @@
 /*
-First tutaorial example: T1 (Quasiperiodic Forcing)
+Second tutorial example: T2 (Impact Dynamics)
 */
 
 #include <iostream>
@@ -10,17 +10,6 @@ First tutaorial example: T1 (Quasiperiodic Forcing)
 #include <fstream>
 
 #include "MassivelyParallel_GPU-ODE_Solver.cuh"
-
-#define gpuErrCHK(call)                                                                \
-{                                                                                      \
-	const cudaError_t error = call;                                                    \
-	if (error != cudaSuccess)                                                          \
-	{                                                                                  \
-		cout << "Error: " << __FILE__ << ":" << __LINE__ << endl;                      \
-		cout << "code:" << error << ", reason: " << cudaGetErrorString(error) << endl; \
-		exit(1);                                                                       \
-	}                                                                                  \
-}
 
 #define PI 3.14159265358979323846
 
@@ -46,9 +35,8 @@ int main()
 	int MajorRevision  = 3;
 	int MinorRevision  = 5;
 	int SelectedDevice = SelectDeviceByClosestRevision(MajorRevision, MinorRevision);
-		gpuErrCHK( cudaSetDevice( SelectedDevice ) );
 	
-	PrintPropertiesOfTheSelectedDevice(SelectedDevice);
+	PrintPropertiesOfSpecificDevice(SelectedDevice);
 	
 	
 	// Problem Pool and Solver Object configuration
@@ -67,16 +55,16 @@ int main()
 	
 	CheckStorageRequirements(ConfigurationPressureReliefValve, SelectedDevice);
 	
-	ProblemSolver ScanPressureReliefValve(ConfigurationPressureReliefValve);
+	ProblemSolver ScanPressureReliefValve(ConfigurationPressureReliefValve, SelectedDevice);
 	ProblemPool ProblemPoolPressureReliefValve(ConfigurationPressureReliefValve);
 	
 	FillProblemPool(ProblemPoolPressureReliefValve, FlowRates);
 	
-	ProblemPoolPressureReliefValve.Print(TimeDomain);
-	ProblemPoolPressureReliefValve.Print(ActualState);
-	ProblemPoolPressureReliefValve.Print(ControlParameters);
-	ProblemPoolPressureReliefValve.Print(SharedParameters);
-	ProblemPoolPressureReliefValve.Print(Accessories);
+	//ProblemPoolPressureReliefValve.Print(TimeDomain);
+	//ProblemPoolPressureReliefValve.Print(ActualState);
+	//ProblemPoolPressureReliefValve.Print(ControlParameters);
+	//ProblemPoolPressureReliefValve.Print(SharedParameters);
+	//ProblemPoolPressureReliefValve.Print(Accessories);
 	
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
@@ -87,6 +75,7 @@ int main()
 		SolverConfigurationSystem.BlockSize       = 64;
 		SolverConfigurationSystem.InitialTimeStep = 1e-2;
 		SolverConfigurationSystem.Solver          = RKCK45;
+		SolverConfigurationSystem.ActiveThreads   = NumberOfThreads;
 	
 	int CopyStartIndexInPool;
 	int CopyStartIndexInSolverObject = 0;

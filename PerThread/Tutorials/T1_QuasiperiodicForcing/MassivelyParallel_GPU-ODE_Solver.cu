@@ -79,7 +79,7 @@ int SelectDeviceByClosestRevision(int MajorRevision, int MinorRevision)
 	return SelectedDevice;
 }
 
-void PrintPropertiesOfTheSelectedDevice(int SelectedDevice)
+void PrintPropertiesOfSpecificDevice(int SelectedDevice)
 {
 	cudaDeviceProp SelectedDeviceProperties;
 	cudaGetDeviceProperties(&SelectedDeviceProperties, SelectedDevice);
@@ -308,9 +308,18 @@ void ProblemPool::Print(VariableSelection ActualVariable)
 
 // --- PROBLEM SOLVER OBJECT ---
 
-ProblemSolver::ProblemSolver(const ConstructorConfiguration& Configuration)
+ProblemSolver::ProblemSolver(const ConstructorConfiguration& Configuration, int AssociatedDevice)
 {
-    KernelParameters.NumberOfThreads     = Configuration.NumberOfThreads;
+    Device = AssociatedDevice;
+	gpuErrCHK( cudaSetDevice(Device) );
+	
+	gpuErrCHK( cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) );
+	gpuErrCHK( cudaDeviceSetCacheConfig(cudaFuncCachePreferL1) );
+	
+	gpuErrCHK( cudaStreamCreate(&Stream) );
+	gpuErrCHK( cudaEventCreate(&Event) );
+	
+	KernelParameters.NumberOfThreads = Configuration.NumberOfThreads;
 	
 	KernelParameters.SystemDimension           = Configuration.SystemDimension;
 	KernelParameters.NumberOfControlParameters = Configuration.NumberOfControlParameters;
@@ -350,12 +359,17 @@ ProblemSolver::ProblemSolver(const ConstructorConfiguration& Configuration)
 	gpuErrCHK( cudaMemcpyToSymbol(d_BT_RK4,    h_BT_RK4,     1*sizeof(double)) );
 	gpuErrCHK( cudaMemcpyToSymbol(d_BT_RKCK45, h_BT_RKCK45, 26*sizeof(double)) );
 	
+	DynamicSharedMemoryRKCK45     = 2*KernelParameters.SystemDimension*sizeof(double) + KernelParameters.NumberOfEvents*( sizeof(int) + sizeof(double) + sizeof(int) ) + KernelParameters.NumberOfSharedParameters*sizeof(double);
+	DynamicSharedMemoryRKCK45_EH0 = 2*KernelParameters.SystemDimension*sizeof(double) + KernelParameters.NumberOfSharedParameters*sizeof(double);
+	DynamicSharedMemoryRK4        = KernelParameters.NumberOfEvents*( sizeof(int) + sizeof(double) + sizeof(int) ) + KernelParameters.NumberOfSharedParameters*sizeof(double);
+	DynamicSharedMemoryRK4_EH0    = KernelParameters.NumberOfSharedParameters*sizeof(double);
 	
-	h_TimeDomain        = AllocateHostMemory<double>( KernelParameters.NumberOfThreads * 2 );
-	h_ActualState       = AllocateHostMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.SystemDimension );
-	h_ControlParameters = AllocateHostMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfControlParameters );
-	h_SharedParameters  = AllocateHostMemory<double>( KernelParameters.NumberOfSharedParameters );
-	h_Accessories       = AllocateHostMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfAccessories );
+	
+	h_TimeDomain        = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfThreads * 2 );
+	h_ActualState       = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.SystemDimension );
+	h_ControlParameters = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfControlParameters );
+	h_SharedParameters  = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfSharedParameters );
+	h_Accessories       = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfAccessories );
 	
 	
 	KernelParameters.d_TimeDomain        = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * 2 );
@@ -384,11 +398,16 @@ ProblemSolver::ProblemSolver(const ConstructorConfiguration& Configuration)
 
 ProblemSolver::~ProblemSolver()
 {
-    delete[] h_TimeDomain;
-	delete[] h_ActualState;
-	delete[] h_ControlParameters;
-	delete[] h_SharedParameters;
-	delete[] h_Accessories;
+    gpuErrCHK( cudaSetDevice(Device) );
+	
+	gpuErrCHK( cudaStreamDestroy(Stream) );
+	gpuErrCHK( cudaEventDestroy(Event) );
+	
+	gpuErrCHK( cudaFreeHost(h_TimeDomain) );
+	gpuErrCHK( cudaFreeHost(h_ActualState) );
+	gpuErrCHK( cudaFreeHost(h_ControlParameters) );
+	gpuErrCHK( cudaFreeHost(h_SharedParameters) );
+	gpuErrCHK( cudaFreeHost(h_Accessories) );
 	
 	gpuErrCHK( cudaFree(KernelParameters.d_TimeDomain) );
 	gpuErrCHK( cudaFree(KernelParameters.d_ActualState) );
@@ -414,6 +433,8 @@ ProblemSolver::~ProblemSolver()
 
 void ProblemSolver::LinearCopyFromPoolHostAndDevice(const ProblemPool& Pool, int CopyStartIndexInPool, int CopyStartIndexInSolverObject, int NumberOfElementsCopied, VariableSelection CopyMode)
 {
+	gpuErrCHK( cudaSetDevice(Device) );
+	
 	double* h_CopyStart;
 	double* d_CopyStart;
 	double* p_CopyStart;
@@ -479,6 +500,8 @@ void ProblemSolver::LinearCopyFromPoolHostAndDevice(const ProblemPool& Pool, int
 
 void ProblemSolver::SharedCopyFromPoolHostAndDevice(const ProblemPool& Pool)
 {
+	gpuErrCHK( cudaSetDevice(Device) );
+	
 	double* h_CopyStart = h_SharedParameters;
 	double* d_CopyStart = KernelParameters.d_SharedParameters;
 	double* p_CopyStart = Pool.p_SharedParameters;
@@ -504,6 +527,8 @@ void ProblemSolver::SingleSetHost(int ProblemNumber, VariableSelection ActualVar
 
 void ProblemSolver::SingleSetHostAndDevice(int ProblemNumber, VariableSelection ActualVariable, int SerialNumber, double Value)
 {
+	gpuErrCHK( cudaSetDevice(Device) );
+	
 	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads;
 	
 	switch (ActualVariable)
@@ -529,6 +554,8 @@ void ProblemSolver::SetSharedHost(int SerialNumber, double Value)
 
 void ProblemSolver::SetSharedHostAndDevice(int SerialNumber, double Value)
 {
+	gpuErrCHK( cudaSetDevice(Device) );
+	
 	h_SharedParameters[SerialNumber] = Value;
 	
 	gpuErrCHK( cudaMemcpy(KernelParameters.d_SharedParameters+SerialNumber, h_SharedParameters+SerialNumber, sizeof(double), cudaMemcpyHostToDevice) );
@@ -536,6 +563,8 @@ void ProblemSolver::SetSharedHostAndDevice(int SerialNumber, double Value)
 
 void ProblemSolver::SynchroniseFromHostToDevice(VariableSelection ActualVariable)
 {
+	gpuErrCHK( cudaSetDevice(Device) );
+	
 	switch (ActualVariable)
 	{
 		case TimeDomain:        gpuErrCHK( cudaMemcpy(KernelParameters.d_TimeDomain,        h_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice) ); break;
@@ -550,8 +579,28 @@ void ProblemSolver::SynchroniseFromHostToDevice(VariableSelection ActualVariable
 	}
 }
 
+void ProblemSolver::SynchroniseFromHostToDeviceAsync(VariableSelection ActualVariable)
+{
+	gpuErrCHK( cudaSetDevice(Device) );
+	
+	switch (ActualVariable)
+	{
+		case TimeDomain:        gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_TimeDomain,        h_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
+		case ActualState:       gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ActualState,       h_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
+		case ControlParameters: gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ControlParameters, h_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
+		case Accessories:       gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_Accessories,       h_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
+		
+		case All: gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_TimeDomain,        h_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+				  gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ActualState,       h_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+				  gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ControlParameters, h_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+				  gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_Accessories,       h_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
+	}
+}
+
 void ProblemSolver::SynchroniseFromDeviceToHost(VariableSelection ActualVariable)
 {
+	gpuErrCHK( cudaSetDevice(Device) );
+	
 	switch (ActualVariable)
 	{
 		case TimeDomain:        gpuErrCHK( cudaMemcpy(h_TimeDomain,        KernelParameters.d_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) ); break;
@@ -566,14 +615,50 @@ void ProblemSolver::SynchroniseFromDeviceToHost(VariableSelection ActualVariable
 	}
 }
 
+void ProblemSolver::SynchroniseFromDeviceToHostAsync(VariableSelection ActualVariable)
+{
+	gpuErrCHK( cudaSetDevice(Device) );
+	
+	switch (ActualVariable)
+	{
+		case TimeDomain:        gpuErrCHK( cudaMemcpyAsync(h_TimeDomain,        KernelParameters.d_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
+		case ActualState:       gpuErrCHK( cudaMemcpyAsync(h_ActualState,       KernelParameters.d_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
+		case ControlParameters: gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, KernelParameters.d_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
+		case Accessories:       gpuErrCHK( cudaMemcpyAsync(h_Accessories,       KernelParameters.d_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
+		
+		case All: gpuErrCHK( cudaMemcpyAsync(h_TimeDomain,        KernelParameters.d_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+				  gpuErrCHK( cudaMemcpyAsync(h_ActualState,       KernelParameters.d_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+				  gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, KernelParameters.d_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+				  gpuErrCHK( cudaMemcpyAsync(h_Accessories,       KernelParameters.d_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
+	}
+}
+
 void ProblemSolver::SynchroniseSharedFromHostToDevice()
 {
+	gpuErrCHK( cudaSetDevice(Device) );
+	
 	gpuErrCHK( cudaMemcpy(KernelParameters.d_SharedParameters, h_SharedParameters, KernelParameters.NumberOfSharedParameters*sizeof(double), cudaMemcpyHostToDevice) );
+}
+
+void ProblemSolver::SynchroniseSharedFromHostToDeviceAsync()
+{
+	gpuErrCHK( cudaSetDevice(Device) );
+	
+	gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_SharedParameters, h_SharedParameters, KernelParameters.NumberOfSharedParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
 }
 
 void ProblemSolver::SynchroniseSharedFromDeviceToHost()
 {
+	gpuErrCHK( cudaSetDevice(Device) );
+	
 	gpuErrCHK( cudaMemcpy(h_SharedParameters, KernelParameters.d_SharedParameters, KernelParameters.NumberOfSharedParameters*sizeof(double), cudaMemcpyDeviceToHost) );
+}
+
+void ProblemSolver::SynchroniseSharedFromDeviceToHostAsync()
+{
+	gpuErrCHK( cudaSetDevice(Device) );
+	
+	gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, KernelParameters.d_SharedParameters, KernelParameters.NumberOfSharedParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
 }
 
 double ProblemSolver::SingleGetHost(int ProblemNumber, VariableSelection ActualVariable, int SerialNumber)
@@ -648,56 +733,73 @@ void ProblemSolver::Print(VariableSelection ActualVariable)
 
 void ProblemSolver::Solve(const SolverConfiguration& Configuration)
 {
-	int GridSize = KernelParameters.NumberOfThreads/Configuration.BlockSize + (KernelParameters.NumberOfThreads%Configuration.BlockSize == 0 ? 0:1);
+	gpuErrCHK( cudaSetDevice(Device) );
 	
-	gpuErrCHK( cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) );
-	gpuErrCHK( cudaDeviceSetCacheConfig(cudaFuncCachePreferL1) );
+	int GridSize = KernelParameters.NumberOfThreads/Configuration.BlockSize + (KernelParameters.NumberOfThreads % Configuration.BlockSize == 0 ? 0:1);
 	
 	KernelParameters.InitialTimeStep = Configuration.InitialTimeStep;
+	KernelParameters.ActiveThreads   = Configuration.ActiveThreads;
 	
 	if ( Configuration.Solver==RKCK45 )
-	{
-		size_t DynamicSharedMemoryInBytes = 2*KernelParameters.SystemDimension*sizeof(double) + \
-											  KernelParameters.NumberOfEvents*sizeof(int) + \
-											  KernelParameters.NumberOfEvents*sizeof(double) + \
-											  KernelParameters.NumberOfEvents*sizeof(int) + \
-											  KernelParameters.NumberOfSharedParameters*sizeof(double);
-		
-		PerThread_RKCK45<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
-		gpuErrCHK( cudaDeviceSynchronize() );
-	}
+		PerThread_RKCK45<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRKCK45>>> (KernelParameters);
 	
 	if ( Configuration.Solver==RKCK45_EH0 )
-	{
-		size_t DynamicSharedMemoryInBytes = 2*KernelParameters.SystemDimension*sizeof(double) + \
-											  KernelParameters.NumberOfSharedParameters*sizeof(double);
-		
-		PerThread_RKCK45_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
-		gpuErrCHK( cudaDeviceSynchronize() );
-	}
+		PerThread_RKCK45_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRKCK45_EH0>>> (KernelParameters);
 	
 	if ( Configuration.Solver==RK4 )
-	{
-		size_t DynamicSharedMemoryInBytes = KernelParameters.NumberOfEvents*sizeof(int) + \
-											KernelParameters.NumberOfEvents*sizeof(double) + \
-											KernelParameters.NumberOfEvents*sizeof(int) + \
-											KernelParameters.NumberOfSharedParameters*sizeof(double);
-		
-		PerThread_RK4<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
-		gpuErrCHK( cudaDeviceSynchronize() );
-	}
+		PerThread_RK4<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRK4>>> (KernelParameters);
 	
 	if ( Configuration.Solver==RK4_EH0 )
-	{
-		size_t DynamicSharedMemoryInBytes = KernelParameters.NumberOfSharedParameters*sizeof(double);
-		
-		PerThread_RK4_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryInBytes>>> (KernelParameters);
-		gpuErrCHK( cudaDeviceSynchronize() );
-	}
+		PerThread_RK4_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRK4_EH0>>> (KernelParameters);
+	
+	gpuErrCHK( cudaDeviceSynchronize() );
 	
 	gpuErrCHK( cudaMemcpy(h_TimeDomain,  KernelParameters.d_TimeDomain,                                     2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) );
 	gpuErrCHK( cudaMemcpy(h_ActualState, KernelParameters.d_ActualState,     KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) );
 	gpuErrCHK( cudaMemcpy(h_Accessories, KernelParameters.d_Accessories, KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) );
+}
+
+void ProblemSolver::SolveAsync(const SolverConfiguration& Configuration)
+{
+	gpuErrCHK( cudaSetDevice(Device) );
+	
+	int GridSize = KernelParameters.NumberOfThreads/Configuration.BlockSize + (KernelParameters.NumberOfThreads % Configuration.BlockSize == 0 ? 0:1);
+	
+	KernelParameters.InitialTimeStep = Configuration.InitialTimeStep;
+	KernelParameters.ActiveThreads   = Configuration.ActiveThreads;
+	
+	if ( Configuration.Solver==RKCK45 )
+		PerThread_RKCK45<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRKCK45, Stream>>> (KernelParameters);
+	
+	if ( Configuration.Solver==RKCK45_EH0 )
+		PerThread_RKCK45_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRKCK45_EH0, Stream>>> (KernelParameters);
+	
+	if ( Configuration.Solver==RK4 )
+		PerThread_RK4<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRK4, Stream>>> (KernelParameters);
+	
+	if ( Configuration.Solver==RK4_EH0 )
+		PerThread_RK4_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRK4_EH0, Stream>>> (KernelParameters);
+}
+
+void ProblemSolver::SynchroniseDevice()
+{
+	gpuErrCHK( cudaSetDevice(Device) );
+	
+	gpuErrCHK( cudaDeviceSynchronize() );
+}
+
+void ProblemSolver::InsertSynchronisationPoint()
+{
+	gpuErrCHK( cudaSetDevice(Device) );
+	
+	gpuErrCHK( cudaEventRecord(Event, Stream) );
+}
+
+void ProblemSolver::SynchroniseSolver()
+{
+	gpuErrCHK( cudaSetDevice(Device) );
+	
+	gpuErrCHK( cudaEventSynchronize(Event) );
 }
 
 // --- AUXILIARY FUNCTIONS ---
@@ -717,6 +819,23 @@ DataType* AllocateDeviceMemory(int N)
         exit(EXIT_FAILURE);
     }
     return MemoryAddressInDevice;
+}
+
+template <class DataType>
+DataType* AllocateHostPinnedMemory(int N)
+{
+    cudaError_t Error = cudaSuccess;
+	
+	DataType* MemoryAddressInHost = NULL;
+	
+	Error = cudaMallocHost((void**)&MemoryAddressInHost, N * sizeof(DataType));
+    
+	if (Error != cudaSuccess)
+    {
+        cerr << "Failed to allocate Pinned Memory on the HOST!\n";
+        exit(EXIT_FAILURE);
+    }
+    return MemoryAddressInHost;
 }
 
 template <class DataType>
