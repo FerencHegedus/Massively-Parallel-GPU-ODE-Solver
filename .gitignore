@@ -8,6 +8,9 @@
 *.tex
 *.eps
 *.fig
+*.fprg
+*.png
+*.svg
 
 # Don't track content of these folders
 Web/

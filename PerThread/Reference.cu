@@ -26,7 +26,7 @@ void FillProblemPool(ProblemPool&, const vector<double>&, double, double, double
 
 int main()
 {
-	int PoolSize        = 46081;
+	int PoolSize        = 46080;
 	int NumberOfThreads = 23040;
 	int BlockSize       = 64;
 	
