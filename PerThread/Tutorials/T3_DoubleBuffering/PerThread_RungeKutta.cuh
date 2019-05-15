@@ -181,9 +181,10 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 			} else
 			{
 				if ( TS<(sMinTS*1.001) )
+				{
 					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed!, thread id: %d, time step: %+6.5e, min step size: %+6.5e \n", tid, TS, sMinTS);
-				
-				UPD = 1;
+					UPD = 1;
+				}
 			}
 			
 			TSM = fmin(TSM, sTSGL);
@@ -219,7 +220,7 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 					i1 += NT;
 				}
 				
-				if ( UPD ==0 )
+				if ( UPD == 0 )
 					NTS = TE;
 			}
 			
@@ -416,9 +417,10 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 			} else
 			{
 				if ( TS<(sMinTS*1.001) )
+				{
 					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed!, thread id: %d, time step: %+6.5e, min step size: %+6.5e \n", tid, TS, sMinTS);
-				
-				UPD = 1;
+					UPD = 1;
+				}
 			}
 			
 			TSM = fmin(TSM, sTSGL);
