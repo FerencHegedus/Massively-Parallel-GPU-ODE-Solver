@@ -25,6 +25,9 @@ __constant__ double d_BT_RKCK45[26];
 __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
+	int DOI = 0;
+	int DOTI;
+	int DOSI;
 	int i1;
 	int i2 = SD*NT;
 	
@@ -36,16 +39,20 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 		int*    sED   = (int*)&sET[NE];
 		int*    sESC  = (int*)&sED[NE];
 	
-	__shared__ double sMaxTS;
-	__shared__ double sMinTS;
-	__shared__ double sTSGL;
-	__shared__ double sTSSL;
-	__shared__ int sMSIE;
-
 	if (threadIdx.x==0)
 	{
-		PerThread_OdeProperties(sRTOL, sATOL, sMaxTS, sMinTS, sTSGL, sTSSL);
-		PerThread_EventProperties(sED, sET, sESC, sMSIE);
+		for (int i=0; i<SD; i++)
+		{
+			sRTOL[i] = __ldg( &KernelParameters.d_RelativeTolerance[i] );
+			sATOL[i] = __ldg( &KernelParameters.d_AbsoluteTolerance[i] );
+		}
+		
+		for (int i=0; i<NE; i++)
+		{
+			sET[i]  = __ldg( &KernelParameters.d_EventTolerance[i] );
+			sED[i]  = __ldg( &KernelParameters.d_EventDirection[i] );
+			sESC[i] = __ldg( &KernelParameters.d_EventStopCounter[i] );
+		}
 		
 		for (int i=0; i<NSP; i++)
 			sPAR[i] = __ldg( &KernelParameters.d_SharedParameters[i] );
@@ -57,9 +64,11 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 	double NTS;
 	double TSM;
 	double T;
+	int MaxNTS = 0;
 	
 	bool TRM = 0;
 	bool UPD;
+	bool DUPD = 0;
 	bool FIN;
 	
 	double RER;
@@ -70,6 +79,23 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 	{
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
+		
+		// STORE DENSE OUTPUT
+		if ( KernelParameters.DenseOutputEnabled == 1 )
+		{
+			DOTI = tid + DOI*NT;
+			KernelParameters.d_DenseOutputTimeInstances[DOTI] = AT;
+			
+			DOSI = tid + DOI*NT*SD; i1 = tid;
+			for (int i=0; i<SD; i++)
+			{
+				KernelParameters.d_DenseOutputStates[DOSI] = gAS[i1];
+				DOSI += NT; i1 += NT;
+			}
+			
+			if ( KernelParameters.DenseOutputTimeStep < 0.0 )
+				DUPD = 1;
+		}
 		
 		PerThread_EventFunction(tid, NT, gAEV, gAS, AT, gPAR, sPAR, gACC);
 		PerThread_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
@@ -93,7 +119,22 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 				TRM  = 1;
 			}
 			
+			// DENSE OUTPUT TIME STEP CORRECTION
+			if ( ( KernelParameters.DenseOutputTimeStep > 0.0 ) && ( KernelParameters.DenseOutputEnabled == 1 ) )
+			{
+				if ( TS > ( (DOI+1)*KernelParameters.DenseOutputTimeStep+KernelParameters.MinimumTimeStep - AT ) )
+				{
+					TS   = (DOI+1)*KernelParameters.DenseOutputTimeStep - AT;
+					DUPD = 1;
+				}
+				if ( ( TS > ( (DOI+1)*KernelParameters.DenseOutputTimeStep-KernelParameters.MinimumTimeStep - AT ) ) && \
+				     ( TS < ( (DOI+1)*KernelParameters.DenseOutputTimeStep+KernelParameters.MinimumTimeStep - AT ) ) )
+				{
+					 DUPD = 1;
+				}
+			}
 			
+			// RUNGE-KUTTA STEP
 			PerThread_OdeFunction(tid, NT, &gSTG[0], gAS, AT, gPAR, sPAR, gACC);
 			
 			T  = AT + TS * cBT[0];
@@ -141,7 +182,7 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 			}
 			PerThread_OdeFunction(tid, NT, &gSTG[5*i2], gST, T, gPAR, sPAR, gACC);
 			
-			
+			// ERROR HANDLING
 			i1 = tid;
 			RER = 1e30;
 			for (int i=0; i<SD; i++)
@@ -171,31 +212,31 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 			
 			if ( FIN == 0 )
 			{
-				if ( TS<(sMinTS*1.001) )
+				if ( TS<(KernelParameters.MinimumTimeStep*1.001) )
 				{
 					printf("Error: State is not a finite number even with the minimal step size. Try to use less stringent tolerances. (thread id: %d)\n", tid);
 					TRM = 1;
 				}
-				TSM = sTSSL;
+				TSM = KernelParameters.TimeStepShrinkLimit;
 				UPD = 0;
 			} else
 			{
-				if ( TS<(sMinTS*1.001) )
+				if ( TS<(KernelParameters.MinimumTimeStep*1.001) )
 				{
-					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed!, thread id: %d, time step: %+6.5e, min step size: %+6.5e \n", tid, TS, sMinTS);
+					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed!, thread id: %d, time step: %+6.5e, min step size: %+6.5e \n", tid, TS, KernelParameters.MinimumTimeStep);
 					UPD = 1;
 				}
 			}
 			
-			TSM = fmin(TSM, sTSGL);
-			TSM = fmax(TSM, sTSSL);
+			TSM = fmin(TSM, KernelParameters.TimeStepGrowLimit);
+			TSM = fmax(TSM, KernelParameters.TimeStepShrinkLimit);
 			
 			NTS = TS * TSM;
 			
-			NTS = fmin(NTS, sMaxTS);
-			NTS = fmax(NTS, sMinTS);
+			NTS = fmin(NTS, KernelParameters.MaximumTimeStep);
+			NTS = fmax(NTS, KernelParameters.MinimumTimeStep);
 			
-			
+			// EVENT HANDLING
 			PerThread_EventFunction(tid, NT, gNEV, gNS, AT, gPAR, sPAR, gACC);
 			
 			if ( UPD == 1 )
@@ -210,9 +251,9 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 						TE = fmin( TE, -gAEV[i1] / (gNEV[i1]-gAEV[i1]) * TS );
 						UPD = 0;
 						
-						if ( TE<(sMinTS*1.001) )
+						if ( TE<(KernelParameters.MinimumTimeStep*1.001) )
 						{
-							printf("Warning: Event cannot be detected without reducing the step size below the minimum! Event detection omitted!, thread id: %d, time step: %+6.5e, min step size: %+6.5e \n", tid, TE, sMinTS);
+							printf("Warning: Event cannot be detected without reducing the step size below the minimum! Event detection omitted!, thread id: %d, time step: %+6.5e, min step size: %+6.5e \n", tid, TE, KernelParameters.MinimumTimeStep);
 							UPD = 1;
 							break;
 						}
@@ -224,7 +265,7 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 					NTS = TE;
 			}
 			
-			
+			// UPDATE STATE
 			if ( UPD == 1 )
 			{
 				AT = AT + TS;
@@ -234,6 +275,27 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 				{
 					gAS[i1]  = gNS[i1];
 					i1 += NT;
+				}
+				
+				// STORE DENSE OUTPUT
+				if ( ( DUPD == 1 ) && ( KernelParameters.DenseOutputEnabled == 1 ) && ( DOI<KernelParameters.DenseOutputNumberOfPoints ) )
+				{
+					DOI++;
+					
+					KernelParameters.d_DenseOutputIndex[tid] = DOI;
+					
+					DOTI = tid + DOI*NT;
+					KernelParameters.d_DenseOutputTimeInstances[DOTI] = AT;
+					
+					DOSI = tid + DOI*NT*SD; i1 = tid;
+					for (int i=0; i<SD; i++)
+					{
+						KernelParameters.d_DenseOutputStates[DOSI] = gAS[i1];
+						DOSI += NT; i1 += NT;
+					}
+					
+					if ( KernelParameters.DenseOutputTimeStep > 0.0 )
+						DUPD = 0;
 				}
 				
 				i1 = tid;
@@ -256,12 +318,16 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 					if ( ( abs(gAEV[i1]) <  sET[i] ) && ( abs(gNEV[i1]) < sET[i] ) )
 						gEQC[i1]++;
 					
-					if ( gEQC[i1] == sMSIE )
+					if ( gEQC[i1] == KernelParameters.MaxStepInsideEvent)
 						TRM = 1;
 					
 					gAEV[i1] = gNEV[i1];
 					i1 += NT;
 				}
+				
+				MaxNTS++;
+				if ( ( KernelParameters.MaximumNumberOfTimeSteps != 0 ) && ( MaxNTS >= KernelParameters.MaximumNumberOfTimeSteps ) )
+					TRM  = 1;
 				
 				PerThread_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 			}
@@ -277,6 +343,9 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
+	int DOI = 0;
+	int DOTI;
+	int DOSI;
 	int i1;
 	int i2 = SD*NT;
 	
@@ -285,15 +354,14 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 		double* sRTOL = (double*)&sPAR[NSP];
 		double* sATOL = (double*)&sRTOL[SD];
 	
-	__shared__ double sMaxTS;
-	__shared__ double sMinTS;
-	__shared__ double sTSGL;
-	__shared__ double sTSSL;
-	
 	if (threadIdx.x==0)
 	{
-		PerThread_OdeProperties(sRTOL, sATOL, sMaxTS, sMinTS, sTSGL, sTSSL);
-	
+		for (int i=0; i<SD; i++)
+		{
+			sRTOL[i] = __ldg( &KernelParameters.d_RelativeTolerance[i] );
+			sATOL[i] = __ldg( &KernelParameters.d_AbsoluteTolerance[i] );
+		}
+		
 		for (int i=0; i<NSP; i++)
 			sPAR[i] = __ldg( &KernelParameters.d_SharedParameters[i] );
 	}
@@ -302,9 +370,11 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 	double TS = KernelParameters.InitialTimeStep;
 	double TSM;
 	double T;
+	int MaxNTS = 0;
 	
 	bool TRM = 0;
 	bool UPD;
+	bool DUPD = 0;
 	bool FIN;
 	
 	double RER;
@@ -315,6 +385,23 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 	{
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
+		
+		// STORE DENSE OUTPUT
+		if ( KernelParameters.DenseOutputEnabled == 1 )
+		{
+			DOTI = tid + DOI*NT;
+			KernelParameters.d_DenseOutputTimeInstances[DOTI] = AT;
+			
+			DOSI = tid + DOI*NT*SD; i1 = tid;
+			for (int i=0; i<SD; i++)
+			{
+				KernelParameters.d_DenseOutputStates[DOSI] = gAS[i1];
+				DOSI += NT; i1 += NT;
+			}
+			
+			if ( KernelParameters.DenseOutputTimeStep < 0.0 )
+				DUPD = 1;
+		}
 		
 		PerThread_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 		
@@ -329,7 +416,22 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 				TRM  = 1;
 			}
 			
+			// DENSE OUTPUT TIME STEP CORRECTION
+			if ( ( KernelParameters.DenseOutputTimeStep > 0.0 ) && ( KernelParameters.DenseOutputEnabled == 1 ) )
+			{
+				if ( TS > ( (DOI+1)*KernelParameters.DenseOutputTimeStep+KernelParameters.MinimumTimeStep - AT ) )
+				{
+					TS   = (DOI+1)*KernelParameters.DenseOutputTimeStep - AT;
+					DUPD = 1;
+				}
+				if ( ( TS > ( (DOI+1)*KernelParameters.DenseOutputTimeStep-KernelParameters.MinimumTimeStep - AT ) ) && \
+				     ( TS < ( (DOI+1)*KernelParameters.DenseOutputTimeStep+KernelParameters.MinimumTimeStep - AT ) ) )
+				{
+					 DUPD = 1;
+				}
+			}
 			
+			// RUNGE-KUTTA STEP
 			PerThread_OdeFunction(tid, NT, &gSTG[0], gAS, AT, gPAR, sPAR, gACC);
 			
 			T  = AT + TS * cBT[0];
@@ -377,7 +479,7 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 			}
 			PerThread_OdeFunction(tid, NT, &gSTG[5*i2], gST, T, gPAR, sPAR, gACC);
 			
-			
+			// ERROR HANDLING
 			i1 = tid;
 			RER = 1e30;
 			for (int i=0; i<SD; i++)
@@ -407,26 +509,26 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 			
 			if ( FIN == 0 )
 			{
-				if ( TS<(sMinTS*1.001) )
+				if ( TS<(KernelParameters.MinimumTimeStep*1.001) )
 				{
 					printf("Error: State is not a finite number even with the minimal step size. Try to use less stringent tolerances. (thread id: %d)\n", tid);
 					TRM = 1;
 				}
-				TSM = sTSSL;
+				TSM = KernelParameters.TimeStepShrinkLimit;
 				UPD = 0;
 			} else
 			{
-				if ( TS<(sMinTS*1.001) )
+				if ( TS<(KernelParameters.MinimumTimeStep*1.001) )
 				{
-					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed!, thread id: %d, time step: %+6.5e, min step size: %+6.5e \n", tid, TS, sMinTS);
+					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed!, thread id: %d, time step: %+6.5e, min step size: %+6.5e \n", tid, TS, KernelParameters.MinimumTimeStep);
 					UPD = 1;
 				}
 			}
 			
-			TSM = fmin(TSM, sTSGL);
-			TSM = fmax(TSM, sTSSL);
+			TSM = fmin(TSM, KernelParameters.TimeStepGrowLimit);
+			TSM = fmax(TSM, KernelParameters.TimeStepShrinkLimit);
 			
-			
+			// UPDATE STATE
 			if ( UPD == 1 )
 			{
 				AT = AT + TS;
@@ -438,12 +540,37 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 					i1 += NT;
 				}
 				
+				// STORE DENSE OUTPUT
+				if ( ( DUPD == 1 ) && ( KernelParameters.DenseOutputEnabled == 1 ) && ( DOI<KernelParameters.DenseOutputNumberOfPoints ) )
+				{
+					DOI++;
+					
+					KernelParameters.d_DenseOutputIndex[tid] = DOI;
+					
+					DOTI = tid + DOI*NT;
+					KernelParameters.d_DenseOutputTimeInstances[DOTI] = AT;
+					
+					DOSI = tid + DOI*NT*SD; i1 = tid;
+					for (int i=0; i<SD; i++)
+					{
+						KernelParameters.d_DenseOutputStates[DOSI] = gAS[i1];
+						DOSI += NT; i1 += NT;
+					}
+					
+					if ( KernelParameters.DenseOutputTimeStep > 0.0 )
+						DUPD = 0;
+				}
+				
+				MaxNTS++;
+				if ( ( KernelParameters.MaximumNumberOfTimeSteps != 0 ) && ( MaxNTS >= KernelParameters.MaximumNumberOfTimeSteps ) )
+					TRM  = 1;
+				
 				PerThread_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 			}
 			
 			TS = TS * TSM;
-			TS = fmin(TS, sMaxTS);
-			TS = fmax(TS, sMinTS);
+			TS = fmin(TS, KernelParameters.MaximumTimeStep);
+			TS = fmax(TS, KernelParameters.MinimumTimeStep);
 		}
 		
 		PerThread_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
@@ -454,6 +581,9 @@ __global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameter
 __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
+	int DOI = 0;
+	int DOTI;
+	int DOSI;
 	int i1;
 	
 	extern __shared__ int DSM[];
@@ -462,12 +592,15 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 		int*    sED  = (int*)&sET[NE];
 		int*    sESC = (int*)&sED[NE];
 	
-	__shared__ int sMSIE;
-	
 	if (threadIdx.x==0)
 	{
-		PerThread_EventProperties(sED, sET, sESC, sMSIE);
-	
+		for (int i=0; i<NE; i++)
+		{
+			sET[i]  = __ldg( &KernelParameters.d_EventTolerance[i] );
+			sED[i]  = __ldg( &KernelParameters.d_EventDirection[i] );
+			sESC[i] = __ldg( &KernelParameters.d_EventStopCounter[i] );
+		}
+		
 		for (int i=0; i<NSP; i++)
 			sPAR[i] = __ldg( &KernelParameters.d_SharedParameters[i] );
 	}
@@ -477,6 +610,7 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 	double TSp2 = KernelParameters.InitialTimeStep * 0.5;
 	double TE;
 	double T;
+	int MaxNTS = 0;
 	
 	bool TRM = 0;
 	bool UPD;
@@ -485,6 +619,20 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 	{
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
+		
+		// STORE DENSE OUTPUT
+		if ( KernelParameters.DenseOutputEnabled == 1 )
+		{
+			DOTI = tid + DOI*NT;
+			KernelParameters.d_DenseOutputTimeInstances[DOTI] = AT;
+			
+			DOSI = tid + DOI*NT*SD; i1 = tid;
+			for (int i=0; i<SD; i++)
+			{
+				KernelParameters.d_DenseOutputStates[DOSI] = gAS[i1];
+				DOSI += NT; i1 += NT;
+			}
+		}
 		
 		PerThread_EventFunction(tid, NT, gAEV, gAS, AT, gPAR, sPAR, gACC);
 		PerThread_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
@@ -508,7 +656,7 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 				TRM  = 1;
 			}
 			
-			
+			// RUNGE-KUTTA STEP
 			PerThread_OdeFunction(tid, NT, gNS, gAS, AT, gPAR, sPAR, gACC);
 			
 			T  = AT + TSp2;
@@ -551,7 +699,7 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 				i1 += NT;
 			}
 			
-			
+			// EVENT HANDLING
 			PerThread_EventFunction(tid, NT, gNEV, gNS, AT, gPAR, sPAR, gACC);
 			
 			TE = TS;
@@ -569,7 +717,7 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 			TS   = TE;
 			TSp2 = TS * 0.5;
 			
-			
+			// UPDATE STATE
 			if ( UPD == 1 )
 			{
 				AT = AT + TS;
@@ -581,6 +729,24 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 					i1 += NT;
 				}
 				
+				// STORE DENSE OUTPUT
+				DOI++;
+				if ( ( KernelParameters.DenseOutputEnabled == 1 ) && ( DOI<KernelParameters.DenseOutputNumberOfPoints ) )
+				{
+					KernelParameters.d_DenseOutputIndex[tid] = DOI;
+					
+					DOTI = tid + DOI*NT;
+					KernelParameters.d_DenseOutputTimeInstances[DOTI] = AT;
+					
+					DOSI = tid + DOI*NT*SD; i1 = tid;
+					for (int i=0; i<SD; i++)
+					{
+						KernelParameters.d_DenseOutputStates[DOSI] = gAS[i1];
+						DOSI += NT; i1 += NT;
+					}
+				}
+				
+				// EVENT HANDLING
 				i1 = tid;
 				for (int i=0; i<NE; i++)
 				{
@@ -605,12 +771,16 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 					if ( ( abs(gAEV[i1]) <  sET[i] ) && ( abs(gNEV[i1]) < sET[i] ) )
 						gEQC[i1]++;
 					
-					if ( gEQC[i1] == sMSIE )
+					if ( gEQC[i1] == KernelParameters.MaxStepInsideEvent )
 						TRM = 1;
 					
 					gAEV[i1] = gNEV[i1];
 					i1 += NT;
 				}
+				
+				MaxNTS++;
+				if ( ( KernelParameters.MaximumNumberOfTimeSteps != 0 ) && ( MaxNTS >= KernelParameters.MaximumNumberOfTimeSteps ) )
+					TRM  = 1;
 				
 				PerThread_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 			}
@@ -624,6 +794,9 @@ __global__ void PerThread_RK4(IntegratorInternalVariables KernelParameters)
 __global__ void PerThread_RK4_EH0(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
+	int DOI = 0;
+	int DOTI;
+	int DOSI;
 	int i1;
 	
 	extern __shared__ int DSM[];
@@ -639,6 +812,7 @@ __global__ void PerThread_RK4_EH0(IntegratorInternalVariables KernelParameters)
 	double TS   = KernelParameters.InitialTimeStep;
 	double TSp2 = KernelParameters.InitialTimeStep * 0.5;
 	double T;
+	int MaxNTS = 0;
 	
 	bool TRM = 0;
 	
@@ -646,6 +820,20 @@ __global__ void PerThread_RK4_EH0(IntegratorInternalVariables KernelParameters)
 	{
 		double AT  = gTD[tid];
 		double TDU = gTD[tid + NT];
+		
+		// STORE DENSE OUTPUT
+		if ( KernelParameters.DenseOutputEnabled == 1 )
+		{
+			DOTI = tid + DOI*NT;
+			KernelParameters.d_DenseOutputTimeInstances[DOTI] = AT;
+			
+			DOSI = tid + DOI*NT*SD; i1 = tid;
+			for (int i=0; i<SD; i++)
+			{
+				KernelParameters.d_DenseOutputStates[DOSI] = gAS[i1];
+				DOSI += NT; i1 += NT;
+			}
+		}
 		
 		PerThread_Initialization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 		
@@ -658,7 +846,7 @@ __global__ void PerThread_RK4_EH0(IntegratorInternalVariables KernelParameters)
 				TRM  = 1;
 			}
 			
-			
+			// RUNGE-KUTTA STEP
 			PerThread_OdeFunction(tid, NT, gNS, gAS, AT, gPAR, sPAR, gACC);
 			
 			T  = AT + TSp2;
@@ -689,6 +877,8 @@ __global__ void PerThread_RK4_EH0(IntegratorInternalVariables KernelParameters)
 			}
 			PerThread_OdeFunction(tid, NT, gSTG, gST, T, gPAR, sPAR, gACC);
 			
+			
+			// UPDATE STATE
 			i1 = tid;
 			for (int i=0; i<SD; i++)
 			{
@@ -701,6 +891,27 @@ __global__ void PerThread_RK4_EH0(IntegratorInternalVariables KernelParameters)
 				i1 += NT;
 			}
 			AT = AT + TS;
+			
+			// STORE DENSE OUTPUT
+			DOI++;
+			if ( ( KernelParameters.DenseOutputEnabled == 1 ) && ( DOI<KernelParameters.DenseOutputNumberOfPoints ) )
+			{
+				KernelParameters.d_DenseOutputIndex[tid] = DOI;
+				
+				DOTI = tid + DOI*NT;
+				KernelParameters.d_DenseOutputTimeInstances[DOTI] = AT;
+				
+				DOSI = tid + DOI*NT*SD; i1 = tid;
+				for (int i=0; i<SD; i++)
+				{
+					KernelParameters.d_DenseOutputStates[DOSI] = gAS[i1];
+					DOSI += NT; i1 += NT;
+				}
+			}
+			
+			MaxNTS++;
+			if ( ( KernelParameters.MaximumNumberOfTimeSteps != 0 ) && ( MaxNTS >= KernelParameters.MaximumNumberOfTimeSteps ) )
+				TRM  = 1;
 			
 			PerThread_ActionAfterSuccessfulTimeStep(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 		}

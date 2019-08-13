@@ -1,8 +1,6 @@
 #ifndef MASSIVELYPARALLEL_GPUODE_SOLVER_H
 #define MASSIVELYPARALLEL_GPUODE_SOLVER_H
 
-using namespace std;
-
 template <class DataType>
 DataType* AllocateHostMemory(int);
 
@@ -12,53 +10,57 @@ DataType* AllocateHostPinnedMemory(int);
 template <class DataType>
 DataType* AllocateDeviceMemory(int);
 
-enum VariableSelection{	All, TimeDomain, ActualState, ControlParameters, SharedParameters, Accessories };
-enum SolverAlgorithms{ RKCK45, RK4, RK4_EH0, RKCK45_EH0};
+enum VariableSelection{	All, TimeDomain, ActualState, ControlParameters, SharedParameters, Accessories, DenseOutput, DenseTime, DenseState };
+enum ListOfSolverAlgorithms{ RKCK45, RK4, RK4_EH0, RKCK45_EH0};
+enum ListOfSolverOptions{ ThreadsPerBlock, InitialTimeStep, Solver, ActiveNumberOfThreads, \
+                          MaximumTimeStep, MinimumTimeStep, TimeStepGrowLimit, TimeStepShrinkLimit, MaxStepInsideEvent, MaximumNumberOfTimeSteps, \
+						  RelativeTolerance, AbsoluteTolerance, \
+						  EventTolerance, EventDirection, EventStopCounter, \
+						  DenseOutputTimeStep, DenseOutputEnabled };
 
-// DEVICE SETTINGS ------------------------------
 
 void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
 
-// STRUCTURES -----------------------------------
 
 struct ConstructorConfiguration
 {
-	int PoolSize;
 	int NumberOfThreads;
-	
 	int SystemDimension;
 	int NumberOfControlParameters;
 	int NumberOfSharedParameters;
 	int NumberOfEvents;
 	int NumberOfAccessories;
-};
-
-struct SolverConfiguration
-{
-	int BlockSize;
-	int ActiveThreads;
-	double InitialTimeStep;
-	SolverAlgorithms Solver;
+	
+	int DenseOutputNumberOfPoints;
 };
 
 struct IntegratorInternalVariables
 {
-	int SystemDimension;
 	int NumberOfThreads;
+	int SystemDimension;
 	int NumberOfControlParameters;
 	int NumberOfSharedParameters;
 	int NumberOfEvents;
 	int NumberOfAccessories;
-	
-	int ActiveThreads;
 	
 	double* d_TimeDomain;
 	double* d_ActualState;
 	double* d_ControlParameters;
 	double* d_SharedParameters;
 	double* d_Accessories;
+	
+	double* d_RelativeTolerance;
+	double* d_AbsoluteTolerance;
+	double  MaximumTimeStep;
+	double  MinimumTimeStep;
+	double  TimeStepGrowLimit;
+	double  TimeStepShrinkLimit;
+	double* d_EventTolerance;
+	int*    d_EventDirection;
+	int*    d_EventStopCounter;
+	int     MaxStepInsideEvent;
 	
 	double* d_State;
 	double* d_Stages;
@@ -74,46 +76,19 @@ struct IntegratorInternalVariables
 	int*    d_EventEquilibriumCounter;
 	
 	double InitialTimeStep;
-};
-
-// REQUIREMENTS ---------------------------------
-
-void CheckStorageRequirements(const ConstructorConfiguration&, int);
-
-// CLASSES --------------------------------------
-
-class ProblemSolver;
-
-class ProblemPool
-{
-    friend class ProblemSolver;
+	int ActiveThreads;
 	
-	private:
-		int PoolSize;
-		
-		int SystemDimension;
-		int NumberOfControlParameters;
-		int NumberOfSharedParameters;
-		int NumberOfAccessories;
-		
-		double* p_TimeDomain;
-		double* p_ActualState;
-		double* p_ControlParameters;
-		double* p_SharedParameters;
-		double* p_Accessories;
-		
-	public:
-        ProblemPool(const ConstructorConfiguration&);
-		~ProblemPool();
-		
-		void Set(int, VariableSelection, int, double);
-		void SetShared(int, double);
-		
-		double Get(int, VariableSelection, int);
-		double GetShared(int);
-		
-		void Print(VariableSelection);
+	int    DenseOutputEnabled;
+	int    DenseOutputNumberOfPoints;
+	double DenseOutputTimeStep;
+	
+	int*    d_DenseOutputIndex;
+	double* d_DenseOutputTimeInstances;
+	double* d_DenseOutputStates;
+	
+	int    MaximumNumberOfTimeSteps;
 };
+
 
 class ProblemSolver
 {
@@ -121,6 +96,21 @@ class ProblemSolver
 		int Device;
 		cudaStream_t Stream;
 		cudaEvent_t Event;
+		
+		size_t GlobalMemoryRequired;
+		size_t GlobalMemoryFree;
+		size_t GlobalMemoryTotal;
+		
+		int SizeOfTimeDomain;
+		int SizeOfActualState;
+		int SizeOfControlParameters;
+		int SizeOfSharedParameters;
+		int SizeOfAccessories;
+		int SizeOfEvents;
+		
+		int SizeOfDenseOutputIndex;
+		int SizeOfDenseOutputTimeInstances;
+		int SizeOfDenseOutputStates;
 		
 		size_t DynamicSharedMemoryRKCK45;
 		size_t DynamicSharedMemoryRKCK45_EH0;
@@ -136,38 +126,39 @@ class ProblemSolver
 		double* h_SharedParameters;
 		double* h_Accessories;
 		
+		int*    h_DenseOutputIndex;
+		double* h_DenseOutputTimeInstances;
+		double* h_DenseOutputStates;
+		
+		int GridSize;
+		int BlockSize;
+		
+		ListOfSolverAlgorithms SolverType;
+		
 		IntegratorInternalVariables KernelParameters;
 		
 	public:
 		ProblemSolver(const ConstructorConfiguration&, int);
 		~ProblemSolver();
 		
-		void LinearCopyFromPoolHostAndDevice(const ProblemPool&, int, int, int, VariableSelection);
-		void SharedCopyFromPoolHostAndDevice(const ProblemPool&);
-		
-		void SingleSetHost(int, VariableSelection, int, double);
-		void SingleSetHostAndDevice(int, VariableSelection, int, double);
-		
-		void SetSharedHost(int, double);
-		void SetSharedHostAndDevice(int, double);
-		
+		void SetHost(int, VariableSelection, int, double);      // Problem scope
+		void SetHost(int, VariableSelection, int, int, double); // Dense state
+		void SetHost(VariableSelection, int, double);           // Global scope
 		void SynchroniseFromHostToDevice(VariableSelection);
-		void SynchroniseFromHostToDeviceAsync(VariableSelection);
 		void SynchroniseFromDeviceToHost(VariableSelection);
-		void SynchroniseFromDeviceToHostAsync(VariableSelection);
-		
-		void SynchroniseSharedFromHostToDevice();
-		void SynchroniseSharedFromHostToDeviceAsync();
-		void SynchroniseSharedFromDeviceToHost();
-		void SynchroniseSharedFromDeviceToHostAsync();
-		
-		double SingleGetHost(int, VariableSelection, int);
-		double SharedGetHost(int);
+		double GetHost(int, VariableSelection, int);            // Problem scope
+		double GetHost(int, VariableSelection, int, int);       // Dense state
+		double GetHost(VariableSelection, int);                 // Global scope
 		
 		void Print(VariableSelection);
+		void Print(VariableSelection, int);
 		
-		void Solve(const SolverConfiguration&);
-		void SolveAsync(const SolverConfiguration&);
+		void SolverOption(ListOfSolverOptions, int);    // int type
+		void SolverOption(ListOfSolverOptions, double); // double type
+		void SolverOption(ListOfSolverOptions, int, int);    // Array of int
+		void SolverOption(ListOfSolverOptions, int, double); // Array of double
+		void SolverOption(ListOfSolverOptions, ListOfSolverAlgorithms); // ListOfSolverAlgorithms type
+		void Solve();
 		
 		void SynchroniseDevice();
 		void InsertSynchronisationPoint();

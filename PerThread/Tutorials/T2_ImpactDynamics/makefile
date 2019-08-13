@@ -5,7 +5,7 @@ ImpactDynamics.exe: ImpactDynamics.o
 
 ImpactDynamics.o: ImpactDynamics.cu
 	nvcc -c ImpactDynamics.cu			        -O3 -std=c++11
-	nvcc -c MassivelyParallel_GPU-ODE_Solver.cu	-O3 --ptxas-options=-v --gpu-architecture=sm_35 -lineinfo -maxrregcount=64
+	nvcc -c MassivelyParallel_GPU-ODE_Solver.cu	-O3 -std=c++11 --ptxas-options=-v --gpu-architecture=sm_35 -lineinfo -maxrregcount=64
 
 clean:
 	rm -f ImpactDynamics.o

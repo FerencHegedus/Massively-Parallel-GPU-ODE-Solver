@@ -5,7 +5,7 @@ DoubleBuffering.exe: DoubleBuffering.o
 
 DoubleBuffering.o: DoubleBuffering.cu
 	nvcc -c DoubleBuffering.cu			        -O3 -std=c++11
-	nvcc -c MassivelyParallel_GPU-ODE_Solver.cu	-O3 --ptxas-options=-v --gpu-architecture=sm_35 -lineinfo -maxrregcount=64
+	nvcc -c MassivelyParallel_GPU-ODE_Solver.cu	-O3 -std=c++11 --ptxas-options=-v --gpu-architecture=sm_35 -lineinfo -maxrregcount=64
 
 clean:
 	rm -f DoubleBuffering.o

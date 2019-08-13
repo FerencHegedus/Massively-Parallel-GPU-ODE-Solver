@@ -15,16 +15,15 @@ Third tutorial example: T3 (Double Buffering of the reference simulation)
 using namespace std;
 
 void Linspace(vector<double>&, double, double, int);
-void FillControlParameters(ProblemSolver&, const vector<double>&, double, double, int, int);
-void FillSharedParameters(ProblemSolver&, double);
+void FillSolverObjects(ProblemSolver&, const vector<double>&, double, double, double, int, int);
 void SaveData(ProblemSolver&, ofstream&, int);
 
 
 int main()
 {
-	int PoolSize        = 46080;
-	int NumberOfThreads = 23040;
-	int BlockSize       = 64;
+	int NumberOfProblems = 46080;
+	int NumberOfThreads  = 23040;
+	int BlockSize        = 64;
 	
 	
 	ListCUDADevices();
@@ -40,7 +39,7 @@ int main()
 	double InitialConditions_X2 = -0.1;
 	double Parameters_B = 0.3;
 	
-	int NumberOfParameters_k = PoolSize;
+	int NumberOfParameters_k = NumberOfProblems;
 	double kRangeLower = 0.2;
     double kRangeUpper = 0.3;
 		vector<double> Parameters_k_Values(NumberOfParameters_k,0);
@@ -48,74 +47,71 @@ int main()
 	
 	
 	ConstructorConfiguration ConfigurationDuffing;
-		ConfigurationDuffing.PoolSize                  = PoolSize;
-		ConfigurationDuffing.NumberOfThreads           = NumberOfThreads;
-		ConfigurationDuffing.SystemDimension           = 2;
-		ConfigurationDuffing.NumberOfControlParameters = 1;
-		ConfigurationDuffing.NumberOfSharedParameters  = 1;
-		ConfigurationDuffing.NumberOfEvents            = 2;
-		ConfigurationDuffing.NumberOfAccessories       = 4;
 	
+	ConfigurationDuffing.NumberOfThreads           = NumberOfThreads;
+	ConfigurationDuffing.SystemDimension           = 2;
+	ConfigurationDuffing.NumberOfControlParameters = 1;
+	ConfigurationDuffing.NumberOfSharedParameters  = 1;
+	ConfigurationDuffing.NumberOfEvents            = 2;
+	ConfigurationDuffing.NumberOfAccessories       = 3;
+	ConfigurationDuffing.DenseOutputNumberOfPoints = 0;
 	
 	ProblemSolver ScanDuffing1(ConfigurationDuffing, SelectedDevice);
 	ProblemSolver ScanDuffing2(ConfigurationDuffing, SelectedDevice);
 	
+	ScanDuffing1.SolverOption(ThreadsPerBlock, BlockSize);
+	ScanDuffing2.SolverOption(ThreadsPerBlock, BlockSize);
+	
+	ScanDuffing1.SolverOption(RelativeTolerance, 0, 1e-9);
+	ScanDuffing1.SolverOption(RelativeTolerance, 1, 1e-9);
+	ScanDuffing1.SolverOption(AbsoluteTolerance, 0, 1e-9);
+	ScanDuffing1.SolverOption(AbsoluteTolerance, 1, 1e-9);
+	
+	ScanDuffing2.SolverOption(RelativeTolerance, 0, 1e-9);
+	ScanDuffing2.SolverOption(RelativeTolerance, 1, 1e-9);
+	ScanDuffing2.SolverOption(AbsoluteTolerance, 0, 1e-9);
+	ScanDuffing2.SolverOption(AbsoluteTolerance, 1, 1e-9);
+	
+	ScanDuffing1.SolverOption(EventDirection, 0, -1);
+	ScanDuffing2.SolverOption(EventDirection, 0, -1);
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
 	
-	int NumberOfSimulationLaunches = PoolSize / NumberOfThreads / 2;
-	
-	
-	SolverConfiguration SolverConfigurationSystem;
-	
-	SolverConfigurationSystem.BlockSize       = BlockSize;
-	SolverConfigurationSystem.InitialTimeStep = 1e-2;
-	SolverConfigurationSystem.Solver          = RKCK45;
-	SolverConfigurationSystem.ActiveThreads   = NumberOfThreads;
-	
+	int NumberOfSimulationLaunches = NumberOfProblems / NumberOfThreads / 2;
 	
 	ofstream DataFile;
 	DataFile.open ( "Duffing.txt" );
 	
-	
 	clock_t SimulationStart = clock();
 	clock_t TransientStart;
 	clock_t TransientEnd;
-	
-	
-	FillSharedParameters(ScanDuffing1,Parameters_B);
-	ScanDuffing1.SynchroniseSharedFromHostToDeviceAsync();
-	
-	FillSharedParameters(ScanDuffing2,Parameters_B);
-	ScanDuffing2.SynchroniseSharedFromHostToDeviceAsync();
-	
 	
 	int FirstProblemNumber;
 	for (int LaunchCounter=0; LaunchCounter<NumberOfSimulationLaunches; LaunchCounter++)
 	{
 		FirstProblemNumber = LaunchCounter * (2*NumberOfThreads);
 		
-		FillControlParameters(ScanDuffing1, Parameters_k_Values, InitialConditions_X1, InitialConditions_X2, FirstProblemNumber, NumberOfThreads);
-		ScanDuffing1.SynchroniseFromHostToDeviceAsync(All);
-		ScanDuffing1.SolveAsync(SolverConfigurationSystem);
+		FillSolverObjects(ScanDuffing1, Parameters_k_Values, Parameters_B, InitialConditions_X1, InitialConditions_X2, FirstProblemNumber, NumberOfThreads);
+		ScanDuffing1.SynchroniseFromHostToDevice(All);
+		ScanDuffing1.Solve();
 		ScanDuffing1.InsertSynchronisationPoint();
 		
 		FirstProblemNumber = FirstProblemNumber + NumberOfThreads;
 		
-		FillControlParameters(ScanDuffing2, Parameters_k_Values, InitialConditions_X1, InitialConditions_X2, FirstProblemNumber, NumberOfThreads);
-		ScanDuffing2.SynchroniseFromHostToDeviceAsync(All);
-		ScanDuffing2.SolveAsync(SolverConfigurationSystem);
+		FillSolverObjects(ScanDuffing2, Parameters_k_Values, Parameters_B, InitialConditions_X1, InitialConditions_X2, FirstProblemNumber, NumberOfThreads);
+		ScanDuffing2.SynchroniseFromHostToDevice(All);
+		ScanDuffing2.Solve();
 		ScanDuffing2.InsertSynchronisationPoint();
 		
 		TransientStart = clock();
 		for (int i=0; i<1024; i++)
 		{
 			ScanDuffing1.SynchroniseSolver();
-			ScanDuffing1.SolveAsync(SolverConfigurationSystem);
+			ScanDuffing1.Solve();
 			ScanDuffing1.InsertSynchronisationPoint();
 			
 			ScanDuffing2.SynchroniseSolver();
-			ScanDuffing2.SolveAsync(SolverConfigurationSystem);
+			ScanDuffing2.Solve();
 			ScanDuffing2.InsertSynchronisationPoint();
 		}
 		TransientEnd = clock();
@@ -124,27 +120,27 @@ int main()
 		for (int i=0; i<31; i++)
 		{
 			ScanDuffing1.SynchroniseSolver();
-			ScanDuffing1.SynchroniseFromDeviceToHostAsync(All);
-			ScanDuffing1.SolveAsync(SolverConfigurationSystem);
+			ScanDuffing1.SynchroniseFromDeviceToHost(All);
+			ScanDuffing1.Solve();
 			ScanDuffing1.InsertSynchronisationPoint();
 			
 			SaveData(ScanDuffing1, DataFile, NumberOfThreads);
 			
 			
 			ScanDuffing2.SynchroniseSolver();
-			ScanDuffing2.SynchroniseFromDeviceToHostAsync(All);
-			ScanDuffing2.SolveAsync(SolverConfigurationSystem);
+			ScanDuffing2.SynchroniseFromDeviceToHost(All);
+			ScanDuffing2.Solve();
 			ScanDuffing2.InsertSynchronisationPoint();
 			
 			SaveData(ScanDuffing2, DataFile, NumberOfThreads);
 		}
 		
 		ScanDuffing1.SynchroniseSolver();
-		ScanDuffing1.SynchroniseFromDeviceToHostAsync(All);
+		ScanDuffing1.SynchroniseFromDeviceToHost(All);
 		SaveData(ScanDuffing1, DataFile, NumberOfThreads);
 		
 		ScanDuffing2.SynchroniseSolver();
-		ScanDuffing2.SynchroniseFromDeviceToHostAsync(All);
+		ScanDuffing2.SynchroniseFromDeviceToHost(All);
 		SaveData(ScanDuffing2, DataFile, NumberOfThreads);
 	}
 	
@@ -179,7 +175,7 @@ void Linspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillControlParameters(ProblemSolver& Solver, const vector<double>& k_Values, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
+void FillSolverObjects(ProblemSolver& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
 {
 	int k_begin = FirstProblemNumber;
 	int k_end   = FirstProblemNumber + NumberOfThreads;
@@ -187,21 +183,22 @@ void FillControlParameters(ProblemSolver& Solver, const vector<double>& k_Values
 	int ProblemNumber = 0;
 	for (int k=k_begin; k<k_end; k++)
 	{
-		Solver.SingleSetHost(ProblemNumber, TimeDomain,  0, 0 );
-		Solver.SingleSetHost(ProblemNumber, TimeDomain,  1, 2*PI );
+		Solver.SetHost(ProblemNumber, TimeDomain,  0, 0 );
+		Solver.SetHost(ProblemNumber, TimeDomain,  1, 2*PI );
 		
-		Solver.SingleSetHost(ProblemNumber, ActualState, 0, X10 );
-		Solver.SingleSetHost(ProblemNumber, ActualState, 1, X20 );
+		Solver.SetHost(ProblemNumber, ActualState, 0, X10 );
+		Solver.SetHost(ProblemNumber, ActualState, 1, X20 );
 		
-		Solver.SingleSetHost(ProblemNumber, ControlParameters, 0, k_Values[k] );
+		Solver.SetHost(ProblemNumber, ControlParameters, 0, k_Values[k] );
 		
-		Solver.SingleSetHost(ProblemNumber, Accessories, 0, 0 );
-		Solver.SingleSetHost(ProblemNumber, Accessories, 1, 0 );
-		Solver.SingleSetHost(ProblemNumber, Accessories, 2, 0 );
-		Solver.SingleSetHost(ProblemNumber, Accessories, 3, 1e-2 );
+		Solver.SetHost(ProblemNumber, Accessories, 0, 0 );
+		Solver.SetHost(ProblemNumber, Accessories, 1, 0 );
+		Solver.SetHost(ProblemNumber, Accessories, 2, 0 );
 		
 		ProblemNumber++;
 	}
+	
+	Solver.SetHost(SharedParameters, 0, B );
 }
 
 void SaveData(ProblemSolver& Solver, ofstream& DataFile, int NumberOfThreads)
@@ -212,19 +209,13 @@ void SaveData(ProblemSolver& Solver, ofstream& DataFile, int NumberOfThreads)
 	
 	for (int tid=0; tid<NumberOfThreads; tid++)
 	{
-		DataFile.width(Width); DataFile << Solver.SingleGetHost(tid, ControlParameters, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.SharedGetHost(0) << ',';
-		DataFile.width(Width); DataFile << Solver.SingleGetHost(tid, ActualState, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.SingleGetHost(tid, ActualState, 1) << ',';
-		DataFile.width(Width); DataFile << Solver.SingleGetHost(tid, Accessories, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.SingleGetHost(tid, Accessories, 1) << ',';
-		DataFile.width(Width); DataFile << Solver.SingleGetHost(tid, Accessories, 2) << ',';
-		DataFile.width(Width); DataFile << Solver.SingleGetHost(tid, Accessories, 3) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost(tid, ControlParameters, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost(SharedParameters, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost(tid, ActualState, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost(tid, ActualState, 1) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 1) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 2);
 		DataFile << '\n';
 	}
-}
-
-void FillSharedParameters(ProblemSolver& Solver, double B)
-{
-	Solver.SetSharedHost(0, B );
 }

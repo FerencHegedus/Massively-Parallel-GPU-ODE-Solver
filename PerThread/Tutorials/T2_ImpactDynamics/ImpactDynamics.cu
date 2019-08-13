@@ -18,7 +18,7 @@ using namespace std;
 void Linspace(vector<double>&, double, double, int);
 void Logspace(vector<double>&, double, double, int);
 
-void FillProblemPool(ProblemPool&, const vector<double>&);
+void FillSolverObject(ProblemSolver&, const vector<double>&);
 
 int main()
 {
@@ -40,46 +40,36 @@ int main()
 	
 	
 	// Problem Pool and Solver Object configuration
-	int PoolSize        = NumberOfFlowRates; // 30720
-	int NumberOfThreads = NumberOfFlowRates; // 30720 -> 1 launches
+	int NumberOfProblems = NumberOfFlowRates; // 30720
+	int NumberOfThreads  = NumberOfFlowRates; // 30720 -> 1 launches
 	
 	ConstructorConfiguration ConfigurationPressureReliefValve;
 	
-	ConfigurationPressureReliefValve.PoolSize                  = PoolSize;
 	ConfigurationPressureReliefValve.NumberOfThreads           = NumberOfThreads;
 	ConfigurationPressureReliefValve.SystemDimension           = 3;
 	ConfigurationPressureReliefValve.NumberOfControlParameters = 1;
 	ConfigurationPressureReliefValve.NumberOfSharedParameters  = 4;
 	ConfigurationPressureReliefValve.NumberOfEvents            = 2;
 	ConfigurationPressureReliefValve.NumberOfAccessories       = 2;
-	
-	CheckStorageRequirements(ConfigurationPressureReliefValve, SelectedDevice);
+	ConfigurationPressureReliefValve.DenseOutputNumberOfPoints = 0;
 	
 	ProblemSolver ScanPressureReliefValve(ConfigurationPressureReliefValve, SelectedDevice);
-	ProblemPool ProblemPoolPressureReliefValve(ConfigurationPressureReliefValve);
 	
-	FillProblemPool(ProblemPoolPressureReliefValve, FlowRates);
-	
-	//ProblemPoolPressureReliefValve.Print(TimeDomain);
-	//ProblemPoolPressureReliefValve.Print(ActualState);
-	//ProblemPoolPressureReliefValve.Print(ControlParameters);
-	//ProblemPoolPressureReliefValve.Print(SharedParameters);
-	//ProblemPoolPressureReliefValve.Print(Accessories);
-	
+	ScanPressureReliefValve.SolverOption(ThreadsPerBlock, 64);
+	ScanPressureReliefValve.SolverOption(RelativeTolerance, 0, 1e-10);
+	ScanPressureReliefValve.SolverOption(RelativeTolerance, 1, 1e-10);
+	ScanPressureReliefValve.SolverOption(RelativeTolerance, 2, 1e-10);
+	ScanPressureReliefValve.SolverOption(AbsoluteTolerance, 0, 1e-10);
+	ScanPressureReliefValve.SolverOption(AbsoluteTolerance, 1, 1e-10);
+	ScanPressureReliefValve.SolverOption(AbsoluteTolerance, 2, 1e-10);
+	ScanPressureReliefValve.SolverOption(EventDirection,   0, -1);
+	ScanPressureReliefValve.SolverOption(EventDirection,   1, -1);
+	ScanPressureReliefValve.SolverOption(EventStopCounter, 0,  1);
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
 	
-	int NumberOfSimulationLaunches = PoolSize / NumberOfThreads;
-	
-	SolverConfiguration SolverConfigurationSystem;
-		SolverConfigurationSystem.BlockSize       = 64;
-		SolverConfigurationSystem.InitialTimeStep = 1e-2;
-		SolverConfigurationSystem.Solver          = RKCK45;
-		SolverConfigurationSystem.ActiveThreads   = NumberOfThreads;
-	
-	int CopyStartIndexInPool;
-	int CopyStartIndexInSolverObject = 0;
-	int NumberOfElementsCopied       = NumberOfThreads;
+	int NumberOfSimulationLaunches = NumberOfProblems / NumberOfThreads;
+	int ProblemStartIndex;
 	
 	ofstream DataFile;
 	DataFile.open ( "PressureReliefValve.txt" );
@@ -89,29 +79,36 @@ int main()
 	
 	
 	clock_t SimulationStart = clock();
-	ScanPressureReliefValve.SharedCopyFromPoolHostAndDevice(ProblemPoolPressureReliefValve);
-	
 	for (int LaunchCounter=0; LaunchCounter<NumberOfSimulationLaunches; LaunchCounter++)
 	{
-		CopyStartIndexInPool = LaunchCounter * NumberOfThreads;
-		ScanPressureReliefValve.LinearCopyFromPoolHostAndDevice(ProblemPoolPressureReliefValve, CopyStartIndexInPool, CopyStartIndexInSolverObject, NumberOfElementsCopied, All);
+		// Fill Solver Object
+		ProblemStartIndex = LaunchCounter * NumberOfThreads;
+		FillSolverObject(ScanPressureReliefValve, FlowRates); // There is only 1 launch; thus, no special care is needed!
+		ScanPressureReliefValve.SynchroniseFromHostToDevice(All);
 		
 		
 		// Transient simulations
 		for (int i=0; i<1024; i++)
-			ScanPressureReliefValve.Solve(SolverConfigurationSystem);
+		{
+			ScanPressureReliefValve.Solve();
+			ScanPressureReliefValve.InsertSynchronisationPoint();
+			ScanPressureReliefValve.SynchroniseSolver();
+		}
 		
 		
 		// Converged simulations and their data collection
 		for (int i=0; i<32; i++)
 		{
-			ScanPressureReliefValve.Solve(SolverConfigurationSystem);
+			ScanPressureReliefValve.Solve();
+			ScanPressureReliefValve.SynchroniseFromDeviceToHost(Accessories);
+			ScanPressureReliefValve.InsertSynchronisationPoint();
+			ScanPressureReliefValve.SynchroniseSolver();
 			
 			for (int tid=0; tid<NumberOfThreads; tid++)
 			{
-				DataFile.width(Width); DataFile << ScanPressureReliefValve.SingleGetHost(tid, ControlParameters, 0) << ',';
-				DataFile.width(Width); DataFile << ScanPressureReliefValve.SingleGetHost(tid, Accessories, 0) << ',';
-				DataFile.width(Width); DataFile << ScanPressureReliefValve.SingleGetHost(tid, Accessories, 1) << ',';
+				DataFile.width(Width); DataFile << ScanPressureReliefValve.GetHost(tid, ControlParameters, 0) << ',';
+				DataFile.width(Width); DataFile << ScanPressureReliefValve.GetHost(tid, Accessories, 0) << ',';
+				DataFile.width(Width); DataFile << ScanPressureReliefValve.GetHost(tid, Accessories, 1) << ',';
 				DataFile << '\n';
 			}
 		}
@@ -162,25 +159,25 @@ void Logspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillProblemPool(ProblemPool& Pool, const vector<double>& q_Values)
+void FillSolverObject(ProblemSolver& Solver, const vector<double>& q_Values)
 {	
 	int ProblemNumber = 0;
 	for (auto const& q: q_Values) // dimensionless flow rate [-]
 	{
-		Pool.Set(ProblemNumber, TimeDomain, 0, 0);
-		Pool.Set(ProblemNumber, TimeDomain, 1, 1e10); // Stopped by Poincaré section
+		Solver.SetHost(ProblemNumber, TimeDomain, 0, 0);
+		Solver.SetHost(ProblemNumber, TimeDomain, 1, 1e10); // Stopped by Poincaré section
 		
-		Pool.Set(ProblemNumber, ActualState, 0, 0.2);
-		Pool.Set(ProblemNumber, ActualState, 1, 0.0);
-		Pool.Set(ProblemNumber, ActualState, 2, 0.0);
+		Solver.SetHost(ProblemNumber, ActualState, 0, 0.2);
+		Solver.SetHost(ProblemNumber, ActualState, 1, 0.0);
+		Solver.SetHost(ProblemNumber, ActualState, 2, 0.0);
 		
-		Pool.Set(ProblemNumber, ControlParameters,  0, q);
+		Solver.SetHost(ProblemNumber, ControlParameters,  0, q);
 		
 		ProblemNumber++;
 	}
 	
-	Pool.SetShared(0, 1.25 ); // Kappa: damping coefficient       [-]
-	Pool.SetShared(1, 10.0 ); // Delta: spring precompression     [-]
-	Pool.SetShared(2, 20.0 ); // Beta:  compressibility parameter [-]
-	Pool.SetShared(3, 0.8  ); // r:     restitution coefficient   [-]
+	Solver.SetHost(SharedParameters, 0, 1.25 ); // Kappa: damping coefficient       [-]
+	Solver.SetHost(SharedParameters, 1, 10.0 ); // Delta: spring precompression     [-]
+	Solver.SetHost(SharedParameters, 2, 20.0 ); // Beta:  compressibility parameter [-]
+	Solver.SetHost(SharedParameters, 3, 0.8  ); // r:     restitution coefficient   [-]
 }

@@ -7,7 +7,24 @@
 
 #include "MassivelyParallel_GPU-ODE_Solver.cuh"
 
+#define F(i)    F[tid + i*NT]
+#define X(i)    X[tid + i*NT]
+#define cPAR(i) cPAR[tid + i*NT]
+#define sPAR(i) sPAR[i]
+#define ACC(i)  ACC[tid + i*NT]
+#define EF(i)   EF[tid + i*NT]
+#define TD(i)   TD[tid + i*NT]
+
 #include "PerThread_SystemDefinition.cuh"
+
+#undef F
+#undef X
+#undef cPAR
+#undef sPAR
+#undef ACC
+#undef EF
+#undef TD
+
 #include "PerThread_RungeKutta.cuh"
 
 #define gpuErrCHK(call)                                                                \
@@ -15,8 +32,8 @@
 	const cudaError_t error = call;                                                    \
 	if (error != cudaSuccess)                                                          \
 	{                                                                                  \
-		cout << "Error: " << __FILE__ << ":" << __LINE__ << endl;                      \
-		cout << "code:" << error << ", reason: " << cudaGetErrorString(error) << endl; \
+		std::cout << "Error: " << __FILE__ << ":" << __LINE__ << std::endl;                      \
+		std::cout << "code:" << error << ", reason: " << cudaGetErrorString(error) << std::endl; \
 		exit(1);                                                                       \
 	}                                                                                  \
 }
@@ -33,34 +50,34 @@ void ListCUDADevices()
 	{
 		cudaDeviceProp CurrentDeviceProperties;
 		cudaGetDeviceProperties(&CurrentDeviceProperties, i);
-		cout << endl;
-		cout << "Device number: " << i << endl;
-		cout << "Device name:   " << CurrentDeviceProperties.name << endl;
-		cout << "--------------------------------------" << endl;
-		cout << "Total global memory:        " << CurrentDeviceProperties.totalGlobalMem / 1024 / 1024 << " Mb" << endl;
-		cout << "Total shared memory:        " << CurrentDeviceProperties.sharedMemPerBlock / 1024 << " Kb" << endl;
-		cout << "Number of 32-bit registers: " << CurrentDeviceProperties.regsPerBlock << endl;
-		cout << "Total constant memory:      " << CurrentDeviceProperties.totalConstMem / 1024 << " Kb" << endl;
-		cout << endl;
-		cout << "Number of multiprocessors:  " << CurrentDeviceProperties.multiProcessorCount << endl;
-		cout << "Compute capability:         " << CurrentDeviceProperties.major << "." << CurrentDeviceProperties.minor << endl;
-		cout << "Core clock rate:            " << CurrentDeviceProperties.clockRate / 1000 << " MHz" << endl;
-		cout << "Memory clock rate:          " << CurrentDeviceProperties.memoryClockRate / 1000 << " MHz" << endl;
-		cout << "Memory bus width:           " << CurrentDeviceProperties.memoryBusWidth  << " bits" << endl;
-		cout << "Peak memory bandwidth:      " << 2.0*CurrentDeviceProperties.memoryClockRate*(CurrentDeviceProperties.memoryBusWidth/8)/1.0e6 << " GB/s" << endl;
-		cout << endl;
-		cout << "Warp size:                  " << CurrentDeviceProperties.warpSize << endl;
-		cout << "Max. warps per multiproc:   " << CurrentDeviceProperties.maxThreadsPerMultiProcessor / CurrentDeviceProperties.warpSize << endl;
-		cout << "Max. threads per multiproc: " << CurrentDeviceProperties.maxThreadsPerMultiProcessor << endl;
-		cout << "Max. threads per block:     " << CurrentDeviceProperties.maxThreadsPerBlock << endl;
-		cout << "Max. block dimensions:      " << CurrentDeviceProperties.maxThreadsDim[0] << " * " << CurrentDeviceProperties.maxThreadsDim[1] << " * " << CurrentDeviceProperties.maxThreadsDim[2] << endl;
-		cout << "Max. grid dimensions:       " << CurrentDeviceProperties.maxGridSize[0] << " * " << CurrentDeviceProperties.maxGridSize[1] << " * " << CurrentDeviceProperties.maxGridSize[2] << endl;
-		cout << endl;
-		cout << "Concurrent memory copy:     " << CurrentDeviceProperties.deviceOverlap << endl;
-		cout << "Execution multiple kernels: " << CurrentDeviceProperties.concurrentKernels << endl;
-		cout << "ECC support turned on:      " << CurrentDeviceProperties.ECCEnabled << endl << endl;
+		std::cout << std::endl;
+		std::cout << "Device number: " << i << std::endl;
+		std::cout << "Device name:   " << CurrentDeviceProperties.name << std::endl;
+		std::cout << "--------------------------------------" << std::endl;
+		std::cout << "Total global memory:        " << CurrentDeviceProperties.totalGlobalMem / 1024 / 1024 << " Mb" << std::endl;
+		std::cout << "Total shared memory:        " << CurrentDeviceProperties.sharedMemPerBlock / 1024 << " Kb" << std::endl;
+		std::cout << "Number of 32-bit registers: " << CurrentDeviceProperties.regsPerBlock << std::endl;
+		std::cout << "Total constant memory:      " << CurrentDeviceProperties.totalConstMem / 1024 << " Kb" << std::endl;
+		std::cout << std::endl;
+		std::cout << "Number of multiprocessors:  " << CurrentDeviceProperties.multiProcessorCount << std::endl;
+		std::cout << "Compute capability:         " << CurrentDeviceProperties.major << "." << CurrentDeviceProperties.minor << std::endl;
+		std::cout << "Core clock rate:            " << CurrentDeviceProperties.clockRate / 1000 << " MHz" << std::endl;
+		std::cout << "Memory clock rate:          " << CurrentDeviceProperties.memoryClockRate / 1000 << " MHz" << std::endl;
+		std::cout << "Memory bus width:           " << CurrentDeviceProperties.memoryBusWidth  << " bits" << std::endl;
+		std::cout << "Peak memory bandwidth:      " << 2.0*CurrentDeviceProperties.memoryClockRate*(CurrentDeviceProperties.memoryBusWidth/8)/1.0e6 << " GB/s" << std::endl;
+		std::cout << std::endl;
+		std::cout << "Warp size:                  " << CurrentDeviceProperties.warpSize << std::endl;
+		std::cout << "Max. warps per multiproc:   " << CurrentDeviceProperties.maxThreadsPerMultiProcessor / CurrentDeviceProperties.warpSize << std::endl;
+		std::cout << "Max. threads per multiproc: " << CurrentDeviceProperties.maxThreadsPerMultiProcessor << std::endl;
+		std::cout << "Max. threads per block:     " << CurrentDeviceProperties.maxThreadsPerBlock << std::endl;
+		std::cout << "Max. block dimensions:      " << CurrentDeviceProperties.maxThreadsDim[0] << " * " << CurrentDeviceProperties.maxThreadsDim[1] << " * " << CurrentDeviceProperties.maxThreadsDim[2] << std::endl;
+		std::cout << "Max. grid dimensions:       " << CurrentDeviceProperties.maxGridSize[0] << " * " << CurrentDeviceProperties.maxGridSize[1] << " * " << CurrentDeviceProperties.maxGridSize[2] << std::endl;
+		std::cout << std::endl;
+		std::cout << "Concurrent memory copy:     " << CurrentDeviceProperties.deviceOverlap << std::endl;
+		std::cout << "Execution multiple kernels: " << CurrentDeviceProperties.concurrentKernels << std::endl;
+		std::cout << "ECC support turned on:      " << CurrentDeviceProperties.ECCEnabled << std::endl << std::endl;
 	}
-	cout << endl;
+	std::cout << std::endl;
 }
 
 int SelectDeviceByClosestRevision(int MajorRevision, int MinorRevision)
@@ -74,7 +91,7 @@ int SelectDeviceByClosestRevision(int MajorRevision, int MinorRevision)
 	SelectedDeviceProperties.minor = MinorRevision;
 		cudaChooseDevice( &SelectedDevice, &SelectedDeviceProperties );
 	
-	cout << "CUDA Device Number Closest to Revision " << SelectedDeviceProperties.major << "." << SelectedDeviceProperties.minor << ": " << SelectedDevice << endl << endl << endl;
+	std::cout << "CUDA Device Number Closest to Revision " << SelectedDeviceProperties.major << "." << SelectedDeviceProperties.minor << ": " << SelectedDevice << std::endl << std::endl << std::endl;
 	
 	return SelectedDevice;
 }
@@ -84,226 +101,33 @@ void PrintPropertiesOfSpecificDevice(int SelectedDevice)
 	cudaDeviceProp SelectedDeviceProperties;
 	cudaGetDeviceProperties(&SelectedDeviceProperties, SelectedDevice);
 	
-	cout << "Selected device number: " << SelectedDevice << endl;
-	cout << "Selected device name:   " << SelectedDeviceProperties.name << endl;
-	cout << "--------------------------------------" << endl;
-	cout << "Total global memory:        " << SelectedDeviceProperties.totalGlobalMem / 1024 / 1024 << " Mb" << endl;
-	cout << "Total shared memory:        " << SelectedDeviceProperties.sharedMemPerBlock / 1024 << " Kb" << endl;
-	cout << "Number of 32-bit registers: " << SelectedDeviceProperties.regsPerBlock << endl;
-	cout << "Total constant memory:      " << SelectedDeviceProperties.totalConstMem / 1024 << " Kb" << endl;
-	cout << endl;
-	cout << "Number of multiprocessors:  " << SelectedDeviceProperties.multiProcessorCount << endl;
-	cout << "Compute capability:         " << SelectedDeviceProperties.major << "." << SelectedDeviceProperties.minor << endl;
-	cout << "Core clock rate:            " << SelectedDeviceProperties.clockRate / 1000 << " MHz" << endl;
-	cout << "Memory clock rate:          " << SelectedDeviceProperties.memoryClockRate / 1000 << " MHz" << endl;
-	cout << "Memory bus width:           " << SelectedDeviceProperties.memoryBusWidth  << " bits" << endl;
-	cout << "Peak memory bandwidth:      " << 2.0*SelectedDeviceProperties.memoryClockRate*(SelectedDeviceProperties.memoryBusWidth/8)/1.0e6 << " GB/s" << endl;
-	cout << endl;
-	cout << "Warp size:                  " << SelectedDeviceProperties.warpSize << endl;
-	cout << "Max. warps per multiproc:   " << SelectedDeviceProperties.maxThreadsPerMultiProcessor / SelectedDeviceProperties.warpSize << endl;
-	cout << "Max. threads per multiproc: " << SelectedDeviceProperties.maxThreadsPerMultiProcessor << endl;
-	cout << "Max. threads per block:     " << SelectedDeviceProperties.maxThreadsPerBlock << endl;
-	cout << "Max. block dimensions:      " << SelectedDeviceProperties.maxThreadsDim[0] << " * " << SelectedDeviceProperties.maxThreadsDim[1] << " * " << SelectedDeviceProperties.maxThreadsDim[2] << endl;
-	cout << "Max. grid dimensions:       " << SelectedDeviceProperties.maxGridSize[0] << " * " << SelectedDeviceProperties.maxGridSize[1] << " * " << SelectedDeviceProperties.maxGridSize[2] << endl;
-	cout << endl;
-	cout << "Concurrent memory copy:     " << SelectedDeviceProperties.deviceOverlap << endl;
-	cout << "Execution multiple kernels: " << SelectedDeviceProperties.concurrentKernels << endl;
-	cout << "ECC support turned on:      " << SelectedDeviceProperties.ECCEnabled << endl << endl;
+	std::cout << "Selected device number: " << SelectedDevice << std::endl;
+	std::cout << "Selected device name:   " << SelectedDeviceProperties.name << std::endl;
+	std::cout << "--------------------------------------" << std::endl;
+	std::cout << "Total global memory:        " << SelectedDeviceProperties.totalGlobalMem / 1024 / 1024 << " Mb" << std::endl;
+	std::cout << "Total shared memory:        " << SelectedDeviceProperties.sharedMemPerBlock / 1024 << " Kb" << std::endl;
+	std::cout << "Number of 32-bit registers: " << SelectedDeviceProperties.regsPerBlock << std::endl;
+	std::cout << "Total constant memory:      " << SelectedDeviceProperties.totalConstMem / 1024 << " Kb" << std::endl;
+	std::cout << std::endl;
+	std::cout << "Number of multiprocessors:  " << SelectedDeviceProperties.multiProcessorCount << std::endl;
+	std::cout << "Compute capability:         " << SelectedDeviceProperties.major << "." << SelectedDeviceProperties.minor << std::endl;
+	std::cout << "Core clock rate:            " << SelectedDeviceProperties.clockRate / 1000 << " MHz" << std::endl;
+	std::cout << "Memory clock rate:          " << SelectedDeviceProperties.memoryClockRate / 1000 << " MHz" << std::endl;
+	std::cout << "Memory bus width:           " << SelectedDeviceProperties.memoryBusWidth  << " bits" << std::endl;
+	std::cout << "Peak memory bandwidth:      " << 2.0*SelectedDeviceProperties.memoryClockRate*(SelectedDeviceProperties.memoryBusWidth/8)/1.0e6 << " GB/s" << std::endl;
+	std::cout << std::endl;
+	std::cout << "Warp size:                  " << SelectedDeviceProperties.warpSize << std::endl;
+	std::cout << "Max. warps per multiproc:   " << SelectedDeviceProperties.maxThreadsPerMultiProcessor / SelectedDeviceProperties.warpSize << std::endl;
+	std::cout << "Max. threads per multiproc: " << SelectedDeviceProperties.maxThreadsPerMultiProcessor << std::endl;
+	std::cout << "Max. threads per block:     " << SelectedDeviceProperties.maxThreadsPerBlock << std::endl;
+	std::cout << "Max. block dimensions:      " << SelectedDeviceProperties.maxThreadsDim[0] << " * " << SelectedDeviceProperties.maxThreadsDim[1] << " * " << SelectedDeviceProperties.maxThreadsDim[2] << std::endl;
+	std::cout << "Max. grid dimensions:       " << SelectedDeviceProperties.maxGridSize[0] << " * " << SelectedDeviceProperties.maxGridSize[1] << " * " << SelectedDeviceProperties.maxGridSize[2] << std::endl;
+	std::cout << std::endl;
+	std::cout << "Concurrent memory copy:     " << SelectedDeviceProperties.deviceOverlap << std::endl;
+	std::cout << "Execution multiple kernels: " << SelectedDeviceProperties.concurrentKernels << std::endl;
+	std::cout << "ECC support turned on:      " << SelectedDeviceProperties.ECCEnabled << std::endl << std::endl;
 	
-	cout << endl;
-}
-
-void CheckStorageRequirements(const ConstructorConfiguration& Configuration, int SelectedDevice)
-{
-	cudaDeviceProp SelectedDeviceProperties;
-	cudaGetDeviceProperties(&SelectedDeviceProperties, SelectedDevice);
-	
-	std::streamsize DefaultPrecision = std::cout.precision();
-	
-	// Check constant memory usage
-	int ConstantMemoryRequired  = 27*sizeof(double);
-	int ConstantMemoryAvailable = SelectedDeviceProperties.totalConstMem;
-		cout << "Constant memory required RKCK45:     "; cout.width(6); cout << ConstantMemoryRequired+464+372 << " b" << endl;
-		cout << "Constant memory required RKCK45_EH0: "; cout.width(6); cout << ConstantMemoryRequired+464+372 << " b" << endl;
-		cout << "Constant memory required RK4:        "; cout.width(6); cout << ConstantMemoryRequired+464+372 << " b" << endl;
-		cout << "Constant memory required RK4_EH0:    "; cout.width(6); cout << ConstantMemoryRequired+464+144 << " b" << endl;
-		cout << "Constant memory available:           "; cout.width(6); cout << ConstantMemoryAvailable << " b" << endl;
-	cout << "---------------------------------------------" << endl;
-	
-	// Shared memory usage for RK4
-	int SharedMemoryRequired_RKCK45 = 2*Configuration.SystemDimension*sizeof(double) + Configuration.NumberOfEvents*sizeof(int) + \
-									    Configuration.NumberOfEvents*sizeof(double) + \
-									    Configuration.NumberOfEvents*sizeof(int) + \
-									    Configuration.NumberOfSharedParameters*sizeof(double);
-	int SharedMemoryRequired_RKCK45_EH0 = 2*Configuration.SystemDimension*sizeof(double) + \
-										    Configuration.NumberOfSharedParameters*sizeof(double);
-	int SharedMemoryRequired_RK4 = Configuration.NumberOfEvents*sizeof(int) + \
-								   Configuration.NumberOfEvents*sizeof(double) + \
-								   Configuration.NumberOfEvents*sizeof(int) + \
-								   Configuration.NumberOfSharedParameters*sizeof(double);
-	int SharedMemoryRequired_RK4_EH0 = Configuration.NumberOfSharedParameters*sizeof(double);
-	
-	int SharedMemoryAvailable     = SelectedDeviceProperties.sharedMemPerBlock;
-		
-		cout << "Shared memory required RKCK45:     "; cout.width(8); cout << SharedMemoryRequired_RKCK45 << " b" << endl;
-		cout << "Shared memory required RKCK45_EH0: "; cout.width(8); cout << SharedMemoryRequired_RKCK45_EH0 << " b" << endl;
-		cout << "Shared memory required RK4:        "; cout.width(8); cout << SharedMemoryRequired_RK4 << " b" << endl;
-		cout << "Shared memory required RK4_EH0:    "; cout.width(8); cout << SharedMemoryRequired_RK4_EH0 << " b" << endl;
-		cout << "Shared memory available:           "; cout.width(8); cout << SharedMemoryAvailable << " b" << endl << endl;
-		
-		cout << "Number of possible blocks / SM RKCK45:     "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RKCK45 ) << endl;
-		cout << "Number of possible blocks / SM RKCK45_EH0: "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RKCK45_EH0 ) << endl;
-		if (SharedMemoryRequired_RK4 > 0)
-		{
-			cout << "Number of possible blocks / SM RK4:        "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RK4 ) << endl;
-		} else
-		{
-			cout << "Number of possible blocks / SM RK4:        "; cout.width(6); cout << "inf" << endl;
-		}
-		if (SharedMemoryRequired_RK4_EH0 > 0)
-		{
-			cout << "Number of possible blocks / SM RK4_EH0:    "; cout.width(6); cout << static_cast<int>( (double)SharedMemoryAvailable / SharedMemoryRequired_RK4_EH0 ) << endl;
-		} else
-		{
-			cout << "Number of possible blocks / SM RK4_EH0:    "; cout.width(6); cout << "inf" << endl;
-		}
-		
-	cout << "-------------------------------------------------" << endl;
-	
-	// Global memory usage
-	int GlobalMemoryRequired  = (2 + 12*Configuration.SystemDimension + Configuration.NumberOfControlParameters + Configuration.NumberOfAccessories) * Configuration.NumberOfThreads * sizeof(double) + \
-	                            Configuration.NumberOfSharedParameters * Configuration.NumberOfThreads * sizeof(double) + \
-								10*Configuration.SystemDimension * Configuration.NumberOfThreads * sizeof(double) + \
-	                            (2*sizeof(double) + 2*sizeof(int)) * Configuration.NumberOfEvents * Configuration.NumberOfThreads;
-	int GlobalMemoryAvailable = SelectedDeviceProperties.totalGlobalMem;
-	
-	double GlobalMemoryUsageRatio = (double) GlobalMemoryRequired / GlobalMemoryAvailable;
-		cout << "Global memory required:  "; cout.width(10); cout << GlobalMemoryRequired  / 1024 << " Kb" << endl;
-		cout << "Global memory available: "; cout.width(10); cout << GlobalMemoryAvailable / 1024 << " Kb" << endl;
-		cout << "Global memory usage:     "; cout.width(10); cout << setprecision(1) << 100 * GlobalMemoryUsageRatio << " %" << endl;
-		cout << setprecision(DefaultPrecision);
-	cout << "--------------------------------------" << endl;
-	
-	cout << endl;
-}
-
-// --- PROBLEM POOL OBJECT ---
-
-ProblemPool::ProblemPool(const ConstructorConfiguration& Configuration)
-{
-    PoolSize = Configuration.PoolSize;
-	
-	SystemDimension           = Configuration.SystemDimension;
-	NumberOfControlParameters = Configuration.NumberOfControlParameters;
-	NumberOfSharedParameters  = Configuration.NumberOfSharedParameters;
-	NumberOfAccessories       = Configuration.NumberOfAccessories;
-	
-	p_TimeDomain        = AllocateHostMemory<double>( PoolSize * 2 );
-	p_ActualState       = AllocateHostMemory<double>( PoolSize * SystemDimension );
-	p_ControlParameters = AllocateHostMemory<double>( PoolSize * NumberOfControlParameters );
-	p_SharedParameters  = AllocateHostMemory<double>( NumberOfSharedParameters );
-	p_Accessories       = AllocateHostMemory<double>( PoolSize * NumberOfAccessories );
-	
-	cout << "Object for problem pool is successfully created! Required memory allocations have been done" << endl << endl;
-}
-
-ProblemPool::~ProblemPool()
-{
-    delete[] p_TimeDomain;
-	delete[] p_ActualState;
-	delete[] p_ControlParameters;
-	delete[] p_SharedParameters;
-	delete[] p_Accessories;
-	
-	cout << "Object for problem pool is deleted! Every memory have been deallocated!" << endl << endl;
-}
-
-void ProblemPool::Set(int ProblemNumber, VariableSelection ActualVariable, int SerialNumber, double Value)
-{
-	int idx = ProblemNumber + SerialNumber*PoolSize;
-	
-	switch (ActualVariable)
-	{
-		case TimeDomain:        p_TimeDomain[idx]        = Value; break;
-		case ActualState:       p_ActualState[idx]       = Value; break;
-		case ControlParameters: p_ControlParameters[idx] = Value; break;
-		case Accessories:       p_Accessories[idx]       = Value; break;
-	}
-}
-
-void ProblemPool::SetShared(int SerialNumber, double Value)
-{
-	p_SharedParameters[SerialNumber] = Value;
-}
-
-double ProblemPool::Get(int ProblemNumber, VariableSelection ActualVariable, int SerialNumber)
-{
-	int idx = ProblemNumber + SerialNumber*PoolSize;
-	
-	double Value;
-	switch (ActualVariable)
-	{
-		case TimeDomain:        Value = p_TimeDomain[idx];        break;
-		case ActualState:       Value = p_ActualState[idx];       break;
-		case ControlParameters: Value = p_ControlParameters[idx]; break;
-		case Accessories:       Value = p_Accessories[idx];       break;
-	}
-	
-	return Value;
-}
-
-double ProblemPool::GetShared(int SerialNumber)
-{
-	double Value = p_SharedParameters[SerialNumber];
-	
-	return Value;
-}
-
-void ProblemPool::Print(VariableSelection ActualVariable)
-{
-	ofstream DataFile;
-	int NumberOfRows;
-	int NumberOfColumns;
-	double* PointerToActualData;
-	
-	switch (ActualVariable)
-	{
-		case TimeDomain:	    DataFile.open ( "TimeDomainInPool.txt" );
-								NumberOfRows    = PoolSize;
-								NumberOfColumns = 2;
-								PointerToActualData = p_TimeDomain; break;
-		case ActualState:	    DataFile.open ( "ActualStateInPool.txt" );
-								NumberOfRows    = PoolSize;
-								NumberOfColumns = SystemDimension;
-								PointerToActualData = p_ActualState; break;
-		case ControlParameters: DataFile.open ( "ControlParametersInPool.txt" ); 
-								NumberOfRows    = PoolSize;		
-								NumberOfColumns = NumberOfControlParameters;
-								PointerToActualData = p_ControlParameters; break;
-		case SharedParameters:  DataFile.open ( "SharedParametersInPool.txt" ); 
-								NumberOfRows    = NumberOfSharedParameters;		
-								NumberOfColumns = 1;
-								PointerToActualData = p_SharedParameters; break;
-		case Accessories:		DataFile.open ( "AccessoriesInPool.txt" );
-								NumberOfRows    = PoolSize;
-								NumberOfColumns = NumberOfAccessories;
-								PointerToActualData = p_Accessories; break;
-	}
-		
-	int Width = 18;
-	DataFile.precision(10);
-	DataFile.flags(ios::scientific);
-	
-	int idx;
-	for (int i=0; i<NumberOfRows; i++)
-	{
-		for (int j=0; j<NumberOfColumns; j++)
-		{
-			idx = i + j*NumberOfRows;
-			DataFile.width(Width); DataFile << PointerToActualData[idx] << ',';
-		}
-		DataFile << '\n';
-	}
+	std::cout << std::endl;
 }
 
 // --- PROBLEM SOLVER OBJECT ---
@@ -319,6 +143,8 @@ ProblemSolver::ProblemSolver(const ConstructorConfiguration& Configuration, int 
 	gpuErrCHK( cudaStreamCreate(&Stream) );
 	gpuErrCHK( cudaEventCreate(&Event) );
 	
+	std::cout << "Creating a SolverObject ..." << std::endl;
+	
 	KernelParameters.NumberOfThreads = Configuration.NumberOfThreads;
 	
 	KernelParameters.SystemDimension           = Configuration.SystemDimension;
@@ -326,6 +152,37 @@ ProblemSolver::ProblemSolver(const ConstructorConfiguration& Configuration, int 
 	KernelParameters.NumberOfSharedParameters  = Configuration.NumberOfSharedParameters;
 	KernelParameters.NumberOfEvents            = Configuration.NumberOfEvents;
 	KernelParameters.NumberOfAccessories       = Configuration.NumberOfAccessories;
+	KernelParameters.DenseOutputNumberOfPoints = Configuration.DenseOutputNumberOfPoints;
+	
+	SizeOfTimeDomain        = KernelParameters.NumberOfThreads * 2;
+	SizeOfActualState       = KernelParameters.NumberOfThreads * KernelParameters.SystemDimension;
+	SizeOfControlParameters = KernelParameters.NumberOfThreads * KernelParameters.NumberOfControlParameters;
+	SizeOfSharedParameters  = KernelParameters.NumberOfSharedParameters;
+	SizeOfAccessories       = KernelParameters.NumberOfThreads * KernelParameters.NumberOfAccessories;
+	SizeOfEvents            = KernelParameters.NumberOfThreads * KernelParameters.NumberOfEvents;
+	
+	SizeOfDenseOutputIndex         = KernelParameters.NumberOfThreads;
+	SizeOfDenseOutputTimeInstances = KernelParameters.NumberOfThreads * KernelParameters.DenseOutputNumberOfPoints;
+	SizeOfDenseOutputStates        = KernelParameters.NumberOfThreads * KernelParameters.SystemDimension * KernelParameters.DenseOutputNumberOfPoints;
+	
+	GlobalMemoryRequired = sizeof(double) * ( SizeOfTimeDomain + 11*SizeOfActualState + SizeOfControlParameters + SizeOfSharedParameters + SizeOfAccessories + \
+                                              2*SizeOfEvents + 2*KernelParameters.SystemDimension + KernelParameters.NumberOfEvents + \
+											  SizeOfDenseOutputTimeInstances + SizeOfDenseOutputStates ) + \
+						   sizeof(int) * ( 2*SizeOfEvents + 2*KernelParameters.NumberOfEvents + SizeOfDenseOutputIndex );
+	
+	cudaMemGetInfo( &GlobalMemoryFree, &GlobalMemoryTotal );
+	std::cout << "   Required global memory:       " << GlobalMemoryRequired/1024/1024 << "Mb" << std::endl;
+	std::cout << "   Available free global memory: " << GlobalMemoryFree/1024/1024     << "Mb" << std::endl;
+	std::cout << "   Total global memory:          " << GlobalMemoryTotal/1024/1024    << "Mb" << std::endl;
+	
+	if ( GlobalMemoryRequired >= GlobalMemoryFree )
+	{
+        std::cerr << "   ERROR: the required amount of global memory is larger than the free!" << std::endl;
+		std::cerr << "          Try to reduce the number of points of the DenseOutput or reduce the NumberOfThreads!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+	
+	std::cout << std::endl;
 	
 	h_BT_RK4[0] = 1.0/6.0;
 	
@@ -365,35 +222,99 @@ ProblemSolver::ProblemSolver(const ConstructorConfiguration& Configuration, int 
 	DynamicSharedMemoryRK4_EH0    = KernelParameters.NumberOfSharedParameters*sizeof(double);
 	
 	
-	h_TimeDomain        = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfThreads * 2 );
-	h_ActualState       = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.SystemDimension );
-	h_ControlParameters = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfControlParameters );
-	h_SharedParameters  = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfSharedParameters );
-	h_Accessories       = AllocateHostPinnedMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfAccessories );
+	h_TimeDomain        = AllocateHostPinnedMemory<double>( SizeOfTimeDomain );
+	h_ActualState       = AllocateHostPinnedMemory<double>( SizeOfActualState );
+	h_ControlParameters = AllocateHostPinnedMemory<double>( SizeOfControlParameters );
+	h_SharedParameters  = AllocateHostPinnedMemory<double>( SizeOfSharedParameters );
+	h_Accessories       = AllocateHostPinnedMemory<double>( SizeOfAccessories );
+	
+	h_DenseOutputIndex         = AllocateHostPinnedMemory<int>( SizeOfDenseOutputIndex );
+	h_DenseOutputTimeInstances = AllocateHostPinnedMemory<double>( SizeOfDenseOutputTimeInstances );
+	h_DenseOutputStates        = AllocateHostPinnedMemory<double>( SizeOfDenseOutputStates );
 	
 	
-	KernelParameters.d_TimeDomain        = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * 2 );
-	KernelParameters.d_ActualState       = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.SystemDimension );
-	KernelParameters.d_ControlParameters = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfControlParameters );
-	KernelParameters.d_SharedParameters  = AllocateDeviceMemory<double>( KernelParameters.NumberOfSharedParameters );
-	KernelParameters.d_Accessories       = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfAccessories );
+	KernelParameters.d_TimeDomain        = AllocateDeviceMemory<double>( SizeOfTimeDomain );
+	KernelParameters.d_ActualState       = AllocateDeviceMemory<double>( SizeOfActualState );
+	KernelParameters.d_ControlParameters = AllocateDeviceMemory<double>( SizeOfControlParameters );
+	KernelParameters.d_SharedParameters  = AllocateDeviceMemory<double>( SizeOfSharedParameters );
+	KernelParameters.d_Accessories       = AllocateDeviceMemory<double>( SizeOfAccessories );
 	
-	KernelParameters.d_State    = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.SystemDimension );
-	KernelParameters.d_Stages   = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.SystemDimension * 6 );
+	KernelParameters.d_State    = AllocateDeviceMemory<double>( SizeOfActualState );
+	KernelParameters.d_Stages   = AllocateDeviceMemory<double>( SizeOfActualState * 6 );
 	
-	KernelParameters.d_NextState = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.SystemDimension );
+	KernelParameters.d_NextState = AllocateDeviceMemory<double>( SizeOfActualState );
 	
-	KernelParameters.d_Error           = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.SystemDimension );
-	KernelParameters.d_ActualTolerance = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.SystemDimension );
+	KernelParameters.d_Error           = AllocateDeviceMemory<double>( SizeOfActualState );
+	KernelParameters.d_ActualTolerance = AllocateDeviceMemory<double>( SizeOfActualState );
 	
-	KernelParameters.d_ActualEventValue        = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfEvents );
-	KernelParameters.d_NextEventValue          = AllocateDeviceMemory<double>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfEvents );
-	KernelParameters.d_EventCounter            = AllocateDeviceMemory<int>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfEvents );
-	KernelParameters.d_EventEquilibriumCounter = AllocateDeviceMemory<int>( KernelParameters.NumberOfThreads * KernelParameters.NumberOfEvents );
+	KernelParameters.d_ActualEventValue        = AllocateDeviceMemory<double>( SizeOfEvents );
+	KernelParameters.d_NextEventValue          = AllocateDeviceMemory<double>( SizeOfEvents );
+	KernelParameters.d_EventCounter            = AllocateDeviceMemory<int>( SizeOfEvents );
+	KernelParameters.d_EventEquilibriumCounter = AllocateDeviceMemory<int>( SizeOfEvents );
 	
-	KernelParameters.InitialTimeStep = 0;
+	KernelParameters.d_RelativeTolerance       = AllocateDeviceMemory<double>( KernelParameters.SystemDimension );
+	KernelParameters.d_AbsoluteTolerance       = AllocateDeviceMemory<double>( KernelParameters.SystemDimension );
+	KernelParameters.d_EventTolerance          = AllocateDeviceMemory<double>( KernelParameters.NumberOfEvents );
+	KernelParameters.d_EventDirection          = AllocateDeviceMemory<int>( KernelParameters.NumberOfEvents );
+	KernelParameters.d_EventStopCounter        = AllocateDeviceMemory<int>( KernelParameters.NumberOfEvents );
 	
-	cout << "Object for Parameters scan is successfully created! Required memory allocations have been done" << endl << endl;
+	KernelParameters.d_DenseOutputIndex         = AllocateDeviceMemory<int>( SizeOfDenseOutputIndex );
+	KernelParameters.d_DenseOutputTimeInstances = AllocateDeviceMemory<double>( SizeOfDenseOutputTimeInstances );
+	KernelParameters.d_DenseOutputStates        = AllocateDeviceMemory<double>( SizeOfDenseOutputStates );
+	
+	
+	KernelParameters.InitialTimeStep = 1e-2;
+	KernelParameters.ActiveThreads   = KernelParameters.NumberOfThreads;
+	
+	SolverType = RKCK45;
+	
+	KernelParameters.MaximumTimeStep     = 1.0e6;
+	KernelParameters.MinimumTimeStep     = 1.0e-12;
+	KernelParameters.TimeStepGrowLimit   = 5.0;
+	KernelParameters.TimeStepShrinkLimit = 0.1;
+	
+	KernelParameters.MaxStepInsideEvent  = 50;
+	
+	cudaDeviceProp SelectedDeviceProperties;
+	cudaGetDeviceProperties(&SelectedDeviceProperties, AssociatedDevice);
+	BlockSize  = SelectedDeviceProperties.warpSize;
+	
+	GridSize = KernelParameters.NumberOfThreads/BlockSize + (KernelParameters.NumberOfThreads % BlockSize == 0 ? 0:1);
+	
+	KernelParameters.DenseOutputEnabled  = 0;
+	KernelParameters.DenseOutputTimeStep = -1e-2;
+	
+	KernelParameters.MaximumNumberOfTimeSteps = 0;
+	
+	std::cout << "   Total shared memory required:  " << DynamicSharedMemoryRKCK45 / 1024                  << " Kb" << std::endl;
+	std::cout << "   Total shared memory available: " << SelectedDeviceProperties.sharedMemPerBlock / 1024 << " Kb" << std::endl;
+	
+	if ( DynamicSharedMemoryRKCK45 >= SelectedDeviceProperties.sharedMemPerBlock )
+	{
+        std::cerr << "   ERROR: the required amount of shared memory is larger than the free!" << std::endl;
+		std::cerr << "          Try to reduce the number the SharedParameters!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+	
+	double DefaultTolerances = 1e-8;
+	for (int i=0; i<KernelParameters.SystemDimension; i++)
+	{
+		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_RelativeTolerance + i, &DefaultTolerances, sizeof(double), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_AbsoluteTolerance + i, &DefaultTolerances, sizeof(double), cudaMemcpyHostToDevice, Stream) );
+	}
+	
+	DefaultTolerances = 1e-6;
+	int EventStopCounterAndDirection = 0;
+	for (int i=0; i<KernelParameters.NumberOfEvents; i++)
+	{
+		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventDirection   + i, &EventStopCounterAndDirection, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventStopCounter + i, &EventStopCounterAndDirection, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventTolerance   + i, &DefaultTolerances,         sizeof(double), cudaMemcpyHostToDevice, Stream) );
+	}
+	
+	std::cout << std::endl << std::endl;
+	
+	std::cout << "Object for Parameters scan is successfully created! Required memory allocations have been done" << std::endl << std::endl;
 }
 
 ProblemSolver::~ProblemSolver()
@@ -428,270 +349,414 @@ ProblemSolver::~ProblemSolver()
 	gpuErrCHK( cudaFree(KernelParameters.d_EventCounter) );
 	gpuErrCHK( cudaFree(KernelParameters.d_EventEquilibriumCounter) );
 	
-	cout << "Object for Parameters scan is deleted! Every memory have been deallocated!" << endl << endl;
+	gpuErrCHK( cudaFree(KernelParameters.d_RelativeTolerance) );
+	gpuErrCHK( cudaFree(KernelParameters.d_AbsoluteTolerance) );
+	gpuErrCHK( cudaFree(KernelParameters.d_EventTolerance) );
+	gpuErrCHK( cudaFree(KernelParameters.d_EventDirection) );
+	gpuErrCHK( cudaFree(KernelParameters.d_EventStopCounter) );
+	
+	std::cout << "Object for Parameters scan is deleted! Every memory have been deallocated!" << std::endl << std::endl;
 }
 
-void ProblemSolver::LinearCopyFromPoolHostAndDevice(const ProblemPool& Pool, int CopyStartIndexInPool, int CopyStartIndexInSolverObject, int NumberOfElementsCopied, VariableSelection CopyMode)
+// Problem scope
+void ProblemSolver::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, double Value)
 {
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	double* h_CopyStart;
-	double* d_CopyStart;
-	double* p_CopyStart;
-	
-	int CopySize = NumberOfElementsCopied * sizeof(double);
-	
-	if ( (CopyMode==All) || (CopyMode==TimeDomain) )
+	if ( ProblemNumber >= KernelParameters.NumberOfThreads )
 	{
-		for (int i=0; i<2; i++)
-		{
-			h_CopyStart = h_TimeDomain + CopyStartIndexInSolverObject + i*KernelParameters.NumberOfThreads;
-			d_CopyStart = KernelParameters.d_TimeDomain + CopyStartIndexInSolverObject + i*KernelParameters.NumberOfThreads;
-			
-			p_CopyStart = Pool.p_TimeDomain + CopyStartIndexInPool + i*Pool.PoolSize;
-			
-			memcpy(h_CopyStart, p_CopyStart, CopySize);
-			gpuErrCHK( cudaMemcpy(d_CopyStart, h_CopyStart, CopySize, cudaMemcpyHostToDevice) );
-		}
-	}
-	
-	if ( (CopyMode==All) || (CopyMode==ActualState) )
-	{
-		for (int i=0; i<KernelParameters.SystemDimension; i++)
-		{
-			h_CopyStart = h_ActualState + CopyStartIndexInSolverObject + i*KernelParameters.NumberOfThreads;
-			d_CopyStart = KernelParameters.d_ActualState + CopyStartIndexInSolverObject + i*KernelParameters.NumberOfThreads;
-			
-			p_CopyStart = Pool.p_ActualState + CopyStartIndexInPool + i*Pool.PoolSize;
-			
-			memcpy(h_CopyStart, p_CopyStart, CopySize);
-			gpuErrCHK( cudaMemcpy(d_CopyStart, h_CopyStart, CopySize, cudaMemcpyHostToDevice) );
-		}
-	}
-	
-	if ( (CopyMode==All) || (CopyMode==ControlParameters) )
-	{
-		for (int i=0; i<KernelParameters.NumberOfControlParameters; i++)
-		{
-			h_CopyStart = h_ControlParameters + CopyStartIndexInSolverObject + i*KernelParameters.NumberOfThreads;
-			d_CopyStart = KernelParameters.d_ControlParameters + CopyStartIndexInSolverObject + i*KernelParameters.NumberOfThreads;
-			
-			p_CopyStart = Pool.p_ControlParameters + CopyStartIndexInPool + i*Pool.PoolSize;
-			
-			memcpy(h_CopyStart, p_CopyStart, CopySize);
-			gpuErrCHK( cudaMemcpy(d_CopyStart, h_CopyStart, CopySize, cudaMemcpyHostToDevice) );
-		}
-	}
-	
-	if ( (CopyMode==All) || (CopyMode==Accessories) )
-	{
-		for (int i=0; i<KernelParameters.NumberOfAccessories; i++)
-		{
-			h_CopyStart = h_Accessories + CopyStartIndexInSolverObject + i*KernelParameters.NumberOfThreads;
-			d_CopyStart = KernelParameters.d_Accessories + CopyStartIndexInSolverObject + i*KernelParameters.NumberOfThreads;
-			
-			p_CopyStart = Pool.p_Accessories + CopyStartIndexInPool + i*Pool.PoolSize;
-			
-			memcpy(h_CopyStart, p_CopyStart, CopySize);
-			gpuErrCHK( cudaMemcpy(d_CopyStart, h_CopyStart, CopySize, cudaMemcpyHostToDevice) );
-		}
-	}
-}
-
-void ProblemSolver::SharedCopyFromPoolHostAndDevice(const ProblemPool& Pool)
-{
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	double* h_CopyStart = h_SharedParameters;
-	double* d_CopyStart = KernelParameters.d_SharedParameters;
-	double* p_CopyStart = Pool.p_SharedParameters;
-	
-	int CopySize = KernelParameters.NumberOfSharedParameters * sizeof(double);
-	
-	memcpy(h_CopyStart, p_CopyStart, CopySize);
-	gpuErrCHK( cudaMemcpy(d_CopyStart, h_CopyStart, CopySize, cudaMemcpyHostToDevice) );
-}
-
-void ProblemSolver::SingleSetHost(int ProblemNumber, VariableSelection ActualVariable, int SerialNumber, double Value)
-{
-	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads;
-	
-	switch (ActualVariable)
-	{
-		case TimeDomain:        h_TimeDomain[idx]        = Value; break;
-		case ActualState:       h_ActualState[idx]       = Value; break;
-		case ControlParameters: h_ControlParameters[idx] = Value; break;
-		case Accessories:       h_Accessories[idx]       = Value; break;
-	}
-}
-
-void ProblemSolver::SingleSetHostAndDevice(int ProblemNumber, VariableSelection ActualVariable, int SerialNumber, double Value)
-{
-	gpuErrCHK( cudaSetDevice(Device) );
+        std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+		     << "The index of the problem number cannot be larger than " << KernelParameters.NumberOfThreads-1 << "! "\
+			 << "(The indexing starts from zero)\n";
+        exit(EXIT_FAILURE);
+    }
 	
 	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads;
 	
-	switch (ActualVariable)
+	switch (Variable)
 	{
-		case TimeDomain: h_TimeDomain[idx] = Value;
-						 gpuErrCHK( cudaMemcpy(KernelParameters.d_TimeDomain +idx, h_TimeDomain +idx, sizeof(double), cudaMemcpyHostToDevice) ); break;
+		case TimeDomain:
+			if ( SerialNumber >= 2 )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The serial number of the TimeDomain cannot be larger than " << 2-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			h_TimeDomain[idx] = Value;
+			break;
 		
-		case ActualState: h_ActualState[idx] = Value;
-						  gpuErrCHK( cudaMemcpy(KernelParameters.d_ActualState+idx, h_ActualState+idx, sizeof(double), cudaMemcpyHostToDevice) ); break;
-						  
-		case ControlParameters: h_ControlParameters[idx] = Value;
-								gpuErrCHK( cudaMemcpy(KernelParameters.d_ControlParameters+idx, h_ControlParameters+idx, sizeof(double), cudaMemcpyHostToDevice) ); break;
+		case ActualState:
+			if ( SerialNumber >= KernelParameters.SystemDimension )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The serial number of the ActualState cannot be larger than " << KernelParameters.SystemDimension-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			h_ActualState[idx] = Value;
+			break;
 		
-		case Accessories: h_Accessories[idx] = Value;
-						  gpuErrCHK( cudaMemcpy(KernelParameters.d_Accessories+idx, h_Accessories+idx, sizeof(double), cudaMemcpyHostToDevice) ); break;
+		case ControlParameters:
+			if ( SerialNumber >= KernelParameters.NumberOfControlParameters )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The serial number of the ControlParameters cannot be larger than " << KernelParameters.NumberOfControlParameters-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			h_ControlParameters[idx] = Value;
+			break;
+		
+		case Accessories:
+			if ( SerialNumber >= KernelParameters.NumberOfAccessories )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The serial number of the Accessories cannot be larger than " << KernelParameters.NumberOfAccessories-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			h_Accessories[idx] = Value;
+			break;
+		
+		case DenseTime:
+			if ( SerialNumber >= KernelParameters.DenseOutputNumberOfPoints )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The serial number of the DenseTime cannot be larger than " << KernelParameters.DenseOutputNumberOfPoints-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			h_DenseOutputTimeInstances[idx] = Value;
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
 	}
 }
 
-void ProblemSolver::SetSharedHost(int SerialNumber, double Value)
+// Dense state
+void ProblemSolver::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep, double Value)
 {
-	h_SharedParameters[SerialNumber] = Value;
-}
-
-void ProblemSolver::SetSharedHostAndDevice(int SerialNumber, double Value)
-{
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	h_SharedParameters[SerialNumber] = Value;
-	
-	gpuErrCHK( cudaMemcpy(KernelParameters.d_SharedParameters+SerialNumber, h_SharedParameters+SerialNumber, sizeof(double), cudaMemcpyHostToDevice) );
-}
-
-void ProblemSolver::SynchroniseFromHostToDevice(VariableSelection ActualVariable)
-{
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	switch (ActualVariable)
+	if ( ProblemNumber >= KernelParameters.NumberOfThreads )
 	{
-		case TimeDomain:        gpuErrCHK( cudaMemcpy(KernelParameters.d_TimeDomain,        h_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice) ); break;
-		case ActualState:       gpuErrCHK( cudaMemcpy(KernelParameters.d_ActualState,       h_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice) ); break;
-		case ControlParameters: gpuErrCHK( cudaMemcpy(KernelParameters.d_ControlParameters, h_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice) ); break;
-		case Accessories:       gpuErrCHK( cudaMemcpy(KernelParameters.d_Accessories,       h_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice) ); break;
+        std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+		     << "The index of the problem number cannot be larger than " << KernelParameters.NumberOfThreads-1 << "! "\
+			 << "(The indexing starts from zero)\n";
+        exit(EXIT_FAILURE);
+    }
+	
+	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads + TimeStep*KernelParameters.NumberOfThreads*KernelParameters.SystemDimension;
+	
+	switch (Variable)
+	{
+		case DenseState:
+			if ( SerialNumber >= KernelParameters.SystemDimension )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The serial number of the DenseState cannot be larger than " << KernelParameters.SystemDimension-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			if ( TimeStep >= KernelParameters.DenseOutputNumberOfPoints )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The time step number of the DenseState cannot be larger than " << KernelParameters.DenseOutputNumberOfPoints-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			h_DenseOutputStates[idx] = Value;
+			break;
 		
-		case All: gpuErrCHK( cudaMemcpy(KernelParameters.d_TimeDomain,        h_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice) );
-				  gpuErrCHK( cudaMemcpy(KernelParameters.d_ActualState,       h_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice) );
-				  gpuErrCHK( cudaMemcpy(KernelParameters.d_ControlParameters, h_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice) );
-				  gpuErrCHK( cudaMemcpy(KernelParameters.d_Accessories,       h_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice) ); break;
+		default :
+			std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
 	}
 }
 
-void ProblemSolver::SynchroniseFromHostToDeviceAsync(VariableSelection ActualVariable)
+// Global scope
+void ProblemSolver::SetHost(VariableSelection Variable, int SerialNumber, double Value)
 {
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	switch (ActualVariable)
+	switch (Variable)
 	{
-		case TimeDomain:        gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_TimeDomain,        h_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
-		case ActualState:       gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ActualState,       h_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
-		case ControlParameters: gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ControlParameters, h_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
-		case Accessories:       gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_Accessories,       h_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
+		case SharedParameters:
+			if ( SerialNumber >= KernelParameters.NumberOfSharedParameters )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The serial number of the SharedParameters cannot be larger than " << KernelParameters.NumberOfSharedParameters-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			h_SharedParameters[SerialNumber] = Value;
+			break;
 		
-		case All: gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_TimeDomain,        h_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-				  gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ActualState,       h_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-				  gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ControlParameters, h_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-				  gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_Accessories,       h_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyHostToDevice, Stream) ); break;
+		default :
+			std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
 	}
 }
 
-void ProblemSolver::SynchroniseFromDeviceToHost(VariableSelection ActualVariable)
+void ProblemSolver::SynchroniseFromHostToDevice(VariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	switch (ActualVariable)
+	switch (Variable)
 	{
-		case TimeDomain:        gpuErrCHK( cudaMemcpy(h_TimeDomain,        KernelParameters.d_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) ); break;
-		case ActualState:       gpuErrCHK( cudaMemcpy(h_ActualState,       KernelParameters.d_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) ); break;
-		case ControlParameters: gpuErrCHK( cudaMemcpy(h_ControlParameters, KernelParameters.d_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) ); break;
-		case Accessories:       gpuErrCHK( cudaMemcpy(h_Accessories,       KernelParameters.d_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) ); break;
+		case TimeDomain:
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+			
+		case ActualState:
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ActualState, h_ActualState, SizeOfActualState*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+			
+		case ControlParameters:
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+			
+		case SharedParameters:
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_SharedParameters, h_SharedParameters, SizeOfSharedParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+			
+		case Accessories:
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_Accessories, h_Accessories, SizeOfAccessories*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
 		
-		case All: gpuErrCHK( cudaMemcpy(h_TimeDomain,        KernelParameters.d_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) );
-				  gpuErrCHK( cudaMemcpy(h_ActualState,       KernelParameters.d_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) );
-				  gpuErrCHK( cudaMemcpy(h_ControlParameters, KernelParameters.d_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) );
-				  gpuErrCHK( cudaMemcpy(h_Accessories,       KernelParameters.d_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) ); break;
+		case DenseOutput:
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputIndex,                 h_DenseOutputIndex,            SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputStates,               h_DenseOutputStates,        SizeOfDenseOutputStates*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+			
+		case All:
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_TimeDomain,               h_TimeDomain,        SizeOfTimeDomain*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ActualState,             h_ActualState,       SizeOfActualState*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_SharedParameters,   h_SharedParameters,  SizeOfSharedParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_Accessories,             h_Accessories,       SizeOfAccessories*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputIndex,                 h_DenseOutputIndex,            SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputStates,               h_DenseOutputStates,        SizeOfDenseOutputStates*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function SynchroniseFromHostToDevice:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
 	}
 }
 
-void ProblemSolver::SynchroniseFromDeviceToHostAsync(VariableSelection ActualVariable)
+void ProblemSolver::SynchroniseFromDeviceToHost(VariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	switch (ActualVariable)
+	switch (Variable)
 	{
-		case TimeDomain:        gpuErrCHK( cudaMemcpyAsync(h_TimeDomain,        KernelParameters.d_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
-		case ActualState:       gpuErrCHK( cudaMemcpyAsync(h_ActualState,       KernelParameters.d_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
-		case ControlParameters: gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, KernelParameters.d_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
-		case Accessories:       gpuErrCHK( cudaMemcpyAsync(h_Accessories,       KernelParameters.d_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
+		case TimeDomain:
+			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, KernelParameters.d_TimeDomain, SizeOfTimeDomain*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			break;
+			
+		case ActualState:
+			gpuErrCHK( cudaMemcpyAsync(h_ActualState, KernelParameters.d_ActualState, SizeOfActualState*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			break;
+			
+		case ControlParameters:
+			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, KernelParameters.d_ControlParameters, SizeOfControlParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			break;
+			
+		case SharedParameters:
+			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, KernelParameters.d_SharedParameters, SizeOfSharedParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			break;
+			
+		case Accessories:
+			gpuErrCHK( cudaMemcpyAsync(h_Accessories, KernelParameters.d_Accessories, SizeOfAccessories*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			break;
 		
-		case All: gpuErrCHK( cudaMemcpyAsync(h_TimeDomain,        KernelParameters.d_TimeDomain,                                                 2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-				  gpuErrCHK( cudaMemcpyAsync(h_ActualState,       KernelParameters.d_ActualState,                 KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-				  gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, KernelParameters.d_ControlParameters, KernelParameters.NumberOfControlParameters*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-				  gpuErrCHK( cudaMemcpyAsync(h_Accessories,       KernelParameters.d_Accessories,             KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost, Stream) ); break;
+		case DenseOutput:
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex,                 KernelParameters.d_DenseOutputIndex,            SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, KernelParameters.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates,               KernelParameters.d_DenseOutputStates,        SizeOfDenseOutputStates*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			break;
+			
+		case All:
+			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain,               KernelParameters.d_TimeDomain,        SizeOfTimeDomain*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ActualState,             KernelParameters.d_ActualState,       SizeOfActualState*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, KernelParameters.d_ControlParameters, SizeOfControlParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters,   KernelParameters.d_SharedParameters,  SizeOfSharedParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_Accessories,             KernelParameters.d_Accessories,       SizeOfAccessories*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex,                 KernelParameters.d_DenseOutputIndex,            SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, KernelParameters.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates,               KernelParameters.d_DenseOutputStates,        SizeOfDenseOutputStates*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function SynchroniseFromDeviceToHost:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
 	}
 }
 
-void ProblemSolver::SynchroniseSharedFromHostToDevice()
+// Problem scope
+double ProblemSolver::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber)
 {
-	gpuErrCHK( cudaSetDevice(Device) );
+	if ( ProblemNumber >= KernelParameters.NumberOfThreads )
+	{
+        std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+		     << "The index of the problem number cannot be larger than " << KernelParameters.NumberOfThreads-1 << "! "\
+			 << "(The indexing starts from zero)\n";
+        exit(EXIT_FAILURE);
+    }
 	
-	gpuErrCHK( cudaMemcpy(KernelParameters.d_SharedParameters, h_SharedParameters, KernelParameters.NumberOfSharedParameters*sizeof(double), cudaMemcpyHostToDevice) );
-}
-
-void ProblemSolver::SynchroniseSharedFromHostToDeviceAsync()
-{
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_SharedParameters, h_SharedParameters, KernelParameters.NumberOfSharedParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-}
-
-void ProblemSolver::SynchroniseSharedFromDeviceToHost()
-{
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	gpuErrCHK( cudaMemcpy(h_SharedParameters, KernelParameters.d_SharedParameters, KernelParameters.NumberOfSharedParameters*sizeof(double), cudaMemcpyDeviceToHost) );
-}
-
-void ProblemSolver::SynchroniseSharedFromDeviceToHostAsync()
-{
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, KernelParameters.d_SharedParameters, KernelParameters.NumberOfSharedParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-}
-
-double ProblemSolver::SingleGetHost(int ProblemNumber, VariableSelection ActualVariable, int SerialNumber)
-{
 	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads;
 	
 	double Value;
-	switch (ActualVariable)
+	switch (Variable)
 	{
-		case TimeDomain:        Value = h_TimeDomain[idx];        break;
-		case ActualState:       Value = h_ActualState[idx];       break;
-		case ControlParameters: Value = h_ControlParameters[idx]; break;
-		case Accessories:       Value = h_Accessories[idx];       break;
+		case TimeDomain:
+			if ( SerialNumber >= 2 )
+			{
+				std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+				     << "The serial number of the TimeDomain cannot be larger than " << 2-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			Value = h_TimeDomain[idx];
+			break;
+			
+		case ActualState:
+			if ( SerialNumber >= KernelParameters.SystemDimension )
+			{
+				std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+				     << "The serial number of the ActualState cannot be larger than " << KernelParameters.SystemDimension-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			Value = h_ActualState[idx];
+			break;
+			
+		case ControlParameters:
+			if ( SerialNumber >= KernelParameters.NumberOfControlParameters )
+			{
+				std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+				     << "The serial number of the ControlParameters cannot be larger than " << KernelParameters.NumberOfControlParameters-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			Value = h_ControlParameters[idx];
+			break;
+			
+		case Accessories:
+			if ( SerialNumber >= KernelParameters.NumberOfAccessories )
+			{
+				std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+				     << "The serial number of the Accessories cannot be larger than " << KernelParameters.NumberOfAccessories-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			Value = h_Accessories[idx];
+			break;
+		
+		case DenseTime:
+			if ( SerialNumber >= KernelParameters.DenseOutputNumberOfPoints )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The serial number of the DenseTime cannot be larger than " << KernelParameters.DenseOutputNumberOfPoints-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			Value = h_DenseOutputTimeInstances[idx];
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
 	}
 	
 	return Value;
 }
 
-double ProblemSolver::SharedGetHost(int SerialNumber)
+// Dense state
+double ProblemSolver::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep)
 {
-	double Value = h_SharedParameters[SerialNumber];
+	if ( ProblemNumber >= KernelParameters.NumberOfThreads )
+	{
+        std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+		     << "The index of the problem number cannot be larger than " << KernelParameters.NumberOfThreads-1 << "! "\
+			 << "(The indexing starts from zero)\n";
+        exit(EXIT_FAILURE);
+    }
+	
+	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads + TimeStep*KernelParameters.NumberOfThreads*KernelParameters.SystemDimension;
+	
+	double Value;
+	switch (Variable)
+	{
+		case DenseState:
+			if ( SerialNumber >= KernelParameters.SystemDimension )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The serial number of the DenseState cannot be larger than " << KernelParameters.SystemDimension-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			if ( TimeStep >= KernelParameters.DenseOutputNumberOfPoints )
+			{
+				std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
+				     << "The time step number of the DenseState cannot be larger than " << KernelParameters.DenseOutputNumberOfPoints-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			Value = h_DenseOutputStates[idx];
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
+	}
 	
 	return Value;
 }
 
-void ProblemSolver::Print(VariableSelection ActualVariable)
+// Global scope
+double ProblemSolver::GetHost(VariableSelection Variable, int SerialNumber)
 {
-	ofstream DataFile;
+	double Value;
+	switch (Variable)
+	{
+		case SharedParameters:
+			if ( SerialNumber >= KernelParameters.NumberOfSharedParameters )
+			{
+				std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+				     << "The serial number of the SharedParameters cannot be larger than " << KernelParameters.NumberOfSharedParameters-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			Value = h_SharedParameters[SerialNumber];
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
+	}
+	
+	return Value;
+}
+
+void ProblemSolver::Print(VariableSelection Variable)
+{
+	std::ofstream DataFile;
 	int NumberOfRows;
 	int NumberOfColumns;
 	double* PointerToActualData;
 	
-	switch (ActualVariable)
+	switch (Variable)
 	{
 		case TimeDomain:		DataFile.open ( "TimeDomainInSolverObject.txt" );
 								NumberOfRows = KernelParameters.NumberOfThreads;
@@ -713,11 +778,16 @@ void ProblemSolver::Print(VariableSelection ActualVariable)
 								NumberOfRows = KernelParameters.NumberOfThreads;
 								NumberOfColumns = KernelParameters.NumberOfAccessories;
 								PointerToActualData = h_Accessories; break;
+		
+		default :
+			std::cerr << "ERROR in solver member function Print:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
 	}
 		
 	int Width = 18;
 	DataFile.precision(10);
-	DataFile.flags(ios::scientific);
+	DataFile.flags(std::ios::scientific);
 	
 	int idx;
 	for (int i=0; i<NumberOfRows; i++)
@@ -725,60 +795,426 @@ void ProblemSolver::Print(VariableSelection ActualVariable)
 		for (int j=0; j<NumberOfColumns; j++)
 		{
 			idx = i + j*NumberOfRows;
-			DataFile.width(Width); DataFile << PointerToActualData[idx] << ',';
+			DataFile.width(Width); DataFile << PointerToActualData[idx];
+			if ( j<(NumberOfColumns-1) )
+				DataFile << ',';
 		}
 		DataFile << '\n';
 	}
+	
+	DataFile.close();
 }
 
-void ProblemSolver::Solve(const SolverConfiguration& Configuration)
+void ProblemSolver::Print(VariableSelection Variable, int ThreadID)
+{
+	if ( ( ThreadID >= KernelParameters.NumberOfThreads ) || ( ThreadID < 0 ) )
+	{
+        std::cerr << "ERROR in solver member function Print:" << std::endl << "    "\
+		     << "The index of the problem number cannot be larger than " << KernelParameters.NumberOfThreads-1 << "! "\
+			 << "(The indexing starts from zero)\n";
+        exit(EXIT_FAILURE);
+    }
+	
+	if ( Variable != DenseOutput )
+	{
+        std::cerr << "ERROR in solver member function Print:" << std::endl << "    "\
+			 << "Invalid option for variable selection!\n";
+        exit(EXIT_FAILURE);
+    }
+	
+	std::ofstream DataFile;
+	std::string FileName = "tid_" + std::to_string(ThreadID) + ".txt";
+	DataFile.open ( FileName.c_str() );
+	
+	int Width = 18;
+	DataFile.precision(10);
+	DataFile.flags(std::ios::scientific);
+	
+	int idx;
+	DataFile << "ControlParameters:\n";
+	for (int i=0; i<KernelParameters.NumberOfControlParameters; i++)
+	{
+		idx = ThreadID + i*KernelParameters.NumberOfThreads;
+		DataFile.width(Width); DataFile << h_ControlParameters[idx];
+		if ( i<(KernelParameters.NumberOfControlParameters-1) )
+			DataFile << ',';
+	}
+	DataFile << '\n';
+	
+	DataFile << "SharedParameters:\n";
+	for (int i=0; i<KernelParameters.NumberOfSharedParameters; i++)
+	{
+		DataFile.width(Width); DataFile << h_SharedParameters[i];
+		if ( i<(KernelParameters.NumberOfSharedParameters-1) )
+			DataFile << ',';
+	}
+	DataFile << '\n';
+	
+	DataFile << "Accessories:\n";
+	for (int i=0; i<KernelParameters.NumberOfAccessories; i++)
+	{
+		idx = ThreadID + i*KernelParameters.NumberOfThreads;
+		DataFile.width(Width); DataFile << h_Accessories[idx];
+		if ( i<(KernelParameters.NumberOfAccessories-1) )
+			DataFile << ',';
+	}
+	DataFile << "\n\n";
+	
+	DataFile << "Time series:\n";
+	for (int i=0; i<(h_DenseOutputIndex[ThreadID]+1); i++)
+	{
+		idx = ThreadID + i*KernelParameters.NumberOfThreads;
+		DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx] << ',';
+		
+		for (int j=0; j<KernelParameters.SystemDimension; j++)
+		{
+			idx = ThreadID + j*KernelParameters.NumberOfThreads + i*KernelParameters.NumberOfThreads*KernelParameters.SystemDimension;
+			DataFile.width(Width); DataFile << h_DenseOutputStates[idx];
+			if ( j<(KernelParameters.SystemDimension-1) )
+				DataFile << ',';
+		}
+		DataFile << '\n';
+	}
+	
+	DataFile.close();
+}
+
+// int type
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, int Value)
+{
+	switch (Option)
+	{
+		// Valid int type options
+		case ThreadsPerBlock:
+			BlockSize = Value;
+			GridSize  = KernelParameters.NumberOfThreads/BlockSize + (KernelParameters.NumberOfThreads % BlockSize == 0 ? 0:1);
+			break;
+		
+		case ActiveNumberOfThreads:
+			KernelParameters.ActiveThreads = Value;
+			break;
+		
+		case MaxStepInsideEvent:
+			KernelParameters.MaxStepInsideEvent = Value;
+			break;
+		
+		case DenseOutputEnabled:
+			KernelParameters.DenseOutputEnabled = Value;
+			break;
+		
+		case MaximumNumberOfTimeSteps:
+			KernelParameters.MaximumNumberOfTimeSteps = Value;
+			break;
+		
+		// Invalid option types
+		case InitialTimeStep:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for InitialTimeStep is double! AUTOMATIC CONVERSION TO DOUBLE: " << (double)Value << std::endl << std::endl;
+			KernelParameters.InitialTimeStep = (double)Value;
+			break;
+		
+		case MaximumTimeStep:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for MaximumTimeStep is double! AUTOMATIC CONVERSION TO DOUBLE: " << (double)Value << std::endl << std::endl;
+			KernelParameters.MaximumTimeStep = (double)Value;
+			break;
+		
+		case MinimumTimeStep:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for MinimumTimeStep is double! AUTOMATIC CONVERSION TO DOUBLE: " << (double)Value << std::endl << std::endl;
+			KernelParameters.MinimumTimeStep = (double)Value;
+			break;
+		
+		case TimeStepGrowLimit:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for TimeStepGrowLimit is double! AUTOMATIC CONVERSION TO DOUBLE: " << (double)Value << std::endl << std::endl;
+			KernelParameters.TimeStepGrowLimit = (double)Value;
+			break;
+		
+		case TimeStepShrinkLimit:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for TimeStepShrinkLimit is double! AUTOMATIC CONVERSION TO DOUBLE: " << (double)Value << std::endl << std::endl;
+			KernelParameters.TimeStepShrinkLimit = (double)Value;
+			break;
+		
+		case DenseOutputTimeStep:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for DenseOutputTimeStep is double! AUTOMATIC CONVERSION TO DOUBLE: " << (double)Value << std::endl << std::endl;
+			KernelParameters.DenseOutputTimeStep = (double)Value;
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
+	}
+}
+
+// double type
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, double Value)
+{
+	switch (Option)
+	{		
+		// Valid double type options
+		case InitialTimeStep:
+			KernelParameters.InitialTimeStep = Value;
+			break;
+		
+		case MaximumTimeStep:
+			KernelParameters.MaximumTimeStep = Value;
+			break;
+		
+		case MinimumTimeStep:
+			KernelParameters.MinimumTimeStep = Value;
+			break;
+		
+		case TimeStepGrowLimit:
+			KernelParameters.TimeStepGrowLimit = Value;
+			break;
+		
+		case TimeStepShrinkLimit:
+			KernelParameters.TimeStepShrinkLimit = Value;
+			break;
+		
+		case DenseOutputTimeStep:
+			KernelParameters.DenseOutputTimeStep = Value;
+			break;
+		
+		// Invalid option types
+		case ThreadsPerBlock:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for ThreadsPerBlock is int! AUTOMATIC CONVERSION TO INT: " << (int)Value << std::endl << std::endl;
+			BlockSize = (int)Value;
+			GridSize  = KernelParameters.NumberOfThreads/BlockSize + (KernelParameters.NumberOfThreads % BlockSize == 0 ? 0:1);
+			break;
+		
+		case ActiveNumberOfThreads:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for ActiveNumberOfThreads is int! AUTOMATIC CONVERSION TO INT: " << (int)Value << std::endl << std::endl;
+			KernelParameters.ActiveThreads = (int)Value;
+			break;
+		
+		case MaxStepInsideEvent:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for MaxStepInsideEvent is int! AUTOMATIC CONVERSION TO INT: " << (int)Value << std::endl << std::endl;
+			KernelParameters.MaxStepInsideEvent = (int)Value;
+			break;
+		
+		case DenseOutputEnabled:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for DenseOutputEnabled is int! AUTOMATIC CONVERSION TO INT: " << (int)Value << std::endl << std::endl;
+			KernelParameters.DenseOutputEnabled = (int)Value;
+			break;
+		
+		case MaximumNumberOfTimeSteps:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for MaximumNumberOfTimeSteps is int! AUTOMATIC CONVERSION TO INT: " << (int)Value << std::endl << std::endl;
+			KernelParameters.MaximumNumberOfTimeSteps = (int)Value;
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
+	}
+}
+
+// Array of int
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, int SerialNumber, int Value)
+{
+	double ConvertedToDouble = (double)Value;
+	
+	switch (Option)
+	{		
+		// Valid int type options
+		case EventDirection:
+			if ( SerialNumber >= KernelParameters.NumberOfEvents )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the EventDirection cannot be larger than " << KernelParameters.NumberOfEvents-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventDirection+SerialNumber, &Value, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case EventStopCounter:
+			if ( SerialNumber >= KernelParameters.NumberOfEvents )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the EventStopCounter cannot be larger than " << KernelParameters.NumberOfEvents-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventStopCounter+SerialNumber, &Value, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		// Invalid option types
+		case RelativeTolerance:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for RelativeTolerance is double! AUTOMATIC CONVERSION TO DOUBLE: " << ConvertedToDouble << std::endl << std::endl;
+			
+			if ( SerialNumber >= KernelParameters.SystemDimension )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the RelativeTolerance cannot be larger than " << KernelParameters.SystemDimension-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_RelativeTolerance+SerialNumber, &ConvertedToDouble, sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case AbsoluteTolerance:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for AbsoluteTolerance is double! AUTOMATIC CONVERSION TO DOUBLE: " << ConvertedToDouble << std::endl << std::endl;
+			
+			if ( SerialNumber >= KernelParameters.SystemDimension )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the AbsoluteTolerance cannot be larger than " << KernelParameters.SystemDimension-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_AbsoluteTolerance+SerialNumber, &ConvertedToDouble, sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case EventTolerance:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for EventTolerance is double! AUTOMATIC CONVERSION TO DOUBLE: " << ConvertedToDouble << std::endl << std::endl;
+			
+			if ( SerialNumber >= KernelParameters.NumberOfEvents )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the EventTolerance cannot be larger than " << KernelParameters.NumberOfEvents-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventTolerance+SerialNumber, &ConvertedToDouble, sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
+	}
+}
+
+// Array of double
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, int SerialNumber, double Value)
+{
+	int ConvertedToInt = (int)Value;
+	
+	switch (Option)
+	{		
+		// Valid double type options
+		case RelativeTolerance:
+			if ( SerialNumber >= KernelParameters.SystemDimension )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the RelativeTolerance cannot be larger than " << KernelParameters.SystemDimension-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_RelativeTolerance+SerialNumber, &Value, sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case AbsoluteTolerance:
+			if ( SerialNumber >= KernelParameters.SystemDimension )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the AbsoluteTolerance cannot be larger than " << KernelParameters.SystemDimension-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_AbsoluteTolerance+SerialNumber, &Value, sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case EventTolerance:
+			if ( SerialNumber >= KernelParameters.NumberOfEvents )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the EventTolerance cannot be larger than " << KernelParameters.NumberOfEvents-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventTolerance+SerialNumber, &Value, sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		// Invalid option types
+		case EventDirection:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for EventDirection is int! AUTOMATIC CONVERSION TO INT: " << ConvertedToInt << std::endl << std::endl;
+			
+			if ( SerialNumber >= KernelParameters.NumberOfEvents )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the EventDirection cannot be larger than " << KernelParameters.NumberOfEvents-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventDirection+SerialNumber, &ConvertedToInt, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case EventStopCounter:
+			std::cerr << "WARNING in solver member function SolverOption:" << std::endl << "    "\
+			     << "Expected data type for EventStopCounter is int! AUTOMATIC CONVERSION TO INT: " << ConvertedToInt << std::endl << std::endl;
+			
+			if ( SerialNumber >= KernelParameters.NumberOfEvents )
+			{
+				std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+				     << "The serial number of the EventStopCounter cannot be larger than " << KernelParameters.NumberOfEvents-1 << "! "\
+					 << "(The indexing starts from zero)\n";
+				exit(EXIT_FAILURE);
+			}
+			
+			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventStopCounter+SerialNumber, &ConvertedToInt, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		default :
+			std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
+	}
+}
+
+// ListOfSolverAlgorithms type
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, ListOfSolverAlgorithms Value)
+{
+	switch (Option)
+	{		
+		case Solver:
+			SolverType = Value;
+			break;
+			
+		default :
+			std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
+			     << "Invalid option for variable selection!\n";
+			exit(EXIT_FAILURE);
+	}
+}
+
+void ProblemSolver::Solve()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	int GridSize = KernelParameters.NumberOfThreads/Configuration.BlockSize + (KernelParameters.NumberOfThreads % Configuration.BlockSize == 0 ? 0:1);
+	if ( SolverType==RKCK45 )
+		PerThread_RKCK45<<<GridSize, BlockSize, DynamicSharedMemoryRKCK45, Stream>>> (KernelParameters);
 	
-	KernelParameters.InitialTimeStep = Configuration.InitialTimeStep;
-	KernelParameters.ActiveThreads   = Configuration.ActiveThreads;
+	if ( SolverType==RKCK45_EH0 )
+		PerThread_RKCK45_EH0<<<GridSize, BlockSize, DynamicSharedMemoryRKCK45_EH0, Stream>>> (KernelParameters);
 	
-	if ( Configuration.Solver==RKCK45 )
-		PerThread_RKCK45<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRKCK45>>> (KernelParameters);
+	if ( SolverType==RK4 )
+		PerThread_RK4<<<GridSize, BlockSize, DynamicSharedMemoryRK4, Stream>>> (KernelParameters);
 	
-	if ( Configuration.Solver==RKCK45_EH0 )
-		PerThread_RKCK45_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRKCK45_EH0>>> (KernelParameters);
-	
-	if ( Configuration.Solver==RK4 )
-		PerThread_RK4<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRK4>>> (KernelParameters);
-	
-	if ( Configuration.Solver==RK4_EH0 )
-		PerThread_RK4_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRK4_EH0>>> (KernelParameters);
-	
-	gpuErrCHK( cudaDeviceSynchronize() );
-	
-	gpuErrCHK( cudaMemcpy(h_TimeDomain,  KernelParameters.d_TimeDomain,                                     2*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) );
-	gpuErrCHK( cudaMemcpy(h_ActualState, KernelParameters.d_ActualState,     KernelParameters.SystemDimension*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) );
-	gpuErrCHK( cudaMemcpy(h_Accessories, KernelParameters.d_Accessories, KernelParameters.NumberOfAccessories*KernelParameters.NumberOfThreads*sizeof(double), cudaMemcpyDeviceToHost) );
-}
-
-void ProblemSolver::SolveAsync(const SolverConfiguration& Configuration)
-{
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	int GridSize = KernelParameters.NumberOfThreads/Configuration.BlockSize + (KernelParameters.NumberOfThreads % Configuration.BlockSize == 0 ? 0:1);
-	
-	KernelParameters.InitialTimeStep = Configuration.InitialTimeStep;
-	KernelParameters.ActiveThreads   = Configuration.ActiveThreads;
-	
-	if ( Configuration.Solver==RKCK45 )
-		PerThread_RKCK45<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRKCK45, Stream>>> (KernelParameters);
-	
-	if ( Configuration.Solver==RKCK45_EH0 )
-		PerThread_RKCK45_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRKCK45_EH0, Stream>>> (KernelParameters);
-	
-	if ( Configuration.Solver==RK4 )
-		PerThread_RK4<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRK4, Stream>>> (KernelParameters);
-	
-	if ( Configuration.Solver==RK4_EH0 )
-		PerThread_RK4_EH0<<<GridSize, Configuration.BlockSize, DynamicSharedMemoryRK4_EH0, Stream>>> (KernelParameters);
+	if ( SolverType==RK4_EH0 )
+		PerThread_RK4_EH0<<<GridSize, BlockSize, DynamicSharedMemoryRK4_EH0, Stream>>> (KernelParameters);
 }
 
 void ProblemSolver::SynchroniseDevice()
@@ -815,7 +1251,7 @@ DataType* AllocateDeviceMemory(int N)
     
 	if (Error != cudaSuccess)
     {
-        cerr << "Failed to allocate Memory on the DEVICE!\n";
+        std::cerr << "Failed to allocate Memory on the DEVICE!\n";
         exit(EXIT_FAILURE);
     }
     return MemoryAddressInDevice;
@@ -832,7 +1268,7 @@ DataType* AllocateHostPinnedMemory(int N)
     
 	if (Error != cudaSuccess)
     {
-        cerr << "Failed to allocate Pinned Memory on the HOST!\n";
+        std::cerr << "Failed to allocate Pinned Memory on the HOST!\n";
         exit(EXIT_FAILURE);
     }
     return MemoryAddressInHost;
@@ -841,10 +1277,10 @@ DataType* AllocateHostPinnedMemory(int N)
 template <class DataType>
 DataType* AllocateHostMemory(int N)
 {
-    DataType* HostMemory = new (nothrow) DataType [N];
+    DataType* HostMemory = new (std::nothrow) DataType [N];
     if (HostMemory == NULL)
     {
-        cerr << "Failed to allocate Memory on the HOST!\n";
+        std::cerr << "Failed to allocate Memory on the HOST!\n";
         exit(EXIT_FAILURE);
     }
     return HostMemory;

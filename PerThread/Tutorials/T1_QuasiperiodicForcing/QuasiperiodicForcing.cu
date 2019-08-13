@@ -18,7 +18,7 @@ using namespace std;
 void Linspace(vector<double>&, double, double, int);
 void Logspace(vector<double>&, double, double, int);
 
-void FillProblemPool(ProblemPool&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&);
+void FillSolverObject(ProblemSolver&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&, int, int);
 
 int main()
 {
@@ -49,47 +49,34 @@ int main()
 	PrintPropertiesOfSpecificDevice(SelectedDevice);
 	
 	
-	// Problem Pool and Solver Object configuration
-	int PoolSize        = NumberOfFrequency1 * NumberOfFrequency2 * NumberOfAmplitude1 * NumberOfAmplitude2; // 65536
-	int NumberOfThreads = NumberOfFrequency1 * NumberOfFrequency2; // 16384 -> 4 launches
+	// Solver Object configuration
+	int NumberOfProblems = NumberOfFrequency1 * NumberOfFrequency2 * NumberOfAmplitude1 * NumberOfAmplitude2; // 65536
+	int NumberOfThreads  = NumberOfFrequency1 * NumberOfFrequency2; // 16384 -> 4 launches
 	
 	ConstructorConfiguration ConfigurationKellerMiksis;
 	
-	ConfigurationKellerMiksis.PoolSize                  = PoolSize;
 	ConfigurationKellerMiksis.NumberOfThreads           = NumberOfThreads;
 	ConfigurationKellerMiksis.SystemDimension           = 2;
 	ConfigurationKellerMiksis.NumberOfControlParameters = 21;
 	ConfigurationKellerMiksis.NumberOfSharedParameters  = 0;
 	ConfigurationKellerMiksis.NumberOfEvents            = 1;
 	ConfigurationKellerMiksis.NumberOfAccessories       = 4;
-	
-	CheckStorageRequirements(ConfigurationKellerMiksis, SelectedDevice);
+	ConfigurationKellerMiksis.DenseOutputNumberOfPoints = 0;
 	
 	ProblemSolver ScanKellerMiksis(ConfigurationKellerMiksis, SelectedDevice);
-	ProblemPool ProblemPoolKellerMiksis(ConfigurationKellerMiksis);
 	
-	FillProblemPool(ProblemPoolKellerMiksis, Frequency1, Frequency2, Amplitude1, Amplitude2);
-	
-	//ProblemPoolKellerMiksis.Print(TimeDomain);
-	//ProblemPoolKellerMiksis.Print(ActualState);
-	//ProblemPoolKellerMiksis.Print(ControlParameters);
-	//ProblemPoolKellerMiksis.Print(SharedParameters);
-	//ProblemPoolKellerMiksis.Print(Accessories);
-	
+	ScanKellerMiksis.SolverOption(ThreadsPerBlock, 64);
+	ScanKellerMiksis.SolverOption(RelativeTolerance, 0, 1e-10);
+	ScanKellerMiksis.SolverOption(RelativeTolerance, 1, 1e-10);
+	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 0, 1e-10);
+	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 1, 1e-10);
+	ScanKellerMiksis.SolverOption(EventDirection,   0, -1);
+	ScanKellerMiksis.SolverOption(EventStopCounter, 0,  1);
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
 	
-	int NumberOfSimulationLaunches = PoolSize / NumberOfThreads;
-	
-	SolverConfiguration SolverConfigurationSystem;
-		SolverConfigurationSystem.BlockSize       = 64;
-		SolverConfigurationSystem.InitialTimeStep = 1e-2;
-		SolverConfigurationSystem.Solver          = RKCK45;
-		SolverConfigurationSystem.ActiveThreads   = NumberOfThreads;
-	
-	int CopyStartIndexInPool;
-	int CopyStartIndexInSolverObject = 0;
-	int NumberOfElementsCopied       = NumberOfThreads;
+	int NumberOfSimulationLaunches = NumberOfProblems / NumberOfThreads;
+	int ProblemStartIndex;
 	
 	vector< vector<double> > CollectedData;
 	CollectedData.resize( NumberOfThreads , vector<double>( 136 , 0 ) );
@@ -104,9 +91,10 @@ int main()
 	clock_t SimulationStart = clock();
 	for (int LaunchCounter=0; LaunchCounter<NumberOfSimulationLaunches; LaunchCounter++)
 	{
-		// Copy data from Problem Pool to Solver Object
-		CopyStartIndexInPool = LaunchCounter * NumberOfThreads;
-		ScanKellerMiksis.LinearCopyFromPoolHostAndDevice(ProblemPoolKellerMiksis, CopyStartIndexInPool, CopyStartIndexInSolverObject, NumberOfElementsCopied, All);
+		// Fill Solver Object
+		ProblemStartIndex = LaunchCounter * NumberOfThreads;
+		FillSolverObject(ScanKellerMiksis, Frequency1, Frequency2, Amplitude1, Amplitude2, ProblemStartIndex, NumberOfThreads);
+		ScanKellerMiksis.SynchroniseFromHostToDevice(All);
 		
 		
 		// Generate a unique filename for the current launch
@@ -114,8 +102,8 @@ int main()
 		StreamFilename.precision(2);
 		StreamFilename.setf(ios::fixed);
 		
-		ActualPA1 = ScanKellerMiksis.SingleGetHost(0, ControlParameters, 15);
-		ActualPA2 = ScanKellerMiksis.SingleGetHost(0, ControlParameters, 17);
+		ActualPA1 = ScanKellerMiksis.GetHost(0, ControlParameters, 15);
+		ActualPA2 = ScanKellerMiksis.GetHost(0, ControlParameters, 17);
 		StreamFilename << "KellerMiksis_Collapse_PA1_" << ActualPA1 << "_PA2_" << ActualPA2 << ".txt";
 		
 		string Filename = StreamFilename.str();
@@ -125,45 +113,52 @@ int main()
 		// Collect physical parameters
 		for (int tid=0; tid<NumberOfThreads; tid++)
 		{
-			CollectedData[tid][0] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 15);
-			CollectedData[tid][1] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 16);
-			CollectedData[tid][2] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 17);
-			CollectedData[tid][3] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 18);
-			CollectedData[tid][4] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 19);
-			CollectedData[tid][5] = ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 20);
+			CollectedData[tid][0] = ScanKellerMiksis.GetHost(tid, ControlParameters, 15);
+			CollectedData[tid][1] = ScanKellerMiksis.GetHost(tid, ControlParameters, 16);
+			CollectedData[tid][2] = ScanKellerMiksis.GetHost(tid, ControlParameters, 17);
+			CollectedData[tid][3] = ScanKellerMiksis.GetHost(tid, ControlParameters, 18);
+			CollectedData[tid][4] = ScanKellerMiksis.GetHost(tid, ControlParameters, 19);
+			CollectedData[tid][5] = ScanKellerMiksis.GetHost(tid, ControlParameters, 20);
 		}
 		
 		
 		// Transient simulations
 		for (int i=0; i<1024; i++)
-		//{
-		//	cout << "Launch: " << LaunchCounter << "  Transient: " << i << endl;
-			ScanKellerMiksis.Solve(SolverConfigurationSystem);
-		//}
+		{
+			ScanKellerMiksis.Solve();
+			ScanKellerMiksis.InsertSynchronisationPoint();
+			ScanKellerMiksis.SynchroniseSolver();
+		}
 		
 		
 		// Collect the initial time of the converged iteration
 		for (int tid=0; tid<NumberOfThreads; tid++)
-			CollectedData[tid][6] = ScanKellerMiksis.SingleGetHost(tid, TimeDomain, 0) * ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 13); // Convert to [s]
+			CollectedData[tid][6] = ScanKellerMiksis.GetHost(tid, TimeDomain, 0) * ScanKellerMiksis.GetHost(tid, ControlParameters, 13); // Convert to [s]
 		
 		
 		// Converged simulations and their data collection
 		for (int i=0; i<64; i++)
 		{
-		//	cout << "Launch: " << LaunchCounter << "  Converged: " << i << endl;
-			ScanKellerMiksis.Solve(SolverConfigurationSystem);
+			ScanKellerMiksis.Solve();
+			ScanKellerMiksis.SynchroniseFromDeviceToHost(Accessories);
+			ScanKellerMiksis.InsertSynchronisationPoint();
+			ScanKellerMiksis.SynchroniseSolver();
 			
 			for (int tid=0; tid<NumberOfThreads; tid++)
 			{	
-				CollectedData[tid][8+i]    = ScanKellerMiksis.SingleGetHost(tid, Accessories, 0); // Local maxima
-				CollectedData[tid][8+i+64] = ScanKellerMiksis.SingleGetHost(tid, Accessories, 2); // Local minima
+				CollectedData[tid][8+i]    = ScanKellerMiksis.GetHost(tid, Accessories, 0); // Local maxima
+				CollectedData[tid][8+i+64] = ScanKellerMiksis.GetHost(tid, Accessories, 2); // Local minima
 			}
 		}
+		
+		ScanKellerMiksis.SynchroniseFromDeviceToHost(TimeDomain);
+		ScanKellerMiksis.InsertSynchronisationPoint();
+		ScanKellerMiksis.SynchroniseSolver();
 		
 		
 		// Collect the total time of the converged iterations
 		for (int tid=0; tid<NumberOfThreads; tid++)
-			CollectedData[tid][7] = ScanKellerMiksis.SingleGetHost(tid, TimeDomain, 0) * ScanKellerMiksis.SingleGetHost(tid, ControlParameters, 13) - CollectedData[tid][6];
+			CollectedData[tid][7] = ScanKellerMiksis.GetHost(tid, TimeDomain, 0) * ScanKellerMiksis.GetHost(tid, ControlParameters, 13) - CollectedData[tid][6];
 		
 		
 		// Save collected data to file
@@ -234,7 +229,7 @@ void Logspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillProblemPool(ProblemPool& Pool, const vector<double>& F1_Values, const vector<double>& F2_Values, const vector<double>& PA1_Values, const vector<double>& PA2_Values)
+void FillSolverObject(ProblemSolver& Solver, const vector<double>& F1_Values, const vector<double>& F2_Values, const vector<double>& PA1_Values, const vector<double>& PA2_Values, int ProblemStartIndex, int NumberOfThreads)
 {
 	// Declaration of physical control parameters
 	double P1; // pressure amplitude1 [bar]
@@ -264,6 +259,7 @@ void FillProblemPool(ProblemPool& Pool, const vector<double>& F1_Values, const v
 	double f2;
 	
 	int ProblemNumber = 0;
+	int GlobalCounter = 0;
 	for (auto const& CP4: PA2_Values) // pressure amplitude2 [bar]
 	{
 		for (auto const& CP3: PA1_Values) // pressure amplitude1 [bar]
@@ -271,19 +267,25 @@ void FillProblemPool(ProblemPool& Pool, const vector<double>& F1_Values, const v
 			for (auto const& CP2: F2_Values) // frequency2 [kHz]
 			{
 				for (auto const& CP1: F1_Values) // frequency1 [kHz]
-				{
+				{	
+					if ( GlobalCounter < ProblemStartIndex)
+					{
+						GlobalCounter++;
+						continue;
+					}
+					
 					// Update physical parameters
 					P1 = CP3;
 					P2 = CP1;
 					P3 = CP4;
 					P4 = CP2;
 					
-					Pool.Set(ProblemNumber, TimeDomain, 0, 0);
-					Pool.Set(ProblemNumber, TimeDomain, 1, 1e10);
+					Solver.SetHost(ProblemNumber, TimeDomain, 0, 0);
+					Solver.SetHost(ProblemNumber, TimeDomain, 1, 1e10);
 					
 					// Initial conditions are the equilibrium condition y1=1; y2=0;
-					Pool.Set(ProblemNumber, ActualState, 0, 1.0);
-					Pool.Set(ProblemNumber, ActualState, 1, 0.0);
+					Solver.SetHost(ProblemNumber, ActualState, 0, 1.0);
+					Solver.SetHost(ProblemNumber, ActualState, 1, 0.0);
 					
 					// Scaling of physical parameters to SI
 					Pinf = P7 * 1e5;
@@ -296,33 +298,37 @@ void FillProblemPool(ProblemPool& Pool, const vector<double>& F1_Values, const v
 					f2   = 2.0*PI*(P4*1000);
 					
 					// System coefficients and other, auxiliary parameters
-					Pool.Set(ProblemNumber, ControlParameters,  0, (2.0*ST/RE + Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
-					Pool.Set(ProblemNumber, ControlParameters,  1, (1.0-3.0*P9) * (2*ST/RE + Pinf - Pv) * (2.0*PI/RE/f1) / CL/Rho );
-					Pool.Set(ProblemNumber, ControlParameters,  2, (Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
-					Pool.Set(ProblemNumber, ControlParameters,  3, (2.0*ST/RE/Rho) * pow(2.0*PI/RE/f1, 2.0) );
-					Pool.Set(ProblemNumber, ControlParameters,  4, (4.0*Vis/Rho/pow(RE,2.0)) * (2.0*PI/f1) );
-					Pool.Set(ProblemNumber, ControlParameters,  5, PA1 * pow(2.0*PI/RE/f1, 2.0) / Rho );
-					Pool.Set(ProblemNumber, ControlParameters,  6, PA2 * pow(2.0*PI/RE/f1, 2.0) / Rho );
-					Pool.Set(ProblemNumber, ControlParameters,  7, (RE*f1*PA1/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) );
-					Pool.Set(ProblemNumber, ControlParameters,  8, (RE*f2*PA2/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) );
-					Pool.Set(ProblemNumber, ControlParameters,  9, RE*f1/(2.0*PI)/CL );
-					Pool.Set(ProblemNumber, ControlParameters, 10, 3.0*P9 );
-					Pool.Set(ProblemNumber, ControlParameters, 11, P4/P2 );
-					Pool.Set(ProblemNumber, ControlParameters, 12, P5 );
+					Solver.SetHost(ProblemNumber, ControlParameters,  0, (2.0*ST/RE + Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
+					Solver.SetHost(ProblemNumber, ControlParameters,  1, (1.0-3.0*P9) * (2*ST/RE + Pinf - Pv) * (2.0*PI/RE/f1) / CL/Rho );
+					Solver.SetHost(ProblemNumber, ControlParameters,  2, (Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
+					Solver.SetHost(ProblemNumber, ControlParameters,  3, (2.0*ST/RE/Rho) * pow(2.0*PI/RE/f1, 2.0) );
+					Solver.SetHost(ProblemNumber, ControlParameters,  4, (4.0*Vis/Rho/pow(RE,2.0)) * (2.0*PI/f1) );
+					Solver.SetHost(ProblemNumber, ControlParameters,  5, PA1 * pow(2.0*PI/RE/f1, 2.0) / Rho );
+					Solver.SetHost(ProblemNumber, ControlParameters,  6, PA2 * pow(2.0*PI/RE/f1, 2.0) / Rho );
+					Solver.SetHost(ProblemNumber, ControlParameters,  7, (RE*f1*PA1/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) );
+					Solver.SetHost(ProblemNumber, ControlParameters,  8, (RE*f2*PA2/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) );
+					Solver.SetHost(ProblemNumber, ControlParameters,  9, RE*f1/(2.0*PI)/CL );
+					Solver.SetHost(ProblemNumber, ControlParameters, 10, 3.0*P9 );
+					Solver.SetHost(ProblemNumber, ControlParameters, 11, P4/P2 );
+					Solver.SetHost(ProblemNumber, ControlParameters, 12, P5 );
 					
-					Pool.Set(ProblemNumber, ControlParameters, 13, 2.0*PI/f1 ); // tref
-					Pool.Set(ProblemNumber, ControlParameters, 14, RE );        // Rref
+					Solver.SetHost(ProblemNumber, ControlParameters, 13, 2.0*PI/f1 ); // tref
+					Solver.SetHost(ProblemNumber, ControlParameters, 14, RE );        // Rref
 					
-					Pool.Set(ProblemNumber, ControlParameters, 15, P1 );
-					Pool.Set(ProblemNumber, ControlParameters, 16, P2 );
-					Pool.Set(ProblemNumber, ControlParameters, 17, P3 );
-					Pool.Set(ProblemNumber, ControlParameters, 18, P4 );
-					Pool.Set(ProblemNumber, ControlParameters, 19, P5 );
-					Pool.Set(ProblemNumber, ControlParameters, 20, P6 );
+					Solver.SetHost(ProblemNumber, ControlParameters, 15, P1 );
+					Solver.SetHost(ProblemNumber, ControlParameters, 16, P2 );
+					Solver.SetHost(ProblemNumber, ControlParameters, 17, P3 );
+					Solver.SetHost(ProblemNumber, ControlParameters, 18, P4 );
+					Solver.SetHost(ProblemNumber, ControlParameters, 19, P5 );
+					Solver.SetHost(ProblemNumber, ControlParameters, 20, P6 );
 					
 					ProblemNumber++;
+					
+					if ( ProblemNumber==NumberOfThreads )
+						goto ExitSolverFilling;
 				}
 			}
 		}
 	}
+	ExitSolverFilling: ;
 }

@@ -14,6 +14,8 @@
 
 # Don't track content of these folders
 Web/
+PerThread/Doc/Figures
+PerBlockCoupling/
 
 # Don't track specific files in specific folders
 PerThread/Doc/*.m
