@@ -107,7 +107,6 @@ struct IntegratorInternalVariables
 	int    MaximumNumberOfTimeSteps;
 };
 
-
 class ProblemSolver
 {
     private:
@@ -184,8 +183,8 @@ class ProblemSolver
 };
 
 
-
 // --- INCLUDE SOLVERS ---
+
 #include "PerThread_RungeKutta.cuh"
 
 
@@ -1356,14 +1355,14 @@ void ProblemSolver::Solve()
 	if ( SolverType==RKCK45 )
 		PerThread_RKCK45<<<GridSize, BlockSize, DynamicSharedMemoryRKCK45, Stream>>> (KernelParameters);
 	
-	/*if ( SolverType==RKCK45_EH0 )
+	if ( SolverType==RKCK45_EH0 )
 		PerThread_RKCK45_EH0<<<GridSize, BlockSize, DynamicSharedMemoryRKCK45_EH0, Stream>>> (KernelParameters);
 	
 	if ( SolverType==RK4 )
 		PerThread_RK4<<<GridSize, BlockSize, DynamicSharedMemoryRK4, Stream>>> (KernelParameters);
 	
 	if ( SolverType==RK4_EH0 )
-		PerThread_RK4_EH0<<<GridSize, BlockSize, DynamicSharedMemoryRK4_EH0, Stream>>> (KernelParameters);*/
+		PerThread_RK4_EH0<<<GridSize, BlockSize, DynamicSharedMemoryRK4_EH0, Stream>>> (KernelParameters);
 }
 
 void ProblemSolver::SynchroniseDevice()

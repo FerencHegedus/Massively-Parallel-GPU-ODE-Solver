@@ -340,7 +340,7 @@ __global__ void PerThread_RKCK45(IntegratorInternalVariables KernelParameters)
 }
 
 
-/*__global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameters)
+__global__ void PerThread_RKCK45_EH0(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
 	int DOI = 0;
@@ -918,7 +918,7 @@ __global__ void PerThread_RK4_EH0(IntegratorInternalVariables KernelParameters)
 		
 		PerThread_Finalization(tid, NT, AT, TS, gTD, gAS, gPAR, sPAR, gACC);
 	}
-}*/
+}
 
 #undef SD
 #undef NT
