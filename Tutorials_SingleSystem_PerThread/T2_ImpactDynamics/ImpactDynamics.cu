@@ -1,7 +1,3 @@
-/*
-Second tutorial example: T2 (Impact Dynamics)
-*/
-
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -9,7 +5,10 @@ Second tutorial example: T2 (Impact Dynamics)
 #include <sstream>
 #include <fstream>
 
-#include "MassivelyParallel_GPU-ODE_Solver.cuh"
+#include "SingleSystem_PerThread_IndexingMacroEnabled.cuh"
+#include "ImpactDynamics_SystemDefinition.cuh"
+#include "SingleSystem_PerThread_IndexingMacroDisabled.cuh"
+#include "SingleSystem_PerThread.cuh"
 
 #define PI 3.14159265358979323846
 

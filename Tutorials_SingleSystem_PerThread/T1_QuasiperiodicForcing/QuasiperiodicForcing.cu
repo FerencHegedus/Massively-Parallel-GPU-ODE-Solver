@@ -1,7 +1,3 @@
-/*
-First tutorial example: T1 (Quasiperiodic Forcing)
-*/
-
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -9,7 +5,10 @@ First tutorial example: T1 (Quasiperiodic Forcing)
 #include <sstream>
 #include <fstream>
 
-#include "MassivelyParallel_GPU-ODE_Solver.cuh"
+#include "SingleSystem_PerThread_IndexingMacroEnabled.cuh"
+#include "QuasiperiodicForcing_SystemDefinition.cuh"
+#include "SingleSystem_PerThread_IndexingMacroDisabled.cuh"
+#include "SingleSystem_PerThread.cuh"
 
 #define PI 3.14159265358979323846
 

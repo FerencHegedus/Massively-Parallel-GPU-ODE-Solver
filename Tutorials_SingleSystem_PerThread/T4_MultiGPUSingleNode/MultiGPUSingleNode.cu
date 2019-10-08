@@ -5,9 +5,8 @@
 #include <fstream>
 
 #include "SingleSystem_PerThread_IndexingMacroEnabled.cuh"
-#include "PerThread_SystemDefinition.cuh"
+#include "MultiGPUSingleNode_SystemDefinition.cuh"
 #include "SingleSystem_PerThread_IndexingMacroDisabled.cuh"
-
 #include "SingleSystem_PerThread.cuh"
 
 #define PI 3.14159265358979323846
@@ -15,24 +14,20 @@
 using namespace std;
 
 void Linspace(vector<double>&, double, double, int);
-void FillSolverObject(ProblemSolver&, const vector<double>&, double, double, double, int, int);
+void FillSolverObjects(ProblemSolver&, const vector<double>&, double, double, double, int, int);
 void SaveData(ProblemSolver&, ofstream&, int);
+
 
 int main()
 {
-// INITIAL SETUP ----------------------------------------------------------------------------------
-	
 	int NumberOfProblems = 46080;
 	int NumberOfThreads  = 23040;
 	int BlockSize        = 64;
 	
+	
 	ListCUDADevices();
-	
-	int MajorRevision  = 3;
-	int MinorRevision  = 5;
-	int SelectedDevice = SelectDeviceByClosestRevision(MajorRevision, MinorRevision);
-	
-	PrintPropertiesOfSpecificDevice(SelectedDevice);
+	int SelectedDevice1 = 0; // According to the output of the function call ListCUDADevices();
+	int SelectedDevice2 = 2; // THEY MUST BE SET ACCORDING TO YOUR CURRENT CONFIGURATION!!!
 	
 	
 	double InitialConditions_X1 = -0.5;
@@ -54,40 +49,30 @@ int main()
 	ConfigurationDuffing.NumberOfSharedParameters  = 1;
 	ConfigurationDuffing.NumberOfEvents            = 2;
 	ConfigurationDuffing.NumberOfAccessories       = 3;
-	ConfigurationDuffing.DenseOutputNumberOfPoints = 1000;
+	ConfigurationDuffing.DenseOutputNumberOfPoints = 0;
 	
-	ProblemSolver ScanDuffing(ConfigurationDuffing, SelectedDevice);
+	ProblemSolver ScanDuffing1(ConfigurationDuffing, SelectedDevice1);
+	ProblemSolver ScanDuffing2(ConfigurationDuffing, SelectedDevice2);
 	
-	ScanDuffing.SolverOption(ThreadsPerBlock, BlockSize);
-	ScanDuffing.SolverOption(InitialTimeStep, 1e-2);
-	ScanDuffing.SolverOption(Solver, RKCK45);
-	ScanDuffing.SolverOption(ActiveNumberOfThreads, NumberOfThreads);
+	ScanDuffing1.SolverOption(ThreadsPerBlock, BlockSize);
+	ScanDuffing2.SolverOption(ThreadsPerBlock, BlockSize);
 	
-	ScanDuffing.SolverOption(DenseOutputEnabled, 1);
-	ScanDuffing.SolverOption(DenseOutputTimeStep, -1e-2);
+	ScanDuffing1.SolverOption(RelativeTolerance, 0, 1e-9);
+	ScanDuffing1.SolverOption(RelativeTolerance, 1, 1e-9);
+	ScanDuffing1.SolverOption(AbsoluteTolerance, 0, 1e-9);
+	ScanDuffing1.SolverOption(AbsoluteTolerance, 1, 1e-9);
 	
-	ScanDuffing.SolverOption(MaximumTimeStep, 1e3);
-	ScanDuffing.SolverOption(MinimumTimeStep, 1e-14);
-	ScanDuffing.SolverOption(TimeStepGrowLimit, 10.0);
-	ScanDuffing.SolverOption(TimeStepShrinkLimit, 0.2);
-	ScanDuffing.SolverOption(MaxStepInsideEvent, 50);
-	ScanDuffing.SolverOption(MaximumNumberOfTimeSteps, 0);
+	ScanDuffing2.SolverOption(RelativeTolerance, 0, 1e-9);
+	ScanDuffing2.SolverOption(RelativeTolerance, 1, 1e-9);
+	ScanDuffing2.SolverOption(AbsoluteTolerance, 0, 1e-9);
+	ScanDuffing2.SolverOption(AbsoluteTolerance, 1, 1e-9);
 	
-	ScanDuffing.SolverOption(RelativeTolerance, 0, 1e-9);
-	ScanDuffing.SolverOption(RelativeTolerance, 1, 1e-9);
-	ScanDuffing.SolverOption(AbsoluteTolerance, 0, 1e-9);
-	ScanDuffing.SolverOption(AbsoluteTolerance, 1, 1e-9);
-	
-	ScanDuffing.SolverOption(EventTolerance, 0, 1e-6);
-	ScanDuffing.SolverOption(EventTolerance, 1, 1e-6);
-	ScanDuffing.SolverOption(EventDirection,   0, -1);
-	ScanDuffing.SolverOption(EventDirection,   1,  0);
-	ScanDuffing.SolverOption(EventStopCounter, 0,  0);
-	ScanDuffing.SolverOption(EventStopCounter, 1,  0);
+	ScanDuffing1.SolverOption(EventDirection, 0, -1);
+	ScanDuffing2.SolverOption(EventDirection, 0, -1);
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
 	
-	int NumberOfSimulationLaunches = NumberOfProblems / NumberOfThreads + (NumberOfProblems % NumberOfThreads == 0 ? 0:1);
+	int NumberOfSimulationLaunches = NumberOfProblems / NumberOfThreads / 2;
 	
 	ofstream DataFile;
 	DataFile.open ( "Duffing.txt" );
@@ -96,41 +81,69 @@ int main()
 	clock_t TransientStart;
 	clock_t TransientEnd;
 	
+	int FirstProblemNumber;
 	for (int LaunchCounter=0; LaunchCounter<NumberOfSimulationLaunches; LaunchCounter++)
 	{
-		FillSolverObject(ScanDuffing, Parameters_k_Values, Parameters_B, InitialConditions_X1, InitialConditions_X2, LaunchCounter * NumberOfThreads, NumberOfThreads);
-		ScanDuffing.SynchroniseFromHostToDevice(All);
+		FirstProblemNumber = LaunchCounter * (2*NumberOfThreads);
+		
+		FillSolverObjects(ScanDuffing1, Parameters_k_Values, Parameters_B, InitialConditions_X1, InitialConditions_X2, FirstProblemNumber, NumberOfThreads);
+		ScanDuffing1.SynchroniseFromHostToDevice(All);
+		ScanDuffing1.Solve();
+		ScanDuffing1.InsertSynchronisationPoint();
+		
+		FirstProblemNumber = FirstProblemNumber + NumberOfThreads;
+		
+		FillSolverObjects(ScanDuffing2, Parameters_k_Values, Parameters_B, InitialConditions_X1, InitialConditions_X2, FirstProblemNumber, NumberOfThreads);
+		ScanDuffing2.SynchroniseFromHostToDevice(All);
+		ScanDuffing2.Solve();
+		ScanDuffing2.InsertSynchronisationPoint();
 		
 		TransientStart = clock();
-		for (int i=0; i<1024; i++)
+		for (int i=0; i<1023; i++)
 		{
-			ScanDuffing.Solve();
-			ScanDuffing.InsertSynchronisationPoint();
-			ScanDuffing.SynchroniseSolver();
+			ScanDuffing1.SynchroniseSolver();
+			ScanDuffing1.Solve();
+			ScanDuffing1.InsertSynchronisationPoint();
+			
+			ScanDuffing2.SynchroniseSolver();
+			ScanDuffing2.Solve();
+			ScanDuffing2.InsertSynchronisationPoint();
 		}
 		TransientEnd = clock();
 			cout << "Transient iteration: " << LaunchCounter << "  Simulation time: " << 1000.0*(TransientEnd-TransientStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 		
+		
+		ScanDuffing1.SynchroniseSolver();
+		ScanDuffing2.SynchroniseSolver();
 		for (int i=0; i<32; i++)
 		{
-			ScanDuffing.Solve();
-			ScanDuffing.SynchroniseFromDeviceToHost(All);
-			ScanDuffing.InsertSynchronisationPoint();
-			ScanDuffing.SynchroniseSolver();
+			ScanDuffing1.Solve();
+			ScanDuffing1.SynchroniseFromDeviceToHost(All);
+			ScanDuffing1.InsertSynchronisationPoint();
 			
-			SaveData(ScanDuffing, DataFile, NumberOfThreads);
+			ScanDuffing2.Solve();
+			ScanDuffing2.SynchroniseFromDeviceToHost(All);
+			ScanDuffing2.InsertSynchronisationPoint();
+			
+			
+			ScanDuffing1.SynchroniseSolver();
+			SaveData(ScanDuffing1, DataFile, NumberOfThreads);
+			
+			ScanDuffing2.SynchroniseSolver();
+			SaveData(ScanDuffing2, DataFile, NumberOfThreads);
 		}
 	}
 	
 	clock_t SimulationEnd = clock();
 		cout << "Total simulation time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 	
+	
 	DataFile.close();
 	
 	cout << "Test finished!" << endl;
 }
 
-// AUXILIARY FUNCTION -----------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
 
 void Linspace(vector<double>& x, double B, double E, int N)
 {
@@ -150,7 +163,9 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-void FillSolverObject(ProblemSolver& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
+// ------------------------------------------------------------------------------------------------
+
+void FillSolverObjects(ProblemSolver& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
 {
 	int k_begin = FirstProblemNumber;
 	int k_end   = FirstProblemNumber + NumberOfThreads;

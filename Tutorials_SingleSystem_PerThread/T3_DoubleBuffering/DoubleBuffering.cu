@@ -1,14 +1,13 @@
-/*
-Fourth tutorial example: T4 (Multi-GPU version of the reference simulation)
-*/
-
 #include <iostream>
 #include <iomanip>
 #include <vector>
 #include <string>
 #include <fstream>
 
-#include "MassivelyParallel_GPU-ODE_Solver.cuh"
+#include "SingleSystem_PerThread_IndexingMacroEnabled.cuh"
+#include "DoubleBuffering_SystemDefinition.cuh"
+#include "SingleSystem_PerThread_IndexingMacroDisabled.cuh"
+#include "SingleSystem_PerThread.cuh"
 
 #define PI 3.14159265358979323846
 
@@ -27,8 +26,12 @@ int main()
 	
 	
 	ListCUDADevices();
-	int SelectedDevice1 = 0; // According to the output of the function call ListCUDADevices();
-	int SelectedDevice2 = 2; // THEY MUST BE SET ACCORDING TO YOUR CURRENT CONFIGURATION!!!
+	
+	int MajorRevision  = 3;
+	int MinorRevision  = 5;
+	int SelectedDevice = SelectDeviceByClosestRevision(MajorRevision, MinorRevision);
+	
+	PrintPropertiesOfSpecificDevice(SelectedDevice);
 	
 	
 	double InitialConditions_X1 = -0.5;
@@ -52,8 +55,8 @@ int main()
 	ConfigurationDuffing.NumberOfAccessories       = 3;
 	ConfigurationDuffing.DenseOutputNumberOfPoints = 0;
 	
-	ProblemSolver ScanDuffing1(ConfigurationDuffing, SelectedDevice1);
-	ProblemSolver ScanDuffing2(ConfigurationDuffing, SelectedDevice2);
+	ProblemSolver ScanDuffing1(ConfigurationDuffing, SelectedDevice);
+	ProblemSolver ScanDuffing2(ConfigurationDuffing, SelectedDevice);
 	
 	ScanDuffing1.SolverOption(ThreadsPerBlock, BlockSize);
 	ScanDuffing2.SolverOption(ThreadsPerBlock, BlockSize);
@@ -100,7 +103,7 @@ int main()
 		ScanDuffing2.InsertSynchronisationPoint();
 		
 		TransientStart = clock();
-		for (int i=0; i<1023; i++)
+		for (int i=0; i<1024; i++)
 		{
 			ScanDuffing1.SynchroniseSolver();
 			ScanDuffing1.Solve();
@@ -113,26 +116,31 @@ int main()
 		TransientEnd = clock();
 			cout << "Transient iteration: " << LaunchCounter << "  Simulation time: " << 1000.0*(TransientEnd-TransientStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 		
-		
-		ScanDuffing1.SynchroniseSolver();
-		ScanDuffing2.SynchroniseSolver();
-		for (int i=0; i<32; i++)
+		for (int i=0; i<31; i++)
 		{
-			ScanDuffing1.Solve();
+			ScanDuffing1.SynchroniseSolver();
 			ScanDuffing1.SynchroniseFromDeviceToHost(All);
+			ScanDuffing1.Solve();
 			ScanDuffing1.InsertSynchronisationPoint();
 			
-			ScanDuffing2.Solve();
-			ScanDuffing2.SynchroniseFromDeviceToHost(All);
-			ScanDuffing2.InsertSynchronisationPoint();
-			
-			
-			ScanDuffing1.SynchroniseSolver();
 			SaveData(ScanDuffing1, DataFile, NumberOfThreads);
 			
+			
 			ScanDuffing2.SynchroniseSolver();
+			ScanDuffing2.SynchroniseFromDeviceToHost(All);
+			ScanDuffing2.Solve();
+			ScanDuffing2.InsertSynchronisationPoint();
+			
 			SaveData(ScanDuffing2, DataFile, NumberOfThreads);
 		}
+		
+		ScanDuffing1.SynchroniseSolver();
+		ScanDuffing1.SynchroniseFromDeviceToHost(All);
+		SaveData(ScanDuffing1, DataFile, NumberOfThreads);
+		
+		ScanDuffing2.SynchroniseSolver();
+		ScanDuffing2.SynchroniseFromDeviceToHost(All);
+		SaveData(ScanDuffing2, DataFile, NumberOfThreads);
 	}
 	
 	clock_t SimulationEnd = clock();
