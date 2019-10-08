@@ -4,6 +4,22 @@
 #include <string>
 #include <fstream>
 
+#define F(i)    F[tid + i*NT]
+#define X(i)    X[tid + i*NT]
+#define cPAR(i) cPAR[tid + i*NT]
+#define sPAR(i) sPAR[i]
+#define ACC(i)  ACC[tid + i*NT]
+#define EF(i)   EF[tid + i*NT]
+#define TD(i)   TD[tid + i*NT]
+	#include "PerThread_SystemDefinition.cuh"
+#undef F
+#undef X
+#undef cPAR
+#undef sPAR
+#undef ACC
+#undef EF
+#undef TD
+
 #include "MassivelyParallel_GPU-ODE_Solver.cuh"
 
 #define PI 3.14159265358979323846
