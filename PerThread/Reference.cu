@@ -8,7 +8,7 @@
 #include "PerThread_SystemDefinition.cuh"
 #include "SingleSystem_PerThread_IndexingMacroDisabled.cuh"
 
-#include "MassivelyParallel_GPU-ODE_Solver.cuh"
+#include "SingleSystem_PerThread.cuh"
 
 #define PI 3.14159265358979323846
 

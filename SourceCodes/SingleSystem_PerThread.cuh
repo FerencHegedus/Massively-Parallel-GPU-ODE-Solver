@@ -185,7 +185,7 @@ class ProblemSolver
 
 // --- INCLUDE SOLVERS ---
 
-#include "PerThread_RungeKutta.cuh"
+#include "SingleSystem_PerThread_Runge_Kutta.cuh"
 
 
 // --- CUDA DEVICE FUNCTIONS ---
