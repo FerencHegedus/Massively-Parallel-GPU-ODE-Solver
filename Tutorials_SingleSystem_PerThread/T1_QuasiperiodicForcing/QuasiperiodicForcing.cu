@@ -12,12 +12,16 @@
 
 #define PI 3.14159265358979323846
 
+#define SOLVER RKCK45
+#define EVNT   EVNT1
+#define DOUT   DOUT0
+
 using namespace std;
 
 void Linspace(vector<double>&, double, double, int);
 void Logspace(vector<double>&, double, double, int);
 
-void FillSolverObject(ProblemSolver&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&, int, int);
+void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&, int, int);
 
 int main()
 {
@@ -57,12 +61,10 @@ int main()
 	ConfigurationKellerMiksis.NumberOfThreads           = NumberOfThreads;
 	ConfigurationKellerMiksis.SystemDimension           = 2;
 	ConfigurationKellerMiksis.NumberOfControlParameters = 21;
-	ConfigurationKellerMiksis.NumberOfSharedParameters  = 0;
 	ConfigurationKellerMiksis.NumberOfEvents            = 1;
 	ConfigurationKellerMiksis.NumberOfAccessories       = 4;
-	ConfigurationKellerMiksis.DenseOutputNumberOfPoints = 0;
 	
-	ProblemSolver ScanKellerMiksis(ConfigurationKellerMiksis, SelectedDevice);
+	ProblemSolver<SOLVER,EVNT,DOUT> ScanKellerMiksis(ConfigurationKellerMiksis, SelectedDevice);
 	
 	ScanKellerMiksis.SolverOption(ThreadsPerBlock, 64);
 	ScanKellerMiksis.SolverOption(RelativeTolerance, 0, 1e-10);
@@ -228,7 +230,7 @@ void Logspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillSolverObject(ProblemSolver& Solver, const vector<double>& F1_Values, const vector<double>& F2_Values, const vector<double>& PA1_Values, const vector<double>& PA2_Values, int ProblemStartIndex, int NumberOfThreads)
+void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>& Solver, const vector<double>& F1_Values, const vector<double>& F2_Values, const vector<double>& PA1_Values, const vector<double>& PA2_Values, int ProblemStartIndex, int NumberOfThreads)
 {
 	// Declaration of physical control parameters
 	double P1; // pressure amplitude1 [bar]

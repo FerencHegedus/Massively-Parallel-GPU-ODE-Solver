@@ -5,7 +5,9 @@
 #undef X
 #undef cPAR
 #undef sPAR
+#undef sPARi
 #undef ACC
+#undef ACCi
 #undef EF
 #undef TD
 

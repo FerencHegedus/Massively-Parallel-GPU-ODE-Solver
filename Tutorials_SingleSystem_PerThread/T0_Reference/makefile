@@ -5,3 +5,7 @@ all: Reference.exe
 
 Reference.exe: Reference.cu
 	nvcc -o	Reference.exe Reference.cu $(INCL_DIR) $(CMPL_OPT)
+
+clean:
+	rm -f Reference.exe
+	rm -f Duffing.txt

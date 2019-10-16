@@ -12,12 +12,16 @@
 
 #define PI 3.14159265358979323846
 
+#define SOLVER RKCK45
+#define EVNT   EVNT1
+#define DOUT   DOUT0
+
 using namespace std;
 
 void Linspace(vector<double>&, double, double, int);
 void Logspace(vector<double>&, double, double, int);
 
-void FillSolverObject(ProblemSolver&, const vector<double>&);
+void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>&, const vector<double>&);
 
 int main()
 {
@@ -50,9 +54,8 @@ int main()
 	ConfigurationPressureReliefValve.NumberOfSharedParameters  = 4;
 	ConfigurationPressureReliefValve.NumberOfEvents            = 2;
 	ConfigurationPressureReliefValve.NumberOfAccessories       = 2;
-	ConfigurationPressureReliefValve.DenseOutputNumberOfPoints = 0;
 	
-	ProblemSolver ScanPressureReliefValve(ConfigurationPressureReliefValve, SelectedDevice);
+	ProblemSolver<SOLVER,EVNT,DOUT> ScanPressureReliefValve(ConfigurationPressureReliefValve, SelectedDevice);
 	
 	ScanPressureReliefValve.SolverOption(ThreadsPerBlock, 64);
 	ScanPressureReliefValve.SolverOption(RelativeTolerance, 0, 1e-10);
@@ -158,7 +161,7 @@ void Logspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillSolverObject(ProblemSolver& Solver, const vector<double>& q_Values)
+void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>& Solver, const vector<double>& q_Values)
 {	
 	int ProblemNumber = 0;
 	for (auto const& q: q_Values) // dimensionless flow rate [-]

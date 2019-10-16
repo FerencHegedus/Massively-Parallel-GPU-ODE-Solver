@@ -11,11 +11,15 @@
 
 #define PI 3.14159265358979323846
 
+#define SOLVER RKCK45
+#define EVNT   EVNT1
+#define DOUT   DOUT1
+
 using namespace std;
 
 void Linspace(vector<double>&, double, double, int);
-void FillSolverObject(ProblemSolver&, const vector<double>&, double, double, double, int, int);
-void SaveData(ProblemSolver&, ofstream&, int);
+void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>&, const vector<double>&, double, double, double, int, int);
+void SaveData(ProblemSolver<SOLVER,EVNT,DOUT>&, ofstream&, int);
 
 int main()
 {
@@ -47,23 +51,23 @@ int main()
 	
 	ConstructorConfiguration ConfigurationDuffing;
 	
-	ConfigurationDuffing.NumberOfThreads           = NumberOfThreads;
-	ConfigurationDuffing.SystemDimension           = 2;
+	ConfigurationDuffing.NumberOfThreads = NumberOfThreads;
+	ConfigurationDuffing.SystemDimension = 2;
 	ConfigurationDuffing.NumberOfControlParameters = 1;
-	ConfigurationDuffing.NumberOfSharedParameters  = 1;
-	ConfigurationDuffing.NumberOfEvents            = 2;
-	ConfigurationDuffing.NumberOfAccessories       = 3;
+	ConfigurationDuffing.NumberOfSharedParameters = 1;
+	ConfigurationDuffing.NumberOfIntegerSharedParameters = 0;
+	ConfigurationDuffing.NumberOfEvents = 2;
+	ConfigurationDuffing.NumberOfAccessories = 3;
+	ConfigurationDuffing.NumberOfIntegerAccessories = 0;
 	ConfigurationDuffing.DenseOutputNumberOfPoints = 1000;
 	
-	ProblemSolver ScanDuffing(ConfigurationDuffing, SelectedDevice);
+	ProblemSolver<SOLVER,EVNT,DOUT> ScanDuffing(ConfigurationDuffing, SelectedDevice);
 	
 	ScanDuffing.SolverOption(ThreadsPerBlock, BlockSize);
 	ScanDuffing.SolverOption(InitialTimeStep, 1e-2);
-	ScanDuffing.SolverOption(Solver, RKCK45);
 	ScanDuffing.SolverOption(ActiveNumberOfThreads, NumberOfThreads);
 	
-	ScanDuffing.SolverOption(DenseOutputEnabled, 1);
-	ScanDuffing.SolverOption(DenseOutputTimeStep, -1e-2);
+	ScanDuffing.SolverOption(DenseOutputTimeStep, -1.5e-2);
 	
 	ScanDuffing.SolverOption(MaximumTimeStep, 1e3);
 	ScanDuffing.SolverOption(MinimumTimeStep, 1e-14);
@@ -108,7 +112,7 @@ int main()
 			ScanDuffing.SynchroniseSolver();
 		}
 		TransientEnd = clock();
-			cout << "Transient iteration: " << LaunchCounter << "  Simulation time: " << 1000.0*(TransientEnd-TransientStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
+			cout << "Launches: " << LaunchCounter << "  Simulation time: " << 1000.0*(TransientEnd-TransientStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 		
 		for (int i=0; i<32; i++)
 		{
@@ -149,7 +153,7 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-void FillSolverObject(ProblemSolver& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
+void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
 {
 	int k_begin = FirstProblemNumber;
 	int k_end   = FirstProblemNumber + NumberOfThreads;
@@ -175,7 +179,7 @@ void FillSolverObject(ProblemSolver& Solver, const vector<double>& k_Values, dou
 	Solver.SetHost(SharedParameters, 0, B );
 }
 
-void SaveData(ProblemSolver& Solver, ofstream& DataFile, int NumberOfThreads)
+void SaveData(ProblemSolver<SOLVER,EVNT,DOUT>& Solver, ofstream& DataFile, int NumberOfThreads)
 {
 	int Width = 18;
 	DataFile.precision(10);

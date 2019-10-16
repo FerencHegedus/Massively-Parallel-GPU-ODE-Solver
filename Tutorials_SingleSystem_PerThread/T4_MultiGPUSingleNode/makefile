@@ -5,3 +5,7 @@ all: MultiGPUSingleNode.exe
 
 MultiGPUSingleNode.exe: MultiGPUSingleNode.cu
 	nvcc -o	MultiGPUSingleNode.exe MultiGPUSingleNode.cu $(INCL_DIR) $(CMPL_OPT)
+
+clean:
+	rm -f MultiGPUSingleNode.exe
+	rm -f Duffing.txt

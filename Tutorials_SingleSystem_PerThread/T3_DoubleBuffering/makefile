@@ -5,3 +5,7 @@ all: DoubleBuffering.exe
 
 DoubleBuffering.exe: DoubleBuffering.cu
 	nvcc -o	DoubleBuffering.exe DoubleBuffering.cu $(INCL_DIR) $(CMPL_OPT)
+
+clean:
+	rm -f DoubleBuffering.exe
+	rm -f Duffing.txt

@@ -5,3 +5,7 @@ all: ImpactDynamics.exe
 
 ImpactDynamics.exe: ImpactDynamics.cu
 	nvcc -o	ImpactDynamics.exe ImpactDynamics.cu $(INCL_DIR) $(CMPL_OPT)
+
+clean:
+	rm -f ImpactDynamics.exe
+	rm -f PressureReliefValve.txt
