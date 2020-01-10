@@ -29,9 +29,8 @@ DataType* AllocateHostPinnedMemory(int);
 template <class DataType>
 DataType* AllocateDeviceMemory(int);
 
-enum AlgorithmOptions{ RKCK45, RK4 };
-enum EventHandlingOptions{ EVNT0, EVNT1 };
-enum DenseOutputOptions{ DOUT0, DOUT1 };
+enum Algorithms{ RKCK45, RK4 };
+enum DataStructures{ GLOBAL, REGISTER };
 
 enum VariableSelection{	All, TimeDomain, ActualState, ControlParameters, SharedParameters, Accessories, DenseOutput, DenseTime, DenseState };
 enum IntegerVariableSelection{	IntegerSharedParameters, IntegerAccessories };
@@ -46,21 +45,6 @@ void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
 
-
-struct ConstructorConfiguration
-{
-	int NumberOfThreads = 0;
-	int SystemDimension = 0;
-	int NumberOfControlParameters = 0;
-	int NumberOfSharedParameters = 0;
-	int NumberOfEvents = 0;
-	int NumberOfAccessories = 0;
-	
-	int NumberOfIntegerSharedParameters = 0;
-	int NumberOfIntegerAccessories = 0;
-	
-	int DenseOutputNumberOfPoints = 0;
-};
 
 struct IntegratorInternalVariables
 {
@@ -117,7 +101,7 @@ struct IntegratorInternalVariables
 	int    MaximumNumberOfTimeSteps;
 };
 
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
 class ProblemSolver
 {
     private:
@@ -167,7 +151,7 @@ class ProblemSolver
 		void ErrorHandlingSetGetHost(std::string, std::string, int, int);
 		
 	public:
-		ProblemSolver(const ConstructorConfiguration&, int);
+		ProblemSolver(int);
 		~ProblemSolver();
 		
 		void SetHost(int, VariableSelection, int, double);      // Problem scope, double
@@ -301,8 +285,8 @@ void PrintPropertiesOfSpecificDevice(int SelectedDevice)
 // --- PROBLEM SOLVER OBJECT ---
 
 // CONSTRUCTOR
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::ProblemSolver(const ConstructorConfiguration& Configuration, int AssociatedDevice)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::ProblemSolver(int AssociatedDevice)
 {
     std::cout << "Creating a SolverObject ..." << std::endl;
 	
@@ -321,18 +305,18 @@ ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::Prob
 	
 	
 	// Size related user-given variables
-	KernelParameters.NumberOfThreads                 = Configuration.NumberOfThreads;
-	KernelParameters.SystemDimension                 = Configuration.SystemDimension;
-	KernelParameters.NumberOfControlParameters       = Configuration.NumberOfControlParameters;
-	KernelParameters.NumberOfSharedParameters        = Configuration.NumberOfSharedParameters;
-	KernelParameters.NumberOfEvents                  = Configuration.NumberOfEvents;
-	KernelParameters.NumberOfAccessories             = Configuration.NumberOfAccessories;
-	KernelParameters.NumberOfIntegerSharedParameters = Configuration.NumberOfIntegerSharedParameters;
-	KernelParameters.NumberOfIntegerAccessories      = Configuration.NumberOfIntegerAccessories;
-	KernelParameters.DenseOutputNumberOfPoints       = Configuration.DenseOutputNumberOfPoints;
+	KernelParameters.NumberOfThreads                 = NT;
+	KernelParameters.SystemDimension                 = SD;
+	KernelParameters.NumberOfControlParameters       = NCP;
+	KernelParameters.NumberOfSharedParameters        = NSP;
+	KernelParameters.NumberOfEvents                  = NE;
+	KernelParameters.NumberOfAccessories             = NA;
+	KernelParameters.NumberOfIntegerSharedParameters = NISP;
+	KernelParameters.NumberOfIntegerAccessories      = NIA;
+	KernelParameters.DenseOutputNumberOfPoints       = NDO;
 	
 	
-	// Global memory requirements
+	// Global memory management
 	SizeOfTimeDomain              = KernelParameters.NumberOfThreads * 2;
 	SizeOfActualState             = KernelParameters.NumberOfThreads * KernelParameters.SystemDimension;
 	SizeOfControlParameters       = KernelParameters.NumberOfThreads * KernelParameters.NumberOfControlParameters;
@@ -366,20 +350,14 @@ ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::Prob
 	std::cout << std::endl;
 	
 	
-	// Shared memory requirements
-	DynamicSharedMemory = KernelParameters.NumberOfSharedParameters*sizeof(double) + KernelParameters.NumberOfIntegerSharedParameters*sizeof(int);
+	// Shared memory management
+	DynamicSharedMemory =  KernelParameters.NumberOfSharedParameters*sizeof(double) + KernelParameters.NumberOfIntegerSharedParameters*sizeof(int);
+	DynamicSharedMemory += KernelParameters.NumberOfEvents*( sizeof(int) + sizeof(double) + sizeof(int) );
 	
-	switch (SelectedAlgorithm)
+	switch (Algorithm)
 	{
 		case RKCK45:
 			DynamicSharedMemory += 2*KernelParameters.SystemDimension*sizeof(double);
-			break;
-	}
-	
-	switch (SelectedEventHandling)
-	{
-		case EVNT1:
-			DynamicSharedMemory += KernelParameters.NumberOfEvents*( sizeof(int) + sizeof(double) + sizeof(int) );
 			break;
 	}
 	
@@ -514,8 +492,8 @@ ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::Prob
 }
 
 // DESTRUCTOR
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::~ProblemSolver()
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::~ProblemSolver()
 {
     gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -566,9 +544,9 @@ ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::~Pro
 	std::cout << "Object for Parameters scan is deleted! Every memory have been deallocated!" << std::endl << std::endl;
 }
 
-// ERROR, set/get host, options
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::ErrorHandlingSetGetHost(std::string Function, std::string Variable, int Value, int Limit)
+// ERROR HANDLING, set/get host, options
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::ErrorHandlingSetGetHost(std::string Function, std::string Variable, int Value, int Limit)
 {
 	if ( Value >= Limit )
 	{
@@ -579,9 +557,9 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
     }
 }
 
-// SET, Problem scope, double
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, double Value)
+// SETHOST, Problem scope, double
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, double Value)
 {
 	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -621,9 +599,9 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 	}
 }
 
-// SET, Problem scope, int
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber, int Value)
+// SETHOST, Problem scope, int
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber, int Value)
 {
 	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -643,9 +621,9 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 	}
 }
 
-// SET, Dense state
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep, double Value)
+// SETHOST, Dense state
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep, double Value)
 {
 	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -666,9 +644,9 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 	}
 }
 
-// SET, Global scope, double
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SetHost(VariableSelection Variable, int SerialNumber, double Value)
+// SETHOST, Global scope, double
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(VariableSelection Variable, int SerialNumber, double Value)
 {
 	switch (Variable)
 	{
@@ -684,9 +662,9 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 	}
 }
 
-// SET, Global scope, int
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SetHost(IntegerVariableSelection Variable, int SerialNumber, int Value)
+// SETHOST, Global scope, int
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(IntegerVariableSelection Variable, int SerialNumber, int Value)
 {
 	switch (Variable)
 	{
@@ -703,8 +681,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // SYNCHRONISE, H->D, default
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SynchroniseFromHostToDevice(VariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseFromHostToDevice(VariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -757,8 +735,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // SYNCHRONISE, H->D, int
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SynchroniseFromHostToDevice(IntegerVariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseFromHostToDevice(IntegerVariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -780,8 +758,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // SYNCHRONISE, D->H, default
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SynchroniseFromDeviceToHost(VariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseFromDeviceToHost(VariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -834,8 +812,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // SYNCHRONISE, D->H, int
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SynchroniseFromDeviceToHost(IntegerVariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseFromDeviceToHost(IntegerVariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -856,9 +834,9 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 	}
 }
 
-// GET, Problem scope, double
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-double ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber)
+// GETHOST, Problem scope, double
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber)
 {
 	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -901,9 +879,9 @@ double ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput
 	return Value;
 }
 
-// GET, Problem scope, int
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-int ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::GetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber)
+// GETHOST, Problem scope, int
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber)
 {
 	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -926,9 +904,9 @@ int ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::
 	return Value;
 }
 
-// GET, Dense state
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-double ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep)
+// GETHOST, Dense state
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep)
 {
 	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -952,9 +930,9 @@ double ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput
 	return Value;
 }
 
-// GET, Global scope, double
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-double ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::GetHost(VariableSelection Variable, int SerialNumber)
+// GETHOST, Global scope, double
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(VariableSelection Variable, int SerialNumber)
 {
 	double Value;
 	switch (Variable)
@@ -973,9 +951,9 @@ double ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput
 	return Value;
 }
 
-// GET, Global scope, int
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-int ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::GetHost(IntegerVariableSelection Variable, int SerialNumber)
+// GETHOST, Global scope, int
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(IntegerVariableSelection Variable, int SerialNumber)
 {
 	double Value;
 	switch (Variable)
@@ -995,8 +973,8 @@ int ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::
 }
 
 // PRINT, default
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::Print(VariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::Print(VariableSelection Variable)
 {
 	std::ofstream DataFile;
 	int NumberOfRows;
@@ -1067,8 +1045,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // PRINT, int
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::Print(IntegerVariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::Print(IntegerVariableSelection Variable)
 {
 	std::ofstream DataFile;
 	int NumberOfRows;
@@ -1118,8 +1096,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // PRINT, Dense state
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::Print(VariableSelection Variable, int ThreadID)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::Print(VariableSelection Variable, int ThreadID)
 {
 	ErrorHandlingSetGetHost("Print", "Thread", ThreadID, KernelParameters.NumberOfThreads);
 	
@@ -1207,8 +1185,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // OPTION, int
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SolverOption(ListOfSolverOptions Option, int Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SolverOption(ListOfSolverOptions Option, int Value)
 {
 	switch (Option)
 	{
@@ -1237,8 +1215,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // OPTION, double
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SolverOption(ListOfSolverOptions Option, double Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SolverOption(ListOfSolverOptions Option, double Value)
 {
 	switch (Option)
 	{
@@ -1274,8 +1252,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // OPTION, array of int
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SolverOption(ListOfSolverOptions Option, int SerialNumber, int Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SolverOption(ListOfSolverOptions Option, int SerialNumber, int Value)
 {
 	switch (Option)
 	{
@@ -1297,8 +1275,8 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 }
 
 // OPTION, array of double
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SolverOption(ListOfSolverOptions Option, int SerialNumber, double Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SolverOption(ListOfSolverOptions Option, int SerialNumber, double Value)
 {
 	switch (Option)
 	{
@@ -1324,32 +1302,36 @@ void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>:
 	}
 }
 
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::Solve()
+// SOLVE
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::Solve()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	SingleSystem_PerThread_Runge_Kutta<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
+	SingleSystem_PerThread_RungeKutta_GLOBAL<Algorithm,NE,NDO><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
 }
 
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SynchroniseDevice()
+// SYNCHRONISE DEVICE
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseDevice()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
 	gpuErrCHK( cudaDeviceSynchronize() );
 }
 
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::InsertSynchronisationPoint()
+// INSERT SYNCHRONISATION POINT
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::InsertSynchronisationPoint()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
 	gpuErrCHK( cudaEventRecord(Event, Stream) );
 }
 
-template <AlgorithmOptions SelectedAlgorithm, EventHandlingOptions SelectedEventHandling, DenseOutputOptions SelectedDenseOutput>
-void ProblemSolver<SelectedAlgorithm,SelectedEventHandling,SelectedDenseOutput>::SynchroniseSolver()
+// SYNCHRONISE SOLVER
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseSolver()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	

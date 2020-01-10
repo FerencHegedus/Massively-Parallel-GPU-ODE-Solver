@@ -2,21 +2,9 @@
 #define SINGLESYSTEM_PERTHREAD_RUNGEKUTTA_EVENTHANDLING_H
 
 
-// ----------
-template <EventHandlingOptions SelectedEventHandling>
+// ----------------------------------------------------------------------------
+template <int NE>
 __forceinline__ __device__ void EventHandlingInitialisation(IntegratorInternalVariables KernelParameters, int tid)
-{}
-
-
-// ----------
-template <>
-__forceinline__ __device__ void EventHandlingInitialisation<EVNT0>(IntegratorInternalVariables KernelParameters, int tid)
-{}
-
-
-// ----------
-template <>
-__forceinline__ __device__ void EventHandlingInitialisation<EVNT1>(IntegratorInternalVariables KernelParameters, int tid)
 {
 	int TemporaryIndex = tid;
 	for (int i=0; i<KernelParameters.NumberOfEvents; i++)
@@ -29,28 +17,18 @@ __forceinline__ __device__ void EventHandlingInitialisation<EVNT1>(IntegratorInt
 }
 
 
-
 // ----------
-template <EventHandlingOptions SelectedEventHandling>
+template <>
+__forceinline__ __device__ void EventHandlingInitialisation<0>(IntegratorInternalVariables KernelParameters, int tid)
+{}
+
+
+
+// ----------------------------------------------------------------------------
+template <int NE>
 __forceinline__ __device__ void EventHandlingTimeStepControl(IntegratorInternalVariables KernelParameters, int tid, bool& UpdateRungeKuttaStep, \
-                                             double* s_EventTolerance, int* s_EventDirection, \
-											 double TimeStep, double& NewTimeStep)
-{}
-
-
-// ----------
-template <>
-__forceinline__ __device__ void EventHandlingTimeStepControl<EVNT0>(IntegratorInternalVariables KernelParameters, int tid, bool& UpdateRungeKuttaStep, \
-                                                    double* s_EventTolerance, int* s_EventDirection, \
-													double TimeStep, double& NewTimeStep)
-{}
-
-
-// ----------
-template <>
-__forceinline__ __device__ void EventHandlingTimeStepControl<EVNT1>(IntegratorInternalVariables KernelParameters, int tid, bool& UpdateRungeKuttaStep, \
-                                                    double* s_EventTolerance, int* s_EventDirection, \
-													double TimeStep, double& NewTimeStep)
+                                                             double* s_EventTolerance, int* s_EventDirection, \
+											                 double TimeStep, double& NewTimeStep)
 {
 	if ( UpdateRungeKuttaStep == 1 )
 	{
@@ -81,28 +59,20 @@ __forceinline__ __device__ void EventHandlingTimeStepControl<EVNT1>(IntegratorIn
 }
 
 
-
 // ----------
-template <EventHandlingOptions SelectedEventHandling>
+template <>
+__forceinline__ __device__ void EventHandlingTimeStepControl<0>(IntegratorInternalVariables KernelParameters, int tid, bool& UpdateRungeKuttaStep, \
+                                                                double* s_EventTolerance, int* s_EventDirection, \
+													            double TimeStep, double& NewTimeStep)
+{}
+
+
+
+// ----------------------------------------------------------------------------
+template <int NE>
 __forceinline__ __device__ void EventHandlingUpdate(IntegratorInternalVariables KernelParameters, int tid, bool& TerminateSimulation, \
-                                    double* s_EventTolerance, int* s_EventDirection, int* s_EventStopCounter, \
-									double& ActualTime, double& TimeStep, double* s_SharedParameters, int* s_IntegerSharedParameters)
-{}
-
-
-// ----------
-template <>
-__forceinline__ __device__ void EventHandlingUpdate<EVNT0>(IntegratorInternalVariables KernelParameters, int tid, bool& TerminateSimulation, \
-                                           double* s_EventTolerance, int* s_EventDirection, int* s_EventStopCounter, \
-										   double& ActualTime, double& TimeStep, double* s_SharedParameters, int* s_IntegerSharedParameters)
-{}
-
-
-// ----------
-template <>
-__forceinline__ __device__ void EventHandlingUpdate<EVNT1>(IntegratorInternalVariables KernelParameters, int tid, bool& TerminateSimulation, \
-                                           double* s_EventTolerance, int* s_EventDirection, int* s_EventStopCounter, \
-										   double& ActualTime, double& TimeStep, double* s_SharedParameters, int* s_IntegerSharedParameters)
+                                                    double* s_EventTolerance, int* s_EventDirection, int* s_EventStopCounter, \
+									                double& ActualTime, double& TimeStep, double* s_SharedParameters, int* s_IntegerSharedParameters)
 {
 	int TemporaryIndex = tid;
 	for (int i=0; i<KernelParameters.NumberOfEvents; i++)
@@ -135,5 +105,13 @@ __forceinline__ __device__ void EventHandlingUpdate<EVNT1>(IntegratorInternalVar
 		TemporaryIndex += KernelParameters.NumberOfThreads;
 	}
 }
+
+
+// ----------
+template <>
+__forceinline__ __device__ void EventHandlingUpdate<0>(IntegratorInternalVariables KernelParameters, int tid, bool& TerminateSimulation, \
+                                                       double* s_EventTolerance, int* s_EventDirection, int* s_EventStopCounter, \
+										               double& ActualTime, double& TimeStep, double* s_SharedParameters, int* s_IntegerSharedParameters)
+{}
 
 #endif

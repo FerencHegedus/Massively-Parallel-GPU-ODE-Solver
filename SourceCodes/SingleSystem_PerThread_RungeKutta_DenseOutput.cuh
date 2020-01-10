@@ -2,22 +2,10 @@
 #define SINGLESYSTEM_PERTHREAD_RUNGEKUTTA_DENSEOUTPUT_H
 
 
-// ----------
-template <DenseOutputOptions SelectedDenseOutput>
+// ----------------------------------------------------------------------------
+template <int NDO>
 __forceinline__ __device__ void StoreDenseOutput(IntegratorInternalVariables KernelParameters, int tid, double ActualTime, double UpperTimeDomain, \
-                                 int& DenseOutputIndex, bool UpdateDenseOutput, double& NextDenseOutputTime)
-{}
-
-// ----------
-template <>
-__forceinline__ __device__ void StoreDenseOutput<DOUT0>(IntegratorInternalVariables KernelParameters, int tid, double ActualTime, double UpperTimeDomain, \
-                                        int& DenseOutputIndex, bool UpdateDenseOutput, double& NextDenseOutputTime)
-{}
-
-// ----------
-template <>
-__forceinline__ __device__ void StoreDenseOutput<DOUT1>(IntegratorInternalVariables KernelParameters, int tid, double ActualTime, double UpperTimeDomain, \
-                                        int& DenseOutputIndex, bool UpdateDenseOutput, double& NextDenseOutputTime)
+                                                 int& DenseOutputIndex, bool UpdateDenseOutput, double& NextDenseOutputTime)
 {
 	if ( ( UpdateDenseOutput == 1 ) && ( DenseOutputIndex < KernelParameters.DenseOutputNumberOfPoints ) )
 	{
@@ -43,24 +31,18 @@ __forceinline__ __device__ void StoreDenseOutput<DOUT1>(IntegratorInternalVariab
 	}
 }
 
-
-
 // ----------
-template <DenseOutputOptions SelectedDenseOutput>
+template <>
+__forceinline__ __device__ void StoreDenseOutput<0>(IntegratorInternalVariables KernelParameters, int tid, double ActualTime, double UpperTimeDomain, \
+                                                    int& DenseOutputIndex, bool UpdateDenseOutput, double& NextDenseOutputTime)
+{}
+
+
+
+// ----------------------------------------------------------------------------
+template <int NDO>
 __forceinline__ __device__ void DenseOutputTimeStepCorrection(IntegratorInternalVariables KernelParameters, int tid, bool& UpdateDenseOutput, int DenseOutputIndex, \
-                                              double NextDenseOutputTime, double ActualTime, double& TimeStep)
-{}
-
-// ----------
-template <>
-__forceinline__ __device__ void DenseOutputTimeStepCorrection<DOUT0>(IntegratorInternalVariables KernelParameters, int tid, bool& UpdateDenseOutput, int DenseOutputIndex, \
-                                                     double NextDenseOutputTime, double ActualTime, double& TimeStep)
-{}
-
-// ----------
-template <>
-__forceinline__ __device__ void DenseOutputTimeStepCorrection<DOUT1>(IntegratorInternalVariables KernelParameters, int tid, bool& UpdateDenseOutput, int DenseOutputIndex, \
-                                                     double NextDenseOutputTime, double ActualTime, double& TimeStep)
+                                                              double NextDenseOutputTime, double ActualTime, double& TimeStep)
 {
 	if ( KernelParameters.DenseOutputTimeStep <= 0.0 )
 	{
@@ -76,5 +58,11 @@ __forceinline__ __device__ void DenseOutputTimeStepCorrection<DOUT1>(IntegratorI
 		}
 	}
 }
+
+// ----------
+template <>
+__forceinline__ __device__ void DenseOutputTimeStepCorrection<0>(IntegratorInternalVariables KernelParameters, int tid, bool& UpdateDenseOutput, int DenseOutputIndex, \
+                                                                 double NextDenseOutputTime, double ActualTime, double& TimeStep)
+{}
 
 #endif

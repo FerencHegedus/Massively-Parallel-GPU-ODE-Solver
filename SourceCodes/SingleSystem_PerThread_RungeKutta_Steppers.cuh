@@ -2,8 +2,8 @@
 #define SINGLESYSTEM_PERTHREAD_RUNGEKUTTA_STEPPERS_H
 
 
-// ----------
-template <AlgorithmOptions SelectedAlgorithm>
+// ----------------------------------------------------------------------------
+template <Algorithms Algorithm>
 __forceinline__ __device__ void RungeKuttaStepper(IntegratorInternalVariables KernelParameters, int tid, double ActualTime, double TimeStep, double* s_SharedParameters, int* s_IntegerSharedParameters, bool& IsFinite)
 {}
 

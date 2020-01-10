@@ -2,21 +2,21 @@
 #define SINGLESYSTEM_PERTHREAD_RUNGEKUTTA_ERRORCONTROLLER_H
 
 
-// ----------
-template <AlgorithmOptions SelectedAlgorithm>
+// ----------------------------------------------------------------------------
+template <Algorithms Algorithm>
 __forceinline__ __device__ void ErrorController(IntegratorInternalVariables KernelParameters, int tid, \
-                                double* s_RelativeTolerance, double* s_AbsoluteTolerance, \
-								bool& UpdateRungeKuttaStep, bool& IsFinite, bool& TerminateSimulation, \
-								double TimeStep, double& NewTimeStep)
+                                                double* s_RelativeTolerance, double* s_AbsoluteTolerance, \
+								                bool& UpdateRungeKuttaStep, bool& IsFinite, bool& TerminateSimulation, \
+								                double TimeStep, double& NewTimeStep)
 {}
 
 
 // ----------
 template <>
 __forceinline__ __device__ void ErrorController<RK4>(IntegratorInternalVariables KernelParameters, int tid, \
-                                     double* s_RelativeTolerance, double* s_AbsoluteTolerance, \
-									 bool& UpdateRungeKuttaStep, bool& IsFinite, bool& TerminateSimulation, \
-									 double TimeStep, double& NewTimeStep)
+                                                     double* s_RelativeTolerance, double* s_AbsoluteTolerance, \
+									                 bool& UpdateRungeKuttaStep, bool& IsFinite, bool& TerminateSimulation, \
+									                 double TimeStep, double& NewTimeStep)
 {
 	if ( IsFinite == 0 )
 	{
@@ -31,9 +31,9 @@ __forceinline__ __device__ void ErrorController<RK4>(IntegratorInternalVariables
 // ----------
 template <>
 __forceinline__ __device__ void ErrorController<RKCK45>(IntegratorInternalVariables KernelParameters, int tid, \
-                                        double* s_RelativeTolerance, double* s_AbsoluteTolerance, \
-										bool& UpdateRungeKuttaStep, bool& IsFinite, bool& TerminateSimulation, \
-										double TimeStep, double& NewTimeStep)
+                                                        double* s_RelativeTolerance, double* s_AbsoluteTolerance, \
+										                bool& UpdateRungeKuttaStep, bool& IsFinite, bool& TerminateSimulation, \
+										                double TimeStep, double& NewTimeStep)
 {
 	int TemporaryIndex = tid;
 	double RelativeError = 1e30;

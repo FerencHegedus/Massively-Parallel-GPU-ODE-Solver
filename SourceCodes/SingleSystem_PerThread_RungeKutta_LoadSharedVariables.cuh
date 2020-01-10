@@ -2,21 +2,21 @@
 #define SINGLESYSTEM_PERTHREAD_RUNGEKUTTA_LOADSHAREDVARIABLES_H
 
 
-// ----------
-template <AlgorithmOptions SelectedAlgorithm>
-__forceinline__ __device__ void LoadSharedVariables(int* DynamicSharedMemory, IntegratorInternalVariables KernelParameters, \
-	                                double*& s_SharedParameters,  int*&    s_IntegerSharedParameters, \
-	                                double*& s_RelativeTolerance, double*& s_AbsoluteTolerance, \
-									double*& s_EventTolerance,    int*&    s_EventDirection,    int*& s_EventStopCounter)
+// ----------------------------------------------------------------------------
+template <Algorithms Algorithm>
+__forceinline__ __device__ void LoadSharedVariables(int*     DynamicSharedMemory, IntegratorInternalVariables KernelParameters, \
+	                                                double*& s_SharedParameters,  int*&    s_IntegerSharedParameters, \
+	                                                double*& s_RelativeTolerance, double*& s_AbsoluteTolerance, \
+									                double*& s_EventTolerance,    int*&    s_EventDirection,    int*& s_EventStopCounter)
 {}
 
 
 // ----------
 template <>
-__forceinline__ __device__ void LoadSharedVariables<RK4>(int* DynamicSharedMemory, IntegratorInternalVariables KernelParameters, \
-	                                     double*& s_SharedParameters,  int*&    s_IntegerSharedParameters, \
-	                                     double*& s_RelativeTolerance, double*& s_AbsoluteTolerance, \
-									     double*& s_EventTolerance,    int*&    s_EventDirection,    int*& s_EventStopCounter)
+__forceinline__ __device__ void LoadSharedVariables<RK4>(int*     DynamicSharedMemory, IntegratorInternalVariables KernelParameters, \
+	                                                     double*& s_SharedParameters,  int*&    s_IntegerSharedParameters, \
+	                                                     double*& s_RelativeTolerance, double*& s_AbsoluteTolerance, \
+									                     double*& s_EventTolerance,    int*&    s_EventDirection,    int*& s_EventStopCounter)
 {
 	s_SharedParameters = (double*)DynamicSharedMemory;
 	s_EventTolerance = (double*)&s_SharedParameters[ KernelParameters.NumberOfSharedParameters ];
@@ -44,10 +44,10 @@ __forceinline__ __device__ void LoadSharedVariables<RK4>(int* DynamicSharedMemor
 
 // ----------
 template <>
-__forceinline__ __device__ void LoadSharedVariables<RKCK45>(int* DynamicSharedMemory, IntegratorInternalVariables KernelParameters, \
-	                                        double*& s_SharedParameters,  int*&    s_IntegerSharedParameters, \
-	                                        double*& s_RelativeTolerance, double*& s_AbsoluteTolerance, \
-									        double*& s_EventTolerance,    int*&    s_EventDirection,    int*& s_EventStopCounter)
+__forceinline__ __device__ void LoadSharedVariables<RKCK45>(int*     DynamicSharedMemory, IntegratorInternalVariables KernelParameters, \
+	                                                        double*& s_SharedParameters,  int*&    s_IntegerSharedParameters, \
+	                                                        double*& s_RelativeTolerance, double*& s_AbsoluteTolerance, \
+									                        double*& s_EventTolerance,    int*&    s_EventDirection,    int*& s_EventStopCounter)
 {
 	s_SharedParameters = (double*)DynamicSharedMemory;
 	s_RelativeTolerance = (double*)&s_SharedParameters[ KernelParameters.NumberOfSharedParameters ];
