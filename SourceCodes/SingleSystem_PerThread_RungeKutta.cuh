@@ -1,6 +1,7 @@
 #ifndef SINGLESYSTEM_PERTHREAD_RUNGEKUTTA_H
 #define SINGLESYSTEM_PERTHREAD_RUNGEKUTTA_H
 
+
 __constant__ double d_BT_RK4[1];
 __constant__ double d_BT_RKCK45[26];
 
@@ -11,7 +12,8 @@ __constant__ double d_BT_RKCK45[26];
 #include "SingleSystem_PerThread_RungeKutta_EventHandling.cuh"       // Dependency: NE (NumberOfEvents)
 
 
-template <Algorithms Algorithm, int NE, int NDO>
+// Solver DataLayout GLOBAL
+template <int NE, int NDO, Algorithms Algorithm, class Precision>
 __global__ void SingleSystem_PerThread_RungeKutta_GLOBAL(IntegratorInternalVariables KernelParameters)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
@@ -121,5 +123,14 @@ __global__ void SingleSystem_PerThread_RungeKutta_GLOBAL(IntegratorInternalVaria
 							   KernelParameters.d_ControlParameters, s_SharedParameters, s_IntegerSharedParameters, KernelParameters.d_Accessories, KernelParameters.d_IntegerAccessories);
 	}
 }
+
+
+// Solver DataLayout REGISTER
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+__global__ void SingleSystem_PerThread_RungeKutta_REGISTER(IntegratorInternalVariables KernelParameters)
+{
+	
+}
+
 
 #endif

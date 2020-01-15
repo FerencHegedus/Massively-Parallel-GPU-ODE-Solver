@@ -30,7 +30,7 @@ template <class DataType>
 DataType* AllocateDeviceMemory(int);
 
 enum Algorithms{ RKCK45, RK4 };
-enum DataStructures{ GLOBAL, REGISTER };
+enum DataLayouts{ GLOBAL, REGISTER };
 
 enum VariableSelection{	All, TimeDomain, ActualState, ControlParameters, SharedParameters, Accessories, DenseOutput, DenseTime, DenseState };
 enum IntegerVariableSelection{	IntegerSharedParameters, IntegerAccessories };
@@ -101,7 +101,7 @@ struct IntegratorInternalVariables
 	int    MaximumNumberOfTimeSteps;
 };
 
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
 class ProblemSolver
 {
     private:
@@ -285,8 +285,8 @@ void PrintPropertiesOfSpecificDevice(int SelectedDevice)
 // --- PROBLEM SOLVER OBJECT ---
 
 // CONSTRUCTOR
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::ProblemSolver(int AssociatedDevice)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::ProblemSolver(int AssociatedDevice)
 {
     std::cout << "Creating a SolverObject ..." << std::endl;
 	
@@ -492,8 +492,8 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision
 }
 
 // DESTRUCTOR
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::~ProblemSolver()
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::~ProblemSolver()
 {
     gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -545,8 +545,8 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision
 }
 
 // ERROR HANDLING, set/get host, options
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::ErrorHandlingSetGetHost(std::string Function, std::string Variable, int Value, int Limit)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::ErrorHandlingSetGetHost(std::string Function, std::string Variable, int Value, int Limit)
 {
 	if ( Value >= Limit )
 	{
@@ -558,8 +558,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SETHOST, Problem scope, double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, double Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, double Value)
 {
 	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -600,8 +600,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SETHOST, Problem scope, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber, int Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber, int Value)
 {
 	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -622,8 +622,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SETHOST, Dense state
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep, double Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep, double Value)
 {
 	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -645,8 +645,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SETHOST, Global scope, double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(VariableSelection Variable, int SerialNumber, double Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SetHost(VariableSelection Variable, int SerialNumber, double Value)
 {
 	switch (Variable)
 	{
@@ -663,8 +663,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SETHOST, Global scope, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SetHost(IntegerVariableSelection Variable, int SerialNumber, int Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SetHost(IntegerVariableSelection Variable, int SerialNumber, int Value)
 {
 	switch (Variable)
 	{
@@ -681,8 +681,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SYNCHRONISE, H->D, default
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseFromHostToDevice(VariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SynchroniseFromHostToDevice(VariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -735,8 +735,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SYNCHRONISE, H->D, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseFromHostToDevice(IntegerVariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SynchroniseFromHostToDevice(IntegerVariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -758,8 +758,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SYNCHRONISE, D->H, default
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseFromDeviceToHost(VariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SynchroniseFromDeviceToHost(VariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -812,8 +812,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SYNCHRONISE, D->H, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseFromDeviceToHost(IntegerVariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SynchroniseFromDeviceToHost(IntegerVariableSelection Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -835,8 +835,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // GETHOST, Problem scope, double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber)
 {
 	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -880,8 +880,8 @@ double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Pr
 }
 
 // GETHOST, Problem scope, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::GetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber)
 {
 	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -905,8 +905,8 @@ int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Preci
 }
 
 // GETHOST, Dense state
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep)
 {
 	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -931,8 +931,8 @@ double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Pr
 }
 
 // GETHOST, Global scope, double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(VariableSelection Variable, int SerialNumber)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::GetHost(VariableSelection Variable, int SerialNumber)
 {
 	double Value;
 	switch (Variable)
@@ -952,8 +952,8 @@ double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Pr
 }
 
 // GETHOST, Global scope, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::GetHost(IntegerVariableSelection Variable, int SerialNumber)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::GetHost(IntegerVariableSelection Variable, int SerialNumber)
 {
 	double Value;
 	switch (Variable)
@@ -973,8 +973,8 @@ int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Preci
 }
 
 // PRINT, default
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::Print(VariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::Print(VariableSelection Variable)
 {
 	std::ofstream DataFile;
 	int NumberOfRows;
@@ -1045,8 +1045,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // PRINT, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::Print(IntegerVariableSelection Variable)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::Print(IntegerVariableSelection Variable)
 {
 	std::ofstream DataFile;
 	int NumberOfRows;
@@ -1096,8 +1096,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // PRINT, Dense state
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::Print(VariableSelection Variable, int ThreadID)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::Print(VariableSelection Variable, int ThreadID)
 {
 	ErrorHandlingSetGetHost("Print", "Thread", ThreadID, KernelParameters.NumberOfThreads);
 	
@@ -1185,8 +1185,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // OPTION, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SolverOption(ListOfSolverOptions Option, int Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SolverOption(ListOfSolverOptions Option, int Value)
 {
 	switch (Option)
 	{
@@ -1215,8 +1215,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // OPTION, double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SolverOption(ListOfSolverOptions Option, double Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SolverOption(ListOfSolverOptions Option, double Value)
 {
 	switch (Option)
 	{
@@ -1252,8 +1252,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // OPTION, array of int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SolverOption(ListOfSolverOptions Option, int SerialNumber, int Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SolverOption(ListOfSolverOptions Option, int SerialNumber, int Value)
 {
 	switch (Option)
 	{
@@ -1275,8 +1275,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // OPTION, array of double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SolverOption(ListOfSolverOptions Option, int SerialNumber, double Value)
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SolverOption(ListOfSolverOptions Option, int SerialNumber, double Value)
 {
 	switch (Option)
 	{
@@ -1303,17 +1303,20 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SOLVE
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::Solve()
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::Solve()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	SingleSystem_PerThread_RungeKutta_GLOBAL<Algorithm,NE,NDO><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
+	if (DataLayout == GLOBAL)
+		SingleSystem_PerThread_RungeKutta_GLOBAL<NE,NDO,Algorithm,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
+	else if (DataLayout == REGISTER)
+		SingleSystem_PerThread_RungeKutta_REGISTER<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
 }
 
 // SYNCHRONISE DEVICE
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseDevice()
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SynchroniseDevice()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -1321,8 +1324,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // INSERT SYNCHRONISATION POINT
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::InsertSynchronisationPoint()
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::InsertSynchronisationPoint()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -1330,8 +1333,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Prec
 }
 
 // SYNCHRONISE SOLVER
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataStructures DataStructure, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataStructure,Precision>::SynchroniseSolver()
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, DataLayouts DataLayout, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision>::SynchroniseSolver()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
