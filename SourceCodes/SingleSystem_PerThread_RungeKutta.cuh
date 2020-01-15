@@ -6,11 +6,11 @@ __constant__ double d_BT_RK4[1];
 __constant__ double d_BT_RKCK45[26];
 
 #include "SingleSystem_PerThread_RungeKutta_LoadSharedVariables.cuh" // Dependency: Algorithm
-#include "SingleSystem_PerThread_RungeKutta_Steppers.cuh"            // Dependency: Algorithm
-#include "SingleSystem_PerThread_RungeKutta_ErrorController.cuh"     // Dependency: Algorithm
-#include "SingleSystem_PerThread_RungeKutta_DenseOutput.cuh"         // Dependency: NDO (NumberOfDenseOutputs)
-#include "SingleSystem_PerThread_RungeKutta_EventHandling.cuh"       // Dependency: NE (NumberOfEvents)
 
+#include "SingleSystem_PerThread_RungeKutta_GLOBAL_Steppers.cuh"            // Dependency: Algorithm
+#include "SingleSystem_PerThread_RungeKutta_GLOBAL_ErrorController.cuh"     // Dependency: Algorithm
+#include "SingleSystem_PerThread_RungeKutta_GLOBAL_DenseOutput.cuh"         // Dependency: NDO (NumberOfDenseOutputs)
+#include "SingleSystem_PerThread_RungeKutta_GLOBAL_EventHandling.cuh"       // Dependency: NE (NumberOfEvents)
 
 // Solver DataLayout GLOBAL
 template <int NE, int NDO, Algorithms Algorithm, class Precision>
