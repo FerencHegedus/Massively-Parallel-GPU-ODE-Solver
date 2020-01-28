@@ -16,6 +16,7 @@
 Web/
 Doc/Figures
 PerBlockCoupling/
+Test/
 
 # Don't track specific files in specific folders
 Doc/*.m

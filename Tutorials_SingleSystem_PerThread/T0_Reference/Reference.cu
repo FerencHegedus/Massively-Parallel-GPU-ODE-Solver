@@ -4,8 +4,7 @@
 #include <string>
 #include <fstream>
 
-#define  SOLVER     RKCK45 // RK4, RKCK45
-#define  DATALAYOUT REGISTER // GLOBAL, REGISTER
+#define  DATALAYOUTFORINDEXING 1 // 0: GLOBAL, 1: REGISTER
 #include "SingleSystem_PerThread_IndexingMacroEnabled.cuh"
 #include "Reference_SystemDefinition.cuh"
 #include "SingleSystem_PerThread_IndexingMacroDisabled.cuh"
@@ -15,6 +14,9 @@
 
 using namespace std;
 
+// Solver Configuration
+#define  SOLVER     RKCK45   // RK4, RKCK45
+#define  DATALAYOUT REGISTER // GLOBAL, REGISTER
 const int NT   = 23040; // NumberOfThreads
 const int SD   = 2;     // SystemDimension
 const int NCP  = 1;     // NumberOfControlParameters

@@ -29,7 +29,8 @@ DataType* AllocateHostPinnedMemory(int);
 template <class DataType>
 DataType* AllocateDeviceMemory(int);
 
-enum Algorithms{ RKCK45, RK4 };
+// THE INTEGER NUMBER MUST BE THE NUMBER OF THE STAGES
+enum Algorithms{ RK4=2, RKCK45=6 };
 enum DataLayouts{ GLOBAL, REGISTER };
 
 enum VariableSelection{	All, TimeDomain, ActualState, ControlParameters, SharedParameters, Accessories, DenseOutput, DenseTime, DenseState };
@@ -1308,9 +1309,10 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precisi
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	if (DataLayout == GLOBAL)
-		SingleSystem_PerThread_RungeKutta_GLOBAL<NE,NDO,Algorithm,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
-	else if (DataLayout == REGISTER)
+	//if (DataLayout == GLOBAL)
+	//	SingleSystem_PerThread_RungeKutta_GLOBAL<NE,NDO,Algorithm,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
+	//else if ( (DataLayout == REGISTER) && (Algorithm==RK4) && (NSP==0) && (NISP==0) && (NE==0) && (NA==0) && (NIA==0) && (NDO==0) )
+		//SingleSystem_PerThread_RungeKutta_RK4_PLAIN<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
 		SingleSystem_PerThread_RungeKutta_REGISTER<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,DataLayout,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
 }
 
