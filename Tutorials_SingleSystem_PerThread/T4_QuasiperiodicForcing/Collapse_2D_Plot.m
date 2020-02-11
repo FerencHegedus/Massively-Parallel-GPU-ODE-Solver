@@ -1,6 +1,6 @@
-function Collapse_2D_BifurcationPlot_v8p0
+function Collapse_2D_Plot
 
-Parameters.PressureAmplitude1 = 1.1;
+Parameters.PressureAmplitude1 = 0.5;
 Parameters.PressureAmplitude2 = 1.2;
 Parameters.EquilibriumRadius  = 10;
 

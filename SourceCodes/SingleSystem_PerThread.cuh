@@ -1165,19 +1165,22 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 	DataFile << "\n\n";
 	
 	DataFile << "Time series:\n";
-	for (int i=0; i<(h_DenseOutputIndex[ThreadID]+1); i++)
+	if ( NDO > 0 )
 	{
-		idx = ThreadID + i*KernelParameters.NumberOfThreads;
-		DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx] << ',';
-		
-		for (int j=0; j<KernelParameters.SystemDimension; j++)
+		for (int i=0; i<(h_DenseOutputIndex[ThreadID]+1); i++)
 		{
-			idx = ThreadID + j*KernelParameters.NumberOfThreads + i*KernelParameters.NumberOfThreads*KernelParameters.SystemDimension;
-			DataFile.width(Width); DataFile << h_DenseOutputStates[idx];
-			if ( j<(KernelParameters.SystemDimension-1) )
-				DataFile << ',';
+			idx = ThreadID + i*KernelParameters.NumberOfThreads;
+			DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx] << ',';
+			
+			for (int j=0; j<KernelParameters.SystemDimension; j++)
+			{
+				idx = ThreadID + j*KernelParameters.NumberOfThreads + i*KernelParameters.NumberOfThreads*KernelParameters.SystemDimension;
+				DataFile.width(Width); DataFile << h_DenseOutputStates[idx];
+				if ( j<(KernelParameters.SystemDimension-1) )
+					DataFile << ',';
+			}
+			DataFile << '\n';
 		}
-		DataFile << '\n';
 	}
 	
 	DataFile.close();

@@ -54,7 +54,7 @@ __global__ void SingleSystem_PerThread_RungeKutta(IntegratorInternalVariables Ke
 			Accessories[i] = KernelParameters.d_Accessories[tid + i*NT];
 		
 		#pragma unroll
-		for (int i=0; i<NA; i++)
+		for (int i=0; i<NIA; i++)
 			IntegerAccessories[i] = KernelParameters.d_IntegerAccessories[tid + i*NT];
 		
 		
@@ -82,7 +82,7 @@ __global__ void SingleSystem_PerThread_RungeKutta(IntegratorInternalVariables Ke
 		PerThread_Initialization(tid, NT, ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
 		double NextDenseOutputTime = ActualTime;
 		
-		StoreDenseOutput<NDO>(KernelParameters, tid, ActualTime, TimeDomain[1], DenseOutputIndex, UpdateDenseOutput, NextDenseOutputTime);
+		StoreDenseOutput<NDO>(KernelParameters, tid, ActualState, ActualTime, TimeDomain[1], DenseOutputIndex, UpdateDenseOutput, NextDenseOutputTime);
 		
 		PerThread_EventFunction(tid, NT, ActualEventValue, ActualState, ActualTime, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
 		
@@ -97,6 +97,7 @@ __global__ void SingleSystem_PerThread_RungeKutta(IntegratorInternalVariables Ke
 			
 			TimeStep = fmin(TimeStep, TimeDomain[1]-ActualTime);
 			DenseOutputTimeStepCorrection<NDO>(KernelParameters, tid, UpdateDenseOutput, DenseOutputIndex, NextDenseOutputTime, ActualTime, TimeStep);
+			
 			
 			if ( Algorithm==RK4 )
 			{
@@ -131,7 +132,7 @@ __global__ void SingleSystem_PerThread_RungeKutta(IntegratorInternalVariables Ke
 				
 				PerThread_ActionAfterSuccessfulTimeStep(tid, NT, ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
 				
-				StoreDenseOutput<NDO>(KernelParameters, tid, ActualTime, TimeDomain[1], DenseOutputIndex, UpdateDenseOutput, NextDenseOutputTime);
+				StoreDenseOutput<NDO>(KernelParameters, tid, ActualState, ActualTime, TimeDomain[1], DenseOutputIndex, UpdateDenseOutput, NextDenseOutputTime);
 				
 				if ( ActualTime > ( TimeDomain[1] - KernelParameters.MinimumTimeStep*1.01 ) )
 					TerminateSimulation = 1;
@@ -159,7 +160,7 @@ __global__ void SingleSystem_PerThread_RungeKutta(IntegratorInternalVariables Ke
 			KernelParameters.d_Accessories[tid + i*NT] = Accessories[i];
 		
 		#pragma unroll
-		for (int i=0; i<NA; i++)
+		for (int i=0; i<NIA; i++)
 			KernelParameters.d_IntegerAccessories[tid + i*NT] = IntegerAccessories[i];
 	}
 }

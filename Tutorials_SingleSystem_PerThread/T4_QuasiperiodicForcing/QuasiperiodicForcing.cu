@@ -5,31 +5,38 @@
 #include <sstream>
 #include <fstream>
 
-#include "SingleSystem_PerThread_IndexingMacroEnabled.cuh"
 #include "QuasiperiodicForcing_SystemDefinition.cuh"
-#include "SingleSystem_PerThread_IndexingMacroDisabled.cuh"
 #include "SingleSystem_PerThread.cuh"
 
 #define PI 3.14159265358979323846
 
-#define SOLVER RKCK45
-#define EVNT   EVNT1
-#define DOUT   DOUT0
-
 using namespace std;
+
+// Physical control parameters
+const int NumberOfFrequency1 = 128;
+const int NumberOfFrequency2 = 128;
+const int NumberOfAmplitude1 = 2;
+const int NumberOfAmplitude2 = 2;
+	
+// Solver Configuration
+#define SOLVER RKCK45 // RK4, RKCK45
+const int NT   = NumberOfFrequency1 * NumberOfFrequency2; // NumberOfThreads
+const int SD   = 2;     // SystemDimension
+const int NCP  = 21;    // NumberOfControlParameters
+const int NSP  = 0;     // NumberOfSharedParameters
+const int NISP = 0;     // NumberOfIntegerSharedParameters
+const int NE   = 1;     // NumberOfEvents
+const int NA   = 4;     // NumberOfAccessories
+const int NIA  = 0;     // NumberOfIntegerAccessories
+const int NDO  = 0;     // NumberOfPointsOfDenseOutput
 
 void Linspace(vector<double>&, double, double, int);
 void Logspace(vector<double>&, double, double, int);
-
-void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&, int, int);
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&, int, int);
 
 int main()
 {
-	// Physical control parameters
-	int NumberOfFrequency1 = 128;
-	int NumberOfFrequency2 = 128;
-	int NumberOfAmplitude1 = 2;
-	int NumberOfAmplitude2 = 2;
+	int BlockSize = 64;
 	
 	vector<double> Frequency1(NumberOfFrequency1,0);
 	vector<double> Frequency2(NumberOfFrequency2,0);
@@ -54,19 +61,12 @@ int main()
 	
 	// Solver Object configuration
 	int NumberOfProblems = NumberOfFrequency1 * NumberOfFrequency2 * NumberOfAmplitude1 * NumberOfAmplitude2; // 65536
-	int NumberOfThreads  = NumberOfFrequency1 * NumberOfFrequency2; // 16384 -> 4 launches
+	int NumberOfThreads  = NT; // 16384 -> 4 launches
 	
-	ConstructorConfiguration ConfigurationKellerMiksis;
 	
-	ConfigurationKellerMiksis.NumberOfThreads           = NumberOfThreads;
-	ConfigurationKellerMiksis.SystemDimension           = 2;
-	ConfigurationKellerMiksis.NumberOfControlParameters = 21;
-	ConfigurationKellerMiksis.NumberOfEvents            = 1;
-	ConfigurationKellerMiksis.NumberOfAccessories       = 4;
+	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanKellerMiksis(SelectedDevice);
 	
-	ProblemSolver<SOLVER,EVNT,DOUT> ScanKellerMiksis(ConfigurationKellerMiksis, SelectedDevice);
-	
-	ScanKellerMiksis.SolverOption(ThreadsPerBlock, 64);
+	ScanKellerMiksis.SolverOption(ThreadsPerBlock, BlockSize);
 	ScanKellerMiksis.SolverOption(RelativeTolerance, 0, 1e-10);
 	ScanKellerMiksis.SolverOption(RelativeTolerance, 1, 1e-10);
 	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 0, 1e-10);
@@ -230,7 +230,7 @@ void Logspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>& Solver, const vector<double>& F1_Values, const vector<double>& F2_Values, const vector<double>& PA1_Values, const vector<double>& PA2_Values, int ProblemStartIndex, int NumberOfThreads)
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& F1_Values, const vector<double>& F2_Values, const vector<double>& PA1_Values, const vector<double>& PA2_Values, int ProblemStartIndex, int NumberOfThreads)
 {
 	// Declaration of physical control parameters
 	double P1; // pressure amplitude1 [bar]

@@ -4,7 +4,7 @@
 
 // ----------------------------------------------------------------------------
 template <int NDO>
-__forceinline__ __device__ void StoreDenseOutput(IntegratorInternalVariables KernelParameters, int tid, double ActualTime, double UpperTimeDomain, \
+__forceinline__ __device__ void StoreDenseOutput(IntegratorInternalVariables KernelParameters, int tid, double* ActualState, double ActualTime, double UpperTimeDomain, \
                                                  int& DenseOutputIndex, bool UpdateDenseOutput, double& NextDenseOutputTime)
 {
 	if ( ( UpdateDenseOutput == 1 ) && ( DenseOutputIndex < KernelParameters.DenseOutputNumberOfPoints ) )
@@ -18,7 +18,7 @@ __forceinline__ __device__ void StoreDenseOutput(IntegratorInternalVariables Ker
 		int TemporaryIndex        = tid;
 		for (int i=0; i<KernelParameters.SystemDimension; i++)
 		{
-			KernelParameters.d_DenseOutputStates[DenseOutputStateIndex] = KernelParameters.d_ActualState[TemporaryIndex];
+			KernelParameters.d_DenseOutputStates[DenseOutputStateIndex] = ActualState[i];
 			
 			DenseOutputStateIndex += KernelParameters.NumberOfThreads;
 			TemporaryIndex += KernelParameters.NumberOfThreads;
@@ -33,7 +33,7 @@ __forceinline__ __device__ void StoreDenseOutput(IntegratorInternalVariables Ker
 
 // ----------
 template <>
-__forceinline__ __device__ void StoreDenseOutput<0>(IntegratorInternalVariables KernelParameters, int tid, double ActualTime, double UpperTimeDomain, \
+__forceinline__ __device__ void StoreDenseOutput<0>(IntegratorInternalVariables KernelParameters, int tid, double* ActualState, double ActualTime, double UpperTimeDomain, \
                                                     int& DenseOutputIndex, bool UpdateDenseOutput, double& NextDenseOutputTime)
 {}
 

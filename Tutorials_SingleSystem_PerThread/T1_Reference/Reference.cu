@@ -4,10 +4,7 @@
 #include <string>
 #include <fstream>
 
-#define  DATALAYOUTFORINDEXING 1 // 0: GLOBAL, 1: REGISTER
-#include "SingleSystem_PerThread_IndexingMacroEnabled.cuh"
 #include "Reference_SystemDefinition.cuh"
-#include "SingleSystem_PerThread_IndexingMacroDisabled.cuh"
 #include "SingleSystem_PerThread.cuh"
 
 #define PI 3.14159265358979323846
@@ -15,9 +12,8 @@
 using namespace std;
 
 // Solver Configuration
-#define  SOLVER     RKCK45   // RK4, RKCK45
-#define  DATALAYOUT REGISTER // GLOBAL, REGISTER
-const int NT   = 23040; // NumberOfThreads
+#define SOLVER RKCK45 // RK4, RKCK45
+const int NT   = 46080; // NumberOfThreads
 const int SD   = 2;     // SystemDimension
 const int NCP  = 1;     // NumberOfControlParameters
 const int NSP  = 1;     // NumberOfSharedParameters
@@ -25,17 +21,17 @@ const int NISP = 0;     // NumberOfIntegerSharedParameters
 const int NE   = 2;     // NumberOfEvents
 const int NA   = 3;     // NumberOfAccessories
 const int NIA  = 0;     // NumberOfIntegerAccessories
-const int NDO  = 1000;  // NumberOfPointsOfDenseOutput
+const int NDO  = 200;  // NumberOfPointsOfDenseOutput
 
 void Linspace(vector<double>&, double, double, int);
-void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,DATALAYOUT,double>&, const vector<double>&, double, double, double, int, int);
-void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,DATALAYOUT,double>&, ofstream&, int);
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, const vector<double>&, double, double, double, int, int);
+void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, ofstream&, int);
 
 int main()
 {
 // INITIAL SETUP ----------------------------------------------------------------------------------
 	
-	int NumberOfProblems = 46080;
+	int NumberOfProblems = NT;
 	int BlockSize        = 64;
 	
 	ListCUDADevices();
@@ -58,13 +54,13 @@ int main()
 		Linspace(Parameters_k_Values, kRangeLower, kRangeUpper, NumberOfParameters_k);
 	
 	
-	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,DATALAYOUT,double> ScanDuffing(SelectedDevice);
+	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanDuffing(SelectedDevice);
 	
 	ScanDuffing.SolverOption(ThreadsPerBlock, BlockSize);
 	ScanDuffing.SolverOption(InitialTimeStep, 1e-2);
 	ScanDuffing.SolverOption(ActiveNumberOfThreads, NT);
 	
-	ScanDuffing.SolverOption(DenseOutputTimeStep, -1.5e-2);
+	ScanDuffing.SolverOption(DenseOutputTimeStep, -1e-2);
 	
 	ScanDuffing.SolverOption(MaximumTimeStep, 1e3);
 	ScanDuffing.SolverOption(MinimumTimeStep, 1e-14);
@@ -101,6 +97,8 @@ int main()
 		FillSolverObject(ScanDuffing, Parameters_k_Values, Parameters_B, InitialConditions_X1, InitialConditions_X2, LaunchCounter * NT, NT);
 		
 		ScanDuffing.SynchroniseFromHostToDevice(All);
+		ScanDuffing.InsertSynchronisationPoint();
+		ScanDuffing.SynchroniseSolver();
 		
 		TransientStart = clock();
 		for (int i=0; i<1024; i++)
@@ -128,6 +126,10 @@ int main()
 	
 	DataFile.close();
 	
+	ScanDuffing.Print(DenseOutput, 0);
+	ScanDuffing.Print(DenseOutput, 4789);
+	ScanDuffing.Print(DenseOutput, 15479);
+	
 	cout << "Test finished!" << endl;
 }
 
@@ -151,7 +153,7 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,DATALAYOUT,double>& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
 {
 	int k_begin = FirstProblemNumber;
 	int k_end   = FirstProblemNumber + NumberOfThreads;
@@ -177,7 +179,7 @@ void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,DATA
 	Solver.SetHost(SharedParameters, 0, B );
 }
 
-void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,DATALAYOUT,double>& Solver, ofstream& DataFile, int NumberOfThreads)
+void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, ofstream& DataFile, int NumberOfThreads)
 {
 	int Width = 18;
 	DataFile.precision(10);

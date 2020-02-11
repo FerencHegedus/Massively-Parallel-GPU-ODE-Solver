@@ -5,28 +5,33 @@
 #include <sstream>
 #include <fstream>
 
-#include "SingleSystem_PerThread_IndexingMacroEnabled.cuh"
 #include "ImpactDynamics_SystemDefinition.cuh"
-#include "SingleSystem_PerThread_IndexingMacroDisabled.cuh"
 #include "SingleSystem_PerThread.cuh"
 
 #define PI 3.14159265358979323846
 
-#define SOLVER RKCK45
-#define EVNT   EVNT1
-#define DOUT   DOUT0
-
 using namespace std;
+
+// Solver Configuration
+#define SOLVER RKCK45 // RK4, RKCK45
+const int NT   = 30720; // NumberOfThreads
+const int SD   = 3;     // SystemDimension
+const int NCP  = 1;    // NumberOfControlParameters
+const int NSP  = 4;     // NumberOfSharedParameters
+const int NISP = 0;     // NumberOfIntegerSharedParameters
+const int NE   = 2;     // NumberOfEvents
+const int NA   = 2;     // NumberOfAccessories
+const int NIA  = 0;     // NumberOfIntegerAccessories
+const int NDO  = 0;     // NumberOfPointsOfDenseOutput
 
 void Linspace(vector<double>&, double, double, int);
 void Logspace(vector<double>&, double, double, int);
-
-void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>&, const vector<double>&);
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, const vector<double>&);
 
 int main()
 {
 	// The control parameter
-	int NumberOfFlowRates = 30720;
+	int NumberOfFlowRates = NT;
 	
 	vector<double> FlowRates(NumberOfFlowRates,0);
 	Linspace(FlowRates, 0.2, 10.0, NumberOfFlowRates);
@@ -46,16 +51,8 @@ int main()
 	int NumberOfProblems = NumberOfFlowRates; // 30720
 	int NumberOfThreads  = NumberOfFlowRates; // 30720 -> 1 launches
 	
-	ConstructorConfiguration ConfigurationPressureReliefValve;
 	
-	ConfigurationPressureReliefValve.NumberOfThreads           = NumberOfThreads;
-	ConfigurationPressureReliefValve.SystemDimension           = 3;
-	ConfigurationPressureReliefValve.NumberOfControlParameters = 1;
-	ConfigurationPressureReliefValve.NumberOfSharedParameters  = 4;
-	ConfigurationPressureReliefValve.NumberOfEvents            = 2;
-	ConfigurationPressureReliefValve.NumberOfAccessories       = 2;
-	
-	ProblemSolver<SOLVER,EVNT,DOUT> ScanPressureReliefValve(ConfigurationPressureReliefValve, SelectedDevice);
+	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanPressureReliefValve(SelectedDevice);
 	
 	ScanPressureReliefValve.SolverOption(ThreadsPerBlock, 64);
 	ScanPressureReliefValve.SolverOption(RelativeTolerance, 0, 1e-10);
@@ -81,6 +78,9 @@ int main()
 	
 	
 	clock_t SimulationStart = clock();
+	clock_t TransientStart;
+	clock_t TransientEnd;
+	
 	for (int LaunchCounter=0; LaunchCounter<NumberOfSimulationLaunches; LaunchCounter++)
 	{
 		// Fill Solver Object
@@ -90,13 +90,15 @@ int main()
 		
 		
 		// Transient simulations
+		TransientStart = clock();
 		for (int i=0; i<1024; i++)
 		{
 			ScanPressureReliefValve.Solve();
 			ScanPressureReliefValve.InsertSynchronisationPoint();
 			ScanPressureReliefValve.SynchroniseSolver();
 		}
-		
+		TransientEnd = clock();
+			cout << "Launches: " << LaunchCounter << "  Simulation time: " << 1000.0*(TransientEnd-TransientStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 		
 		// Converged simulations and their data collection
 		for (int i=0; i<32; i++)
@@ -161,7 +163,7 @@ void Logspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillSolverObject(ProblemSolver<SOLVER,EVNT,DOUT>& Solver, const vector<double>& q_Values)
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& q_Values)
 {	
 	int ProblemNumber = 0;
 	for (auto const& q: q_Values) // dimensionless flow rate [-]
