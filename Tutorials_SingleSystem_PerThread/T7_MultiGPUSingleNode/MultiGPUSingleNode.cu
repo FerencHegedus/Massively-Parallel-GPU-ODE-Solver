@@ -13,7 +13,7 @@ using namespace std;
 
 // Solver Configuration
 #define SOLVER RKCK45 // RK4, RKCK45
-const int NT   = 46080/2; // NumberOfThreads
+const int NT   = 23040; // NumberOfThreads
 const int SD   = 2;     // SystemDimension
 const int NCP  = 1;     // NumberOfControlParameters
 const int NSP  = 1;     // NumberOfSharedParameters
@@ -37,7 +37,7 @@ int main()
 	
 	ListCUDADevices();
 	int SelectedDevice1 = 0; // According to the output of the function call ListCUDADevices();
-	int SelectedDevice2 = 0; // THEY MUST BE SET ACCORDING TO YOUR CURRENT CONFIGURATION!!!
+	int SelectedDevice2 = 2; // THEY MUST BE SET ACCORDING TO YOUR CURRENT CONFIGURATION!!!
 	
 	
 	double InitialConditions_X1 = -0.5;

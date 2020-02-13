@@ -13,7 +13,7 @@ using namespace std;
 
 // Solver Configuration
 #define SOLVER RKCK45 // RK4, RKCK45
-const int NT   = 46080; // NumberOfThreads
+const int NT   = 23040; // NumberOfThreads
 const int SD   = 2;     // SystemDimension
 const int NCP  = 1;     // NumberOfControlParameters
 const int NSP  = 1;     // NumberOfSharedParameters
@@ -21,7 +21,7 @@ const int NISP = 0;     // NumberOfIntegerSharedParameters
 const int NE   = 2;     // NumberOfEvents
 const int NA   = 3;     // NumberOfAccessories
 const int NIA  = 0;     // NumberOfIntegerAccessories
-const int NDO  = 200;  // NumberOfPointsOfDenseOutput
+const int NDO  = 200;   // NumberOfPointsOfDenseOutput
 
 void Linspace(vector<double>&, double, double, int);
 void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, const vector<double>&, double, double, double, int, int);
@@ -31,7 +31,7 @@ int main()
 {
 // INITIAL SETUP ----------------------------------------------------------------------------------
 	
-	int NumberOfProblems = NT;
+	int NumberOfProblems = 46080; // 2*NT;
 	int BlockSize        = 64;
 	
 	ListCUDADevices();
