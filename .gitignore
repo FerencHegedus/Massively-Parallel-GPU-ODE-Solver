@@ -15,7 +15,6 @@
 # Don't track content of these folders
 Web/
 Doc/Figures
-PerBlockCoupling/
 Test/
 
 # Don't track specific files in specific folders
