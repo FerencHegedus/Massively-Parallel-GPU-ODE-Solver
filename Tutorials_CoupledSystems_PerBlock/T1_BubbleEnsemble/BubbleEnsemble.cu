@@ -7,16 +7,16 @@
 #include <ctime>
 #include <random>
 
-#include "MassivelyParallel_GPU-ODE_Solver_PerBlockCoupling.cuh"
+#include "CoupledSystems_PerBlock.cuh"
 
 #define PI 3.14159265358979323846
 
 using namespace std;
 
 // Physical control parameters
-int NumberOfFrequency      = 101; // Control parameter
-int NumberOfAmplitude      = 101; // Control parameter
-int NumberOfUnitsPerSystem = 2;  // Number coupled units
+const int NumberOfFrequency      = 101; // Control parameter
+const int NumberOfAmplitude      = 101; // Control parameter
+const int NumberOfUnitsPerSystem = 90;  // Number coupled units
 
 // Solver Configuration
 #define SOLVER RK4 // RK4, RKCK45
@@ -24,7 +24,7 @@ const int NS   = NumberOfFrequency * NumberOfAmplitude; // NumberOfSystems
 const int UPS  = NumberOfUnitsPerSystem;                // UnitsPerSystem
 const int UD   = 2;     // UnitDimension
 const int TPB  = 32;    // ThreadsPerBlock
-const int SPB  = 1;     // SystemPerBlock
+const int SPB  = 5;     // SystemPerBlock
 const int NC   = 1;     // NumberOfCouplings
 
 const int NUP  = 21;    // NumberOfUnitParameters (different form system to system, different from unit to unit)
@@ -38,15 +38,15 @@ const int NSA  = 0;     // NumberOfSystemAccessories (different from system to s
 const int NiSA = 0;     // NumberOfIntegerSystemAccessories (different from system to system, shared by all units)
 
 const int NE   = 0;     // NumberOfEvents (per units)
-const int NDO  = 200;   // NumberOfPointsOfDenseOutput (per units)
+const int NDO  = 100;   // NumberOfPointsOfDenseOutput (per units)
 
 void Linspace(vector<double>&, double, double, int);
 void Logspace(vector<double>&, double, double, int);
 void Random(vector<double>&, double, double, int, int);
 void Gauss(vector<double>&, double, double, int);
 
-void FillSolverObject(ProblemSolver&, const vector<double>&, const vector<double>&, const vector<double>&);
-void FillCouplingMatrix(ProblemSolver&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&);
+//void FillSolverObject(ProblemSolver&, const vector<double>&, const vector<double>&, const vector<double>&);
+//void FillCouplingMatrix(ProblemSolver&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&);
 
 int main()
 {
@@ -76,9 +76,9 @@ int main()
 	PrintPropertiesOfSpecificDevice(SelectedDevice);
 	
 	
-	ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,double> ScanSystem(SelectedDevice);
+	ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,float> ScanSystem(SelectedDevice);
 	
-	
+	ScanSystem.SolverOption(EventTolerance,1);
 	
 	
 	//FillSolverObject(ScanSystem, Frequency, Amplitude, BubbleSize);
