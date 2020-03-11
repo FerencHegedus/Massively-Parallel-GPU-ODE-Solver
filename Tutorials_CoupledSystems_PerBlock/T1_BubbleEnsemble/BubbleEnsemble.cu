@@ -78,7 +78,8 @@ int main()
 	
 	ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,float> ScanSystem(SelectedDevice);
 	
-	ScanSystem.SolverOption(EventTolerance,1);
+	//ScanSystem.SolverOption(InitialTimeStep,1.52);
+	//ScanSystem.SolverOption(EventStopCounter,5,1e-6);
 	
 	
 	//FillSolverObject(ScanSystem, Frequency, Amplitude, BubbleSize);

@@ -41,7 +41,7 @@ enum ListOfSolverOptions{ InitialTimeStep, ActiveSystems, \
 						  EventTolerance, EventDirection, EventStopCounter, \
 						  DenseOutputTimeStep };
 
-
+std::string SolverOptionsToString(ListOfSolverOptions);
 
 void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
@@ -168,17 +168,23 @@ class ProblemSolver
 			int       MaximumNumberOfTimeSteps;
 		} SolverOptions;
 		
+		void BoundCheck(std::string, std::string, int, int);
+		
 	public:
 		ProblemSolver(int);
 		~ProblemSolver();
 		
-		template <typename T>
-		void SolverOption(ListOfSolverOptions, T);
+		template <typename T>             void SolverOption(ListOfSolverOptions, T);
+		template <typename T, typename P> void SolverOption(ListOfSolverOptions, T, P);
 		
-		/*void SetHost(int, int, VariableSelection, int, double); // Unit scope
-		void SetHost(int, VariableSelection, int, double);      // System scope
-		void SetHost(VariableSelection, int, double);           // Global scope
+		
+		/*
+		void SetHost(int, int, VariableSelection, int, double); // Unit scope
+		void SetHost(     int, VariableSelection, int, double); // System scope
+		void SetHost(          VariableSelection, int, double); // Global scope
 		void SetHost(VariableSelection, int, int, double);      // Coupling matrix
+		
+		
 		void SynchroniseFromHostToDevice(VariableSelection);
 		void SynchroniseFromDeviceToHost(VariableSelection);
 		double GetHost(int, int, VariableSelection, int); // Unit scope
@@ -613,13 +619,122 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	std::cout << "Every memory have been deallocated!" << std::endl << std::endl;
 }
 
-// OPTION, int
+// BOUND CHECK, set/get host, options
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::BoundCheck(std::string Function, std::string Variable, int Value, int Limit)
+{
+	if ( Value >= Limit )
+	{
+        std::cerr << "ERROR: In solver member function " << Function << "!" << std::endl;
+		std::cerr << "       Option: " << Variable << std::endl;
+		
+		if ( Limit==0 )
+		std::cerr << "       Acceptable index: none" << std::endl;
+		else
+		std::cerr << "       Acceptable index: " << 0 << "-" << Limit-1 << std::endl;
+		
+		std::cerr << "       Current index:    " << Value << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+// OPTION, single input argument
 template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
 void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, T Value)
 {
-	//std::cout << "Coo man coo:" << std::endl;
+	switch (Option)
+	{
+		case InitialTimeStep:
+			SolverOptions.InitialTimeStep = Value;
+			break;
+		
+		case ActiveSystems:
+			SolverOptions.ActiveSystems = Value;
+			break;
+		
+		case MaximumTimeStep:
+			SolverOptions.MaximumTimeStep = Value;
+			break;
+		
+		case MinimumTimeStep:
+			SolverOptions.MinimumTimeStep = Value;
+			break;
+		
+		case TimeStepGrowLimit:
+			SolverOptions.TimeStepGrowLimit = Value;
+			break;
+		
+		case TimeStepShrinkLimit:
+			SolverOptions.TimeStepShrinkLimit = Value;
+			break;
+		
+		case MaxStepInsideEvent:
+			SolverOptions.MaxStepInsideEvent = Value;
+			break;
+		
+		case DenseOutputTimeStep:
+			SolverOptions.DenseOutputTimeStep = Value;
+			break;
+		
+		case MaximumNumberOfTimeSteps:
+			SolverOptions.MaximumNumberOfTimeSteps = Value;
+			break;
+			
+		default:
+			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
+			std::cerr << "       Option: " << SolverOptionsToString(Option) << std::endl;
+			std::cerr << "       This option needs 2 input arguments!" << std::endl;
+			exit(EXIT_FAILURE);
+	}
 }
+
+// OPTION, double input argument
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <typename T, typename P>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, T Index, P Value)
+{
+	Precision PValue = (Precision)Value;
+	int       IValue = (int)Value;
+	switch (Option)
+	{
+		case RelativeTolerance:
+			BoundCheck("SolverOption", "RelativeTolerance", Index, UD);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case AbsoluteTolerance:
+			BoundCheck("SolverOption", "AbsoluteTolerance", Index, UD);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case EventTolerance:
+			BoundCheck("SolverOption", "EventTolerance", Index, NE);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case EventDirection:
+			BoundCheck("SolverOption", "EventDirection", Index, NE);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case EventStopCounter:
+			BoundCheck("SolverOption", "EventStopCounter", Index, NE);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventStopCounter+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		default:
+			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
+			std::cerr << "       Option: " << SolverOptionsToString(Option) << std::endl;
+			std::cerr << "       This option needs 1 input arguments!" << std::endl;
+			exit(EXIT_FAILURE);
+	}
+}
+
+
+
+
+
 
 
 
@@ -670,6 +785,43 @@ DataType* AllocateHostMemory(int N)
         exit(EXIT_FAILURE);
     }
     return HostMemory;
+}
+
+std::string SolverOptionsToString(ListOfSolverOptions Option)
+{
+	switch(Option)
+	{
+		case InitialTimeStep:
+			return "InitialTimeStep";
+		case ActiveSystems:
+			return "ActiveSystems";
+		case MaximumTimeStep:
+			return "MaximumTimeStep";
+		case MinimumTimeStep:
+			return "MinimumTimeStep";
+		case TimeStepGrowLimit:
+			return "TimeStepGrowLimit";
+		case TimeStepShrinkLimit:
+			return "TimeStepShrinkLimit";
+		case MaxStepInsideEvent:
+			return "MaxStepInsideEvent";
+		case MaximumNumberOfTimeSteps:
+			return "MaximumNumberOfTimeSteps";
+		case RelativeTolerance:
+			return "RelativeTolerance";
+		case AbsoluteTolerance:
+			return "AbsoluteTolerance";
+		case EventTolerance:
+			return "EventTolerance";
+		case EventDirection:
+			return "EventDirection";
+		case EventStopCounter:
+			return "EventStopCounter";
+		case DenseOutputTimeStep:
+			return "DenseOutputTimeStep";
+		default:
+			return "Non-existent solver option!";
+	}
 }
 
 #endif
