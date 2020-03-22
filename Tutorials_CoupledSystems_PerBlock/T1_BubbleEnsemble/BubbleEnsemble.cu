@@ -16,7 +16,7 @@ using namespace std;
 // Physical control parameters
 const int NumberOfFrequency      = 101; // Control parameter
 const int NumberOfAmplitude      = 101; // Control parameter
-const int NumberOfUnitsPerSystem = 90;  // Number coupled units
+const int NumberOfUnitsPerSystem = 120;  // Number coupled units
 
 // Solver Configuration
 #define SOLVER RK4 // RK4, RKCK45
@@ -25,17 +25,17 @@ const int UPS  = NumberOfUnitsPerSystem;                // UnitsPerSystem
 const int UD   = 2;     // UnitDimension
 const int TPB  = 32;    // ThreadsPerBlock
 const int SPB  = 5;     // SystemPerBlock
-const int NC   = 1;     // NumberOfCouplings
+const int NC   = 2;     // NumberOfCouplings
 
-const int NUP  = 21;    // NumberOfUnitParameters (different form system to system, different from unit to unit)
-const int NSP  = 0;     // NumberOfSystemParameters (different from system to system, shared by all units)
-const int NGP  = 0;     // NumberOfGlobalParameters (shared by all systems, share by all units)
-const int NiGP = 0;     // NumberOfIntegerGlobalParameters (shared by all systems, shared by all units)
+const int NUP  = 3;     // NumberOfUnitParameters (different form system to system, different from unit to unit)
+const int NSP  = 1;     // NumberOfSystemParameters (different from system to system, shared by all units)
+const int NGP  = 2;     // NumberOfGlobalParameters (shared by all systems, share by all units)
+const int NiGP = 3;     // NumberOfIntegerGlobalParameters (shared by all systems, shared by all units)
 
 const int NUA  = 1;     // NumberOfUnitAccessories (different form system to system, different from unit to unit)
-const int NiUA = 0;     // NumberOfIntegerUnitAccessories (different form system to system, different from unit to unit)
-const int NSA  = 0;     // NumberOfSystemAccessories (different from system to system, shared by all units)
-const int NiSA = 0;     // NumberOfIntegerSystemAccessories (different from system to system, shared by all units)
+const int NiUA = 1;     // NumberOfIntegerUnitAccessories (different form system to system, different from unit to unit)
+const int NSA  = 6;     // NumberOfSystemAccessories (different from system to system, shared by all units)
+const int NiSA = 4;     // NumberOfIntegerSystemAccessories (different from system to system, shared by all units)
 
 const int NE   = 0;     // NumberOfEvents (per units)
 const int NDO  = 100;   // NumberOfPointsOfDenseOutput (per units)
@@ -78,9 +78,45 @@ int main()
 	
 	ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,float> ScanSystem(SelectedDevice);
 	
-	//ScanSystem.SolverOption(InitialTimeStep,1.52);
-	//ScanSystem.SolverOption(EventStopCounter,5,1e-6);
 	
+	ScanSystem.SetHost(0, CouplingMatrix, UPS-1, UPS-1, 1.2);
+	
+	ScanSystem.SetHost(0, DenseIndex, 5);
+	cout << ScanSystem.GetHost<int>(0, DenseIndex) << endl;
+	
+	ScanSystem.SetHost(0, DenseTime, 0, 1.235);
+	cout << ScanSystem.GetHost<float>(0, DenseTime, 0) << endl;
+	
+	ScanSystem.SetHost(0, 0, DenseState, 1, 3, 86.45);
+	cout << ScanSystem.GetHost<float>(0, 0, DenseState, 1, 3) << endl;
+	
+	//ScanSystem.SetHost(0, CouplingMatrix, UPS-1, UPS-1, 1.2);
+	ScanSystem.SynchroniseFromHostToDevice(All);
+	ScanSystem.SynchroniseFromDeviceToHost(All);
+	
+	cout << ScanSystem.GetHost<int>(0,0,IntegerUnitAccessories,0) << endl;
+	cout << ScanSystem.GetHost<float>(0,TimeDomain,0) << endl;
+	//cout << ScanSystem.GetHost<float>(GlobalParameters,0) << endl;
+	cout << ScanSystem.GetHost<float>(0,CouplingMatrix,0,0) << endl;
+	
+	ScanSystem.SolverOption(SharedCouplingMatrices,1);
+	ScanSystem.SolverOption(SharedGlobalVariables,5);
+	
+	ScanSystem.Print(TimeDomain);
+	ScanSystem.Print(SystemParameters);
+	ScanSystem.Print(SystemAccessories);
+	ScanSystem.Print(IntegerSystemAccessories);
+	ScanSystem.Print(ActualState);
+	ScanSystem.Print(UnitParameters);
+	ScanSystem.Print(UnitAccessories);
+	ScanSystem.Print(IntegerUnitAccessories);
+	ScanSystem.Print(GlobalParameters);
+	ScanSystem.Print(IntegerGlobalParameters);
+	
+	ScanSystem.Print(CouplingMatrix,0);
+	ScanSystem.Print(CouplingMatrix,1);
+	
+	ScanSystem.Print(DenseOutput,0);
 	
 	//FillSolverObject(ScanSystem, Frequency, Amplitude, BubbleSize);
 	//FillCouplingMatrix(ScanSystem, PositionX, PositionY, PositionZ, BubbleSize);
