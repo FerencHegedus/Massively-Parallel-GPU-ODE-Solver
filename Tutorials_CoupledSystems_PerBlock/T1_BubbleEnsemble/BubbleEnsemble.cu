@@ -7,55 +7,57 @@
 #include <ctime>
 #include <random>
 
-#include "CoupledSystems_PerBlock.cuh"
+#include "BubbleEnsemble_SystemDefinition.cuh"
+#include "CoupledSystems_PerBlock_Interface.cuh"
 
 #define PI 3.14159265358979323846
 
 using namespace std;
 
 // Physical control parameters
-const int NumberOfFrequency      = 101; // Control parameter
-const int NumberOfAmplitude      = 101; // Control parameter
-const int NumberOfUnitsPerSystem = 120;  // Number coupled units
+const int NumberOfFrequency      = 1; // Control parameter
+const int NumberOfAmplitude      = 8; // Control parameter
+const int NumberOfUnitsPerSystem = 12;  // Number coupled units
 
 // Solver Configuration
-#define SOLVER RK4 // RK4, RKCK45
+#define SOLVER RK4      // RK4, RKCK45
+#define PRECISION double // float, double
 const int NS   = NumberOfFrequency * NumberOfAmplitude; // NumberOfSystems
 const int UPS  = NumberOfUnitsPerSystem;                // UnitsPerSystem
 const int UD   = 2;     // UnitDimension
-const int TPB  = 32;    // ThreadsPerBlock
-const int SPB  = 5;     // SystemPerBlock
+const int TPB  = 32;    // ThreadsPerBlock (integer multiple of the warp size that is 32)
+const int SPB  = 3;     // SystemPerBlock
 const int NC   = 2;     // NumberOfCouplings
 
-const int NUP  = 3;     // NumberOfUnitParameters (different form system to system, different from unit to unit)
+const int NUP  = 21;    // NumberOfUnitParameters (different form system to system, different from unit to unit)
 const int NSP  = 1;     // NumberOfSystemParameters (different from system to system, shared by all units)
-const int NGP  = 2;     // NumberOfGlobalParameters (shared by all systems, share by all units)
-const int NiGP = 3;     // NumberOfIntegerGlobalParameters (shared by all systems, shared by all units)
+const int NGP  = 20;     // NumberOfGlobalParameters (shared by all systems, share by all units)
+const int NiGP = 35;     // NumberOfIntegerGlobalParameters (shared by all systems, shared by all units)
 
 const int NUA  = 1;     // NumberOfUnitAccessories (different form system to system, different from unit to unit)
-const int NiUA = 1;     // NumberOfIntegerUnitAccessories (different form system to system, different from unit to unit)
-const int NSA  = 6;     // NumberOfSystemAccessories (different from system to system, shared by all units)
+const int NiUA = 2;     // NumberOfIntegerUnitAccessories (different form system to system, different from unit to unit)
+const int NSA  = 3;     // NumberOfSystemAccessories (different from system to system, shared by all units)
 const int NiSA = 4;     // NumberOfIntegerSystemAccessories (different from system to system, shared by all units)
 
-const int NE   = 0;     // NumberOfEvents (per units)
+const int NE   = 3;     // NumberOfEvents (per units)
 const int NDO  = 100;   // NumberOfPointsOfDenseOutput (per units)
 
-void Linspace(vector<double>&, double, double, int);
-void Logspace(vector<double>&, double, double, int);
-void Random(vector<double>&, double, double, int, int);
-void Gauss(vector<double>&, double, double, int);
+void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);
+void Logspace(vector<PRECISION>&, PRECISION, PRECISION, int);
+void Random(vector<PRECISION>&, PRECISION, PRECISION, int, int);
+void Gauss(vector<PRECISION>&, PRECISION, PRECISION, int);
 
-//void FillSolverObject(ProblemSolver&, const vector<double>&, const vector<double>&, const vector<double>&);
-//void FillCouplingMatrix(ProblemSolver&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&);
+void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&);
+void FillCouplingMatrix(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&);
 
 int main()
 {
-	vector<double> Frequency(NumberOfFrequency,0);
-	vector<double> Amplitude(NumberOfAmplitude,0);
-	vector<double> BubbleSize(NumberOfUnitsPerSystem,0);
-	vector<double> PositionX(NumberOfUnitsPerSystem,0);
-	vector<double> PositionY(NumberOfUnitsPerSystem,0);
-	vector<double> PositionZ(NumberOfUnitsPerSystem,0);
+	vector<PRECISION> Frequency(NumberOfFrequency,0);
+	vector<PRECISION> Amplitude(NumberOfAmplitude,0);
+	vector<PRECISION> BubbleSize(NumberOfUnitsPerSystem,0);
+	vector<PRECISION> PositionX(NumberOfUnitsPerSystem,0);
+	vector<PRECISION> PositionY(NumberOfUnitsPerSystem,0);
+	vector<PRECISION> PositionZ(NumberOfUnitsPerSystem,0);
 	
 	Logspace(Frequency, 20.0, 1000.0, NumberOfFrequency);  // kHz
 	Linspace(Amplitude,  0.0,    0.8, NumberOfAmplitude);  // bar
@@ -64,8 +66,8 @@ int main()
 	Gauss(PositionY,     0.0,   10.0, NumberOfUnitsPerSystem); // mm
 	Gauss(PositionZ,     0.0,   10.0, NumberOfUnitsPerSystem); // mm
 	
-	BubbleSize[0]=10.0;
-	BubbleSize[1]=8.0;
+	//BubbleSize[0]=10.0;
+	//BubbleSize[1]=8.0;
 	
 	ListCUDADevices();
 	
@@ -76,50 +78,19 @@ int main()
 	PrintPropertiesOfSpecificDevice(SelectedDevice);
 	
 	
-	ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,float> ScanSystem(SelectedDevice);
+	ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION> ScanSystem(SelectedDevice);
 	
+	ScanSystem.SolverOption(SharedCouplingMatrices, 1);
+	ScanSystem.SolverOption(SharedGlobalVariables,  1);
+	//ScanSystem.SolverOption(SharedGlobalVariables,  1);
 	
-	ScanSystem.SetHost(0, CouplingMatrix, UPS-1, UPS-1, 1.2);
+	ScanSystem.SolverOption(RelativeTolerance, 0, 1e-10);
 	
-	ScanSystem.SetHost(0, DenseIndex, 5);
-	cout << ScanSystem.GetHost<int>(0, DenseIndex) << endl;
+	FillSolverObject(ScanSystem, Frequency, Amplitude, BubbleSize);
+	FillCouplingMatrix(ScanSystem, PositionX, PositionY, PositionZ, BubbleSize);
 	
-	ScanSystem.SetHost(0, DenseTime, 0, 1.235);
-	cout << ScanSystem.GetHost<float>(0, DenseTime, 0) << endl;
+	//ScanSystem.Print(DenseOutput,0);
 	
-	ScanSystem.SetHost(0, 0, DenseState, 1, 3, 86.45);
-	cout << ScanSystem.GetHost<float>(0, 0, DenseState, 1, 3) << endl;
-	
-	//ScanSystem.SetHost(0, CouplingMatrix, UPS-1, UPS-1, 1.2);
-	ScanSystem.SynchroniseFromHostToDevice(All);
-	ScanSystem.SynchroniseFromDeviceToHost(All);
-	
-	cout << ScanSystem.GetHost<int>(0,0,IntegerUnitAccessories,0) << endl;
-	cout << ScanSystem.GetHost<float>(0,TimeDomain,0) << endl;
-	//cout << ScanSystem.GetHost<float>(GlobalParameters,0) << endl;
-	cout << ScanSystem.GetHost<float>(0,CouplingMatrix,0,0) << endl;
-	
-	ScanSystem.SolverOption(SharedCouplingMatrices,1);
-	ScanSystem.SolverOption(SharedGlobalVariables,5);
-	
-	ScanSystem.Print(TimeDomain);
-	ScanSystem.Print(SystemParameters);
-	ScanSystem.Print(SystemAccessories);
-	ScanSystem.Print(IntegerSystemAccessories);
-	ScanSystem.Print(ActualState);
-	ScanSystem.Print(UnitParameters);
-	ScanSystem.Print(UnitAccessories);
-	ScanSystem.Print(IntegerUnitAccessories);
-	ScanSystem.Print(GlobalParameters);
-	ScanSystem.Print(IntegerGlobalParameters);
-	
-	ScanSystem.Print(CouplingMatrix,0);
-	ScanSystem.Print(CouplingMatrix,1);
-	
-	ScanSystem.Print(DenseOutput,0);
-	
-	//FillSolverObject(ScanSystem, Frequency, Amplitude, BubbleSize);
-	//FillCouplingMatrix(ScanSystem, PositionX, PositionY, PositionZ, BubbleSize);
 	
 	// Print Positions
 	/*for (int Col=0; Col<NumberOfUnitsPerSystem; Col++)
@@ -133,33 +104,39 @@ int main()
 	}
 	cout << endl;*/
 	
-	
 	// Print CouplingMatrix
 	/*for (int Row=0; Row<NumberOfUnitsPerSystem; Row++)
 	{
 		for (int Col=0; Col<NumberOfUnitsPerSystem; Col++)
 		{
 			std::cout.width(8);
-			cout << std::setprecision(3) << ScanSystem.GetHost(CouplingMatrix, Row, Col) << " ";
+			cout << std::setprecision(3) << ScanSystem.GetHost<PRECISION>(0, CouplingMatrix, Row, Col) << " ";
 		}
 		cout << endl;
 	}
 	cout << endl;*/
 	
-	
-	/*ScanSystem.Print(TimeDomain);
-	ScanSystem.Print(ActualState);
-	ScanSystem.Print(ControlParameters);
-	ScanSystem.Print(SharedParameters);
-	ScanSystem.Print(CouplingMatrix);
-	
+	//ScanSystem.Print(TimeDomain);
+	//ScanSystem.Print(ActualState);
+	ScanSystem.Print(UnitParameters);
+	ScanSystem.Print(CouplingMatrix,0);
+	ScanSystem.Print(CouplingMatrix,1);
+	//ScanSystem.Print(IntegerSystemAccessories);
+	//ScanSystem.Print(CouplingStrength);
+	//ScanSystem.Print(CouplingIndex);
 	
 	ScanSystem.SynchroniseFromHostToDevice(All);
 	
-	ScanSystem.SolverOption(RK4_EH0_SSSBL, 1e-5, ConfigurationDuffing.NumberOfSystems);
+	
+	
+	ScanSystem.Solve();
+	
+	//cout << ScanSystem.GetHost<int>(IntegerGlobalParameters, 0) << endl;
+	//cout << ScanSystem.GetHost<int>(IntegerGlobalParameters, 1) << endl;
+	//cout << ScanSystem.GetHost<int>(IntegerGlobalParameters, 2) << endl;
 	
 	// Initial data
-	int SystemNumber = 1000;
+	/*int SystemNumber = 1000;
 	int UnitNumber   = 0;
 	
 	cout << "Bubble radius1: " << std::setprecision(15) << ScanSystem.GetHost(SystemNumber, UnitNumber, ControlParameters, 20) << endl;
@@ -186,9 +163,9 @@ int main()
 
 // ------------------------------------------------------------------------------------------------
 
-void Linspace(vector<double>& x, double B, double E, int N)
+void Linspace(vector<PRECISION>& x, PRECISION B, PRECISION E, int N)
 {
-    double Increment;
+    PRECISION Increment;
 	
 	x[0]   = B;
 	
@@ -204,16 +181,16 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-void Logspace(vector<double>& x, double B, double E, int N)
+void Logspace(vector<PRECISION>& x, PRECISION B, PRECISION E, int N)
 {
     x[0] = B; 
 	
 	if ( N>1 )
 	{
 		x[N-1] = E;
-		double ExpB = log10(B);
-		double ExpE = log10(E);
-		double ExpIncr = (ExpE-ExpB)/(N-1);
+		PRECISION ExpB = log10(B);
+		PRECISION ExpE = log10(E);
+		PRECISION ExpIncr = (ExpE-ExpB)/(N-1);
 		for (int i=1; i<N-1; i++)
 		{
 			x[i] = pow(10,ExpB + i*ExpIncr);
@@ -221,7 +198,7 @@ void Logspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-void Random(vector<double>& x, double B, double E, int N, int Res)
+void Random(vector<PRECISION>& x, PRECISION B, PRECISION E, int N, int Res)
 {
     srand(time(NULL));
 	
@@ -234,10 +211,10 @@ void Random(vector<double>& x, double B, double E, int N, int Res)
 	}
 }
 
-void Gauss(vector<double>& x, double M, double D, int N)
+void Gauss(vector<PRECISION>& x, PRECISION M, PRECISION D, int N)
 {
     default_random_engine generator;
-	normal_distribution<double> distribution(M,D);
+	normal_distribution<PRECISION> distribution(M,D);
 	
 	for (int i=0; i<N; i++)
 	{
@@ -247,57 +224,74 @@ void Gauss(vector<double>& x, double M, double D, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-/*void FillSolverObject(ProblemSolver& Solver, const vector<double>& Frequency, const vector<double>& Amplitude, const vector<double>& BubbleSize)
+void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& Frequency, const vector<PRECISION>& Amplitude, const vector<PRECISION>& BubbleSize)
 {
-	double P1;   // pressure amplitude1 [bar] (Shared among units, different among blocks; the first control parameter)
-	double P2;   // relative frequency1 [kHz] (Shared among units, different among blocks; the second control parameter)
-	double P3=0; // pressure amplitude2 [bar] (Zero)
-	double P4=0; // relative frequency2 [kHz] (Zero)
-	double P5=0; // phase shift         [-]   (Zero)
-	double P6;   // equilibrium radius  [mum] (Shared among blocks, different among units; NOT a control parameter, describes the bubble size distribution)
+	PRECISION P1;   // pressure amplitude1 [bar] (Shared among units, different among blocks; the first control parameter)
+	PRECISION P2;   // relative frequency1 [kHz] (Shared among units, different among blocks; the second control parameter)
+	PRECISION P3=0; // pressure amplitude2 [bar] (Zero)
+	PRECISION P4=0; // relative frequency2 [kHz] (Zero)
+	PRECISION P5=0; // phase shift         [-]   (Zero)
+	PRECISION P6;   // equilibrium radius  [mum] (Shared among blocks, different among units; NOT a control parameter, describes the bubble size distribution)
 	
-	double P7 = 1.0; // ambient pressure     [bar]
-	double P9 = 1.4; // polytrophic exponent [-]
+	PRECISION P7 = 1.0; // ambient pressure     [bar]
+	PRECISION P9 = 1.4; // polytrophic exponent [-]
 	
-	double Pv  = 3.166775638952003e+03;
-    double Rho = 9.970639504998557e+02;
-    double ST  = 0.071977583160056;
-    double Vis = 8.902125058209557e-04;
-    double CL  = 1.497251785455527e+03;
+	PRECISION Pv  = 3.166775638952003e+03;
+    PRECISION Rho = 9.970639504998557e+02;
+    PRECISION ST  = 0.071977583160056;
+    PRECISION Vis = 8.902125058209557e-04;
+    PRECISION CL  = 1.497251785455527e+03;
 	
-	double Pinf;
-	double PA1;
-	double PA2;
-	double RE;
-	double f1;
-	double f2;
+	PRECISION Pinf;
+	PRECISION PA1;
+	PRECISION PA2;
+	PRECISION RE;
+	PRECISION f1;
+	PRECISION f2;
 	
 	
-	// Loop over the control parameters (blocks)
+	// Loop over the systems (blocks): control parameters
 	int SystemNumber = 0;
 	for (auto const& CP2: Frequency) // Frequency [kHz]
 	{
 		for (auto const& CP1: Amplitude) // Amplitude [bar]
 		{
-			// Loop over the equilibrium bubble radii (units)
-			// Unit scope
-			int UnitNumber   = 0;
+			// SYSTEM SCOPE
+			Solver.SetHost(SystemNumber, TimeDomain, 0, 0.0);
+			Solver.SetHost(SystemNumber, TimeDomain, 1, 1.0);
+			
+			for (int i=0; i<NC; i++)
+				Solver.SetHost(SystemNumber, CouplingStrength, i, 1.0);
+			
+			// DUMMY System Parameters ----------------------------------------
+			for (int i=0; i<NSP; i++)
+				Solver.SetHost(SystemNumber, SystemParameters, i, (SystemNumber+1)*10+(i+1));
+			
+			for (int i=0; i<NSA; i++)
+				Solver.SetHost(SystemNumber, SystemAccessories, i, (SystemNumber+1)*10+(i+1));
+			
+			for (int i=0; i<NiSA; i++)
+				Solver.SetHost(SystemNumber, IntegerSystemAccessories, i, (SystemNumber+1)*10+(i+1));
+			
+			for (int i=0; i<NDO; i++)
+				Solver.SetHost(SystemNumber, DenseTime, i, i);
+			
+				Solver.SetHost(SystemNumber, DenseIndex, SystemNumber+1);
+			// ----------------------------------------------------------------
+			
+			
+			// UNIT SCOPE
+			int UnitNumber = 0;
 			for (auto const& CP0: BubbleSize) // equilibrium radius  [mum]
 			{
-				// Update parameters
-				P1 = CP1;
-				P2 = CP2;
-				P6 = CP0;
+				P1 = CP1; // pressure amplitude1 [bar]
+				P2 = CP2; // relative frequency1 [kHz]
+				P6 = CP0; // equilibrium radius  [mum]
 				
-				// Fill up time domains
-				//Solver.SetHost(SystemNumber, UnitNumber, TimeDomain, 0, 0);
-				//Solver.SetHost(SystemNumber, UnitNumber, TimeDomain, 1, 1);
-				
-				// Fill up initial conditions
 				Solver.SetHost(SystemNumber, UnitNumber, ActualState, 0, 1.0);
 				Solver.SetHost(SystemNumber, UnitNumber, ActualState, 1, 0.0);
 				
-				// Fill up parameters
+				// Dimensional physical parameters
 				Pinf = P7 * 1e5;
 				PA1  = P1 * 1e5;
 				PA2  = P3 * 1e5;
@@ -306,58 +300,68 @@ void Gauss(vector<double>& x, double M, double D, int N)
 				f1   = 2.0*PI*(P2*1000);
 				f2   = 2.0*PI*(P4*1000);
 				
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  0, (2.0*ST/RE + Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  1, (1.0-3.0*P9) * (2*ST/RE + Pinf - Pv) * (2.0*PI/RE/f1) / CL/Rho );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  2, (Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  3, (2.0*ST/RE/Rho) * pow(2.0*PI/RE/f1, 2.0) );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  4, (4.0*Vis/Rho/pow(RE,2.0)) * (2.0*PI/f1) );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  5, PA1 * pow(2.0*PI/RE/f1, 2.0) / Rho );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  6, PA2 * pow(2.0*PI/RE/f1, 2.0) / Rho );          // ZERO: Shared
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  7, (RE*f1*PA1/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  8, (RE*f2*PA2/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) ); // ZERO: Shared
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters,  9, RE*f1/(2.0*PI)/CL );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 10, 3.0*P9 );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 11, P4/P2 ); // ZERO: Shared
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 12, P5 );    // ZERO: Shared
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  0, (2.0*ST/RE + Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  1, (1.0-3.0*P9) * (2*ST/RE + Pinf - Pv) * (2.0*PI/RE/f1) / CL/Rho );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  2, (Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  3, (2.0*ST/RE/Rho) * pow(2.0*PI/RE/f1, 2.0) );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  4, (4.0*Vis/Rho/pow(RE,2.0)) * (2.0*PI/f1) );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  5, PA1 * pow(2.0*PI/RE/f1, 2.0) / Rho );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  6, PA2 * pow(2.0*PI/RE/f1, 2.0) / Rho );          // ZERO: Shared
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  7, (RE*f1*PA1/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  8, (RE*f2*PA2/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) ); // ZERO: Shared
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters,  9, RE*f1/(2.0*PI)/CL );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 10, 3.0*P9 );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 11, P4/P2 ); // ZERO: Shared
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 12, P5 );    // ZERO: Shared
 				
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 13, 2.0*PI/f1 ); // tref
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 14, RE );        // Rref
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 13, 2.0*PI/f1 ); // tref
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 14, RE );        // Rref
 				
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 15, P1 );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 16, P2 );
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 17, P3 ); // ZERO
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 18, P4 ); // ZERO
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 19, P5 ); // ZERO
-				Solver.SetHost(SystemNumber, UnitNumber, ControlParameters, 20, P6 );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 15, P1 );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 16, P2 );
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 17, P3 ); // ZERO
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 18, P4 ); // ZERO
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 19, P5 ); // ZERO
+				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 20, P6 );
+				
+				// DUMMY Unit Parameters --------------------------------------
+				for (int i=0; i<NUA; i++)
+					Solver.SetHost(SystemNumber, UnitNumber, UnitAccessories, i, (SystemNumber+1)*100 + (UnitNumber+1)*10 + (i+1));
+				
+				for (int i=0; i<NiUA; i++)
+					Solver.SetHost(SystemNumber, UnitNumber, IntegerUnitAccessories, i, (SystemNumber+1)*100 + (UnitNumber+1)*10 + (i+1));
+				
+				for (int i=0; i<NDO; i++)
+				{
+					Solver.SetHost(SystemNumber, UnitNumber, DenseState, 0, i, i);
+					Solver.SetHost(SystemNumber, UnitNumber, DenseState, 1, i, i);
+				}
+				// ------------------------------------------------------------
 				
 				UnitNumber++;
 			}
-			
-			// System scope
-			Solver.SetHost(SystemNumber, TimeDomain, 0, 0 );
-			Solver.SetHost(SystemNumber, TimeDomain, 1, 1.02 );
 			
 			SystemNumber++;
 		}
 	}
 	
-	// Global scope
-	Solver.SetHost(SharedParameters, 0, 0.0 ); // CP6
-	Solver.SetHost(SharedParameters, 1, 0.0 ); // CP8
-	Solver.SetHost(SharedParameters, 2, 0.0 ); // CP11
-	Solver.SetHost(SharedParameters, 3, 0.0 ); // CP12
+	// GLOBAL SCOPE
+	for (int i=0; i<NC; i++)
+		Solver.SetHost(CouplingIndex, i, 1);
 	
-	// Dummy global scope
-	for (int i=4; i<(4+32+32); i++)
-	{
-		Solver.SetHost(SharedParameters, i, i ); // Dummy Shared
-	}
+	// DUMMY Global Parameters ------------------------------------
+	for (int i=0; i<NGP; i++)
+		Solver.SetHost(GlobalParameters, i, 5.0+i);
+	
+	for (int i=0; i<NiGP; i++)
+		Solver.SetHost(IntegerGlobalParameters, i, 10.0+i);
+	// ------------------------------------------------------------
 }
 
-void FillCouplingMatrix(ProblemSolver& Solver, const vector<double>& X, const vector<double>& Y, const vector<double>& Z, const vector<double>& RE)
+void FillCouplingMatrix(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& X, const vector<PRECISION>& Y, const vector<PRECISION>& Z, const vector<PRECISION>& RE)
 {
 	int N = X.size();
-	double Distance;
+	PRECISION Distance;
 	
 	for (int Row=0; Row<N; Row++)
 	{
@@ -365,13 +369,13 @@ void FillCouplingMatrix(ProblemSolver& Solver, const vector<double>& X, const ve
 		{
 			if ( Row != Col )
 			{
-				//Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000;
-				Distance = 50;
-				Solver.SetHost(CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
+				//Distance = 50;
+				Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [m]
+				Solver.SetHost(0, CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
 			} else
 			{
-				Solver.SetHost(CouplingMatrix, Row, Col, 0);
+				Solver.SetHost(0, CouplingMatrix, Row, Col, 0);
 			}
 		}
 	}
-}*/
+}

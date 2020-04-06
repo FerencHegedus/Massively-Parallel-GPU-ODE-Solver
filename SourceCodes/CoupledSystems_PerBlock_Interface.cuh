@@ -1,5 +1,5 @@
-#ifndef COUPLEDSYSTEMS_PERBLOCK_H
-#define COUPLEDSYSTEMS_PERBLOCK_H
+#ifndef COUPLEDSYSTEMS_PERBLOCK_INTERFACE_H
+#define COUPLEDSYSTEMS_PERBLOCK_INTERFACE_H
 
 #include <vector>
 #include <stdio.h>
@@ -34,13 +34,13 @@ enum Algorithms{ RK4=2, RKCK45=6 };
 enum ListOfVariables{ All,                    TimeDomain,        ActualState,              UnitParameters,  \
                       SystemParameters,       GlobalParameters,  IntegerGlobalParameters,  UnitAccessories, \
 					  IntegerUnitAccessories, SystemAccessories, IntegerSystemAccessories, CouplingMatrix,  \
-					  DenseOutput,            DenseIndex,        DenseTime,                DenseState };
+					  CouplingStrength,       CouplingIndex,     DenseOutput,              DenseIndex,      \
+					  DenseTime,              DenseState };
 
 enum ListOfSolverOptions{ InitialTimeStep,        ActiveSystems,             MaximumTimeStep,       MinimumTimeStep,          \
                           TimeStepGrowLimit,      TimeStepShrinkLimit,       MaxStepInsideEvent,    MaximumNumberOfTimeSteps, \
 						  RelativeTolerance,      AbsoluteTolerance,         EventTolerance,        EventDirection,           \
-						  EventStopCounter,       DenseOutputTimeStep,       SharedGlobalVariables, SharedSystemVariables,    \
-						  SharedCouplingMatrices, SharedTolerancesAndEvents, SharedCouplingTerms };
+						  EventStopCounter,       DenseOutputTimeStep,       SharedGlobalVariables, SharedCouplingMatrices};
 			
 std::string SolverOptionsToString(ListOfSolverOptions);
 std::string VariablesToString(ListOfVariables);
@@ -49,7 +49,62 @@ void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
 
+struct Struct_ThreadConfiguration
+{
+	int LogicalThreadsPerBlock;
+	int NumberOfBlockLaunches;
+	int ThreadPaddingPerBlock;
+	int BlockSize;
+	int GridSize;
+	int TotalLogicalThreads;
+};
 
+template <class Precision>
+struct Struct_GlobalVariables
+{
+	Precision* d_TimeDomain;
+	Precision* d_ActualState;
+	Precision* d_UnitParameters;
+	Precision* d_SystemParameters;
+	Precision* d_GlobalParameters;
+	int*       d_IntegerGlobalParameters;
+	Precision* d_UnitAccessories;
+	int*       d_IntegerUnitAccessories;
+	Precision* d_SystemAccessories;
+	int*       d_IntegerSystemAccessories;
+	Precision* d_CouplingMatrix;
+	Precision* d_CouplingStrength;
+	int*       d_CouplingIndex;
+	int*       d_DenseOutputIndex;
+	Precision* d_DenseOutputTimeInstances;
+	Precision* d_DenseOutputStates;
+	
+	Precision* d_RelativeTolerance;
+	Precision* d_AbsoluteTolerance;
+	Precision* d_EventTolerance;
+	int*       d_EventDirection;
+	int*       d_EventStopCounter;
+};
+
+struct Struct_SharedMemoryUsage
+{
+	bool GlobalVariables;  // Default: ON
+	bool CouplingMatrices; // Default: OFF
+};
+
+template <class Precision>
+struct Struct_SolverOptions
+{
+	Precision InitialTimeStep;
+	int       ActiveSystems;
+	Precision MaximumTimeStep;
+	Precision MinimumTimeStep;
+	Precision TimeStepGrowLimit;
+	Precision TimeStepShrinkLimit;
+	int       MaxStepInsideEvent;
+	Precision DenseOutputTimeStep;
+	int       MaximumNumberOfTimeSteps;
+};
 
 template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 class ProblemSolver
@@ -62,15 +117,7 @@ class ProblemSolver
 		cudaEvent_t Event;
 		
 		// Thread management
-		struct Struct_ThreadConfiguration
-		{
-			int LogicalThreadsPerBlock;
-			int NumberOfBlockLaunches;
-			int ThreadPaddingPerBlock;
-			int BlockSize;
-			int GridSize;
-			int TotalLogicalThreads;
-		} ThreadConfiguration;
+		Struct_ThreadConfiguration ThreadConfiguration;
 		
 		// Global memory management
 		size_t GlobalMemoryRequired;
@@ -89,6 +136,8 @@ class ProblemSolver
 		long SizeOfIntegerSystemAccessories;
 		long SizeOfEvents;
 		long SizeOfCouplingMatrix;
+		long SizeOfCouplingStrength;
+		long SizeOfCouplingIndex;
 		long SizeOfDenseOutputIndex;
 		long SizeOfDenseOutputTimeInstances;
 		long SizeOfDenseOutputStates;
@@ -104,71 +153,30 @@ class ProblemSolver
 		Precision* h_SystemAccessories;        // System scope
 		int*       h_IntegerSystemAccessories; // System scope
 		Precision* h_CouplingMatrix;           // Global scope
+		Precision* h_CouplingStrength;         // System scope
+		int*       h_CouplingIndex;            // Global scope
 		int*       h_DenseOutputIndex;         // System scope
 		Precision* h_DenseOutputTimeInstances; // System scope
 		Precision* h_DenseOutputStates;        // Unit scope
 		
-		struct Struct_GlobalVariables
-		{
-			Precision* d_TimeDomain;
-			Precision* d_ActualState;
-			Precision* d_UnitParameters;
-			Precision* d_SystemParameters;
-			Precision* d_GlobalParameters;
-			int*       d_IntegerGlobalParameters;
-			Precision* d_UnitAccessories;
-			int*       d_IntegerUnitAccessories;
-			Precision* d_SystemAccessories;
-			int*       d_IntegerSystemAccessories;
-			Precision* d_CouplingMatrix;
-			int*       d_DenseOutputIndex;
-			Precision* d_DenseOutputTimeInstances;
-			Precision* d_DenseOutputStates;
-			
-			Precision* d_RelativeTolerance;
-			Precision* d_AbsoluteTolerance;
-			Precision* d_EventTolerance;
-			int*       d_EventDirection;
-			int*       d_EventStopCounter;
-		} GlobalVariables;
+		Struct_GlobalVariables<Precision> GlobalVariables;
 		
 		// Shared memory management
-		struct Struct_SharedMemoryUsage
-		{
-			bool GlobalVariables;     // Default: OFF
-			bool SystemVariables;     // Default: OFF
-			bool CouplingMatrices;    // Default: OFF
-			bool TolerancesAndEvents; // Default: OFF
-			bool CouplingTerms;       // Default: ON
-		} SharedMemoryUsage;
+		Struct_SharedMemoryUsage SharedMemoryUsage;
 		
-		int SizeOfAlgorithmTolerances;
-		
-		size_t SharedMemoryRequired_GlobalVariables;    
-		size_t SharedMemoryRequired_SystemVariables;   
-		size_t SharedMemoryRequired_CouplingMatrices;    
-		size_t SharedMemoryRequired_TolerancesAndEvents; 
-		size_t SharedMemoryRequired_CouplingTerms;      
-		size_t SharedMemoryRequired_UpperLimit;
-		size_t SharedMemoryRequired_Actual;
+		size_t SharedMemoryRequiredGlobalVariables;
+		size_t SharedMemoryRequiredCouplingMatrices;
+		size_t SharedMemoryRequiredUpperLimit;
+		size_t SharedMemoryRequired;
 		size_t SharedMemoryAvailable;
+		size_t DynamicSharedMemoryRequired;
+		size_t StaticSharedMemoryRequired;
 		
 		// Constant memory management
-		double h_BT_RKCK45[26];
+		double h_BT_RKCK45[26]; // TODO: rewrite to Matrix form, Aij, bi+difference, cj
 		
 		// Default solver options
-		struct Struct_SolverOptions
-		{
-			Precision InitialTimeStep;
-			int       ActiveSystems;
-			Precision MaximumTimeStep;
-			Precision MinimumTimeStep;
-			Precision TimeStepGrowLimit;
-			Precision TimeStepShrinkLimit;
-			int       MaxStepInsideEvent;
-			Precision DenseOutputTimeStep;
-			int       MaximumNumberOfTimeSteps;
-		} SolverOptions;
+		Struct_SolverOptions<Precision> SolverOptions;
 		
 		void BoundCheck(std::string, std::string, int, int);
 		void SharedMemoryCheck();
@@ -183,7 +191,7 @@ class ProblemSolver
 		template <typename T> void SolverOption(ListOfSolverOptions, T);
 		template <typename T> void SolverOption(ListOfSolverOptions, int, T);
 		
-		template <typename T> void SetHost(int, int, ListOfVariables, int, T);      // Unit scope and dense state
+		template <typename T> void SetHost(int, int, ListOfVariables, int, T);      // Unit scope
 		template <typename T> void SetHost(int, ListOfVariables, int, T);           // System scope and dense time
 		template <typename T> void SetHost(ListOfVariables, int, T);                // Global scope
 		template <typename T> void SetHost(int, ListOfVariables, int, int, T);      // Coupling matrix
@@ -214,7 +222,7 @@ class ProblemSolver
 // --- INCLUDE SOLVERS ---
 
 
-#include "CoupledSystmes_PerBlock_RungeKutta.cuh"
+#include "CoupledSystmes_PerBlock_Solver.cuh"
 
 
 // --- CUDA DEVICE FUNCTIONS ---
@@ -321,7 +329,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	std::cout << "---------------------------" << std::endl << std::endl;
 	
 	
-	// Architecture specific setup
+	// ARCHITECTURE SPECIFIC SETUP
 	std::cout << "ARCHITECTURE SPECIFIC SETUP:" << std::endl;
 	
 	Device = AssociatedDevice;
@@ -343,14 +351,14 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 		gpuErrCHK( cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeFourByte) );
 	
 	
-	// Thread management
+	// THREAD MANAGEMENT
 	std::cout << "THREAD MANAGEMENT:" << std::endl;
 	
 	ThreadConfiguration.LogicalThreadsPerBlock = SPB * UPS;
 	ThreadConfiguration.NumberOfBlockLaunches  = ThreadConfiguration.LogicalThreadsPerBlock / TPB + (ThreadConfiguration.LogicalThreadsPerBlock % TPB == 0 ? 0:1);
 	ThreadConfiguration.ThreadPaddingPerBlock  = ThreadConfiguration.NumberOfBlockLaunches * TPB - ThreadConfiguration.LogicalThreadsPerBlock;
 	ThreadConfiguration.BlockSize              = TPB;
-	ThreadConfiguration.GridSize               = NS/SPB + (NS % SPB == 0 ? 0:1);
+	ThreadConfiguration.GridSize               = NS/SPB + (NS % SPB == 0 ? 0 : 1);
 	ThreadConfiguration.TotalLogicalThreads    = (ThreadConfiguration.LogicalThreadsPerBlock + ThreadConfiguration.ThreadPaddingPerBlock) * ThreadConfiguration.GridSize;
 	
 	std::cout << "   Total number of systems:            " << NS << std::endl;
@@ -365,7 +373,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	std::cout << "   Number of idle logical threads:     " << ThreadConfiguration.TotalLogicalThreads - (NS*UPS) << std::endl << std::endl;
 	
 	
-	// Global memory management
+	// GLOBAL MEMORY MANAGEMENT
 	std::cout << "GLOBAL MEMORY MANAGEMENT:" << std::endl;
 	
 	SizeOfTimeDomain               = (long) NS * 2;
@@ -380,6 +388,8 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	SizeOfIntegerSystemAccessories = (long) NS * NiSA;
 	SizeOfEvents                   = (long) ThreadConfiguration.TotalLogicalThreads * NE;
 	SizeOfCouplingMatrix           = (long) NC * UPS * UPS;
+	SizeOfCouplingStrength         = (long) NC * NS;
+	SizeOfCouplingIndex            = (long) NC;
 	SizeOfDenseOutputIndex         = (long) NS;
 	SizeOfDenseOutputTimeInstances = (long) NS * NDO;
 	SizeOfDenseOutputStates        = (long) ThreadConfiguration.TotalLogicalThreads * UD * NDO;
@@ -415,80 +425,90 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	h_SystemAccessories        = AllocateHostPinnedMemory<Precision>( SizeOfSystemAccessories );
 	h_IntegerSystemAccessories = AllocateHostPinnedMemory<int>( SizeOfIntegerSystemAccessories );
 	h_CouplingMatrix           = AllocateHostPinnedMemory<Precision>( SizeOfCouplingMatrix );
+	h_CouplingStrength         = AllocateHostPinnedMemory<Precision>( SizeOfCouplingStrength );
+	h_CouplingIndex            = AllocateHostPinnedMemory<int>( SizeOfCouplingIndex );
 	h_DenseOutputIndex         = AllocateHostPinnedMemory<int>( SizeOfDenseOutputIndex );
 	h_DenseOutputTimeInstances = AllocateHostPinnedMemory<Precision>( SizeOfDenseOutputTimeInstances );
 	h_DenseOutputStates        = AllocateHostPinnedMemory<Precision>( SizeOfDenseOutputStates );
 	
-	GlobalVariables.d_TimeDomain               = AllocateDeviceMemory<Precision>( SizeOfTimeDomain );               // SHARED/GLOBAL
+	GlobalVariables.d_TimeDomain               = AllocateDeviceMemory<Precision>( SizeOfTimeDomain );               // SHARED
 	GlobalVariables.d_ActualState              = AllocateDeviceMemory<Precision>( SizeOfActualState );              // REGISTERS
 	GlobalVariables.d_UnitParameters           = AllocateDeviceMemory<Precision>( SizeOfUnitParameters );           // REGISTERS
-	GlobalVariables.d_SystemParameters         = AllocateDeviceMemory<Precision>( SizeOfSystemParameters );         // SHARED/GLOBAL
+	GlobalVariables.d_SystemParameters         = AllocateDeviceMemory<Precision>( SizeOfSystemParameters );         // SHARED
 	GlobalVariables.d_GlobalParameters         = AllocateDeviceMemory<Precision>( SizeOfGlobalParameters );         // SHARED/GLOBAL
 	GlobalVariables.d_IntegerGlobalParameters  = AllocateDeviceMemory<int>( SizeOfIntegerGlobalParameters );        // SHARED/GLOBAL
 	GlobalVariables.d_UnitAccessories          = AllocateDeviceMemory<Precision>( SizeOfUnitAccessories );          // REGISTERS
 	GlobalVariables.d_IntegerUnitAccessories   = AllocateDeviceMemory<int>( SizeOfIntegerUnitAccessories );         // REGISTERS
-	GlobalVariables.d_SystemAccessories        = AllocateDeviceMemory<Precision>( SizeOfSystemAccessories );        // SHARED/GLOBAL
-	GlobalVariables.d_IntegerSystemAccessories = AllocateDeviceMemory<int>( SizeOfIntegerSystemAccessories );       // SHARED/GLOBAL
+	GlobalVariables.d_SystemAccessories        = AllocateDeviceMemory<Precision>( SizeOfSystemAccessories );        // SHARED
+	GlobalVariables.d_IntegerSystemAccessories = AllocateDeviceMemory<int>( SizeOfIntegerSystemAccessories );       // SHARED
 	GlobalVariables.d_CouplingMatrix           = AllocateDeviceMemory<Precision>( SizeOfCouplingMatrix );           // SHARED/GLOBAL
-	GlobalVariables.d_DenseOutputIndex         = AllocateDeviceMemory<int>( SizeOfDenseOutputIndex );               // REGISTERS
+	GlobalVariables.d_CouplingStrength         = AllocateDeviceMemory<Precision>( SizeOfCouplingStrength );         // SHARED
+	GlobalVariables.d_CouplingIndex            = AllocateDeviceMemory<int>( SizeOfCouplingIndex );                  // SHARED
+	GlobalVariables.d_DenseOutputIndex         = AllocateDeviceMemory<int>( SizeOfDenseOutputIndex );               // SHARED
 	GlobalVariables.d_DenseOutputTimeInstances = AllocateDeviceMemory<Precision>( SizeOfDenseOutputTimeInstances ); // GLOBAL
 	GlobalVariables.d_DenseOutputStates        = AllocateDeviceMemory<Precision>( SizeOfDenseOutputStates );        // GLOBAL
 	
-	GlobalVariables.d_RelativeTolerance        = AllocateDeviceMemory<Precision>( UD );                             // SHARED/GLOBAL(ADAPTIVE)
-	GlobalVariables.d_AbsoluteTolerance        = AllocateDeviceMemory<Precision>( UD );                             // SHARED/GLOBAL(ADAPTIVE)
-	GlobalVariables.d_EventTolerance           = AllocateDeviceMemory<Precision>( NE );                             // SHARED/GLOBAL
-	GlobalVariables.d_EventDirection           = AllocateDeviceMemory<int>( NE );                                   // SHARED/GLOBAL
-	GlobalVariables.d_EventStopCounter         = AllocateDeviceMemory<int>( NE );                                   // SHARED/GLOBAL
+	GlobalVariables.d_RelativeTolerance        = AllocateDeviceMemory<Precision>( UD );                             // SHARED(ADAPTIVE)
+	GlobalVariables.d_AbsoluteTolerance        = AllocateDeviceMemory<Precision>( UD );                             // SHARED(ADAPTIVE)
+	GlobalVariables.d_EventTolerance           = AllocateDeviceMemory<Precision>( NE );                             // SHARED
+	GlobalVariables.d_EventDirection           = AllocateDeviceMemory<int>( NE );                                   // SHARED
+	GlobalVariables.d_EventStopCounter         = AllocateDeviceMemory<int>( NE );                                   // SHARED
 	
 	
-	// Shared memory management
+	// SHARED MEMORY MANAGEMENT
 	std::cout << "SHARED MEMORY MANAGEMENT:" << std::endl;
 	
-	SharedMemoryUsage.GlobalVariables     = 0; // Default: OFF
-	SharedMemoryUsage.SystemVariables     = 0; // Default: OFF
-	SharedMemoryUsage.CouplingMatrices    = 0; // Default: OFF
-	SharedMemoryUsage.TolerancesAndEvents = 0; // Default: OFF
-	SharedMemoryUsage.CouplingTerms       = 1; // Default: ON
+	SharedMemoryUsage.GlobalVariables  = 1; // Default: ON
+	SharedMemoryUsage.CouplingMatrices = 0; // Default: OFF
 	
+	bool IsAdaptive;
 	switch (Algorithm)
 	{
 		case RK4:
-			SizeOfAlgorithmTolerances = 0;
+			IsAdaptive = 0;
 			break;
 		default:
-			SizeOfAlgorithmTolerances = 2*UD;
+			IsAdaptive = 1;
 			break;
 	}
 	
-	SharedMemoryRequired_GlobalVariables     = sizeof(Precision)*(NGP) + sizeof(int)*(NiGP);
-	SharedMemoryRequired_SystemVariables     = sizeof(Precision)*(SPB*NSP + SPB*NSA + SPB*2) + sizeof(int)*(SPB*NiSA);
-	SharedMemoryRequired_CouplingMatrices    = sizeof(Precision)*(SizeOfCouplingMatrix);
-	SharedMemoryRequired_TolerancesAndEvents = sizeof(Precision)*(SizeOfAlgorithmTolerances+NE) + sizeof(int)*(2*NE);
-	SharedMemoryRequired_CouplingTerms       = sizeof(Precision)*(NC*UPS);
-	SharedMemoryRequired_UpperLimit          = SharedMemoryRequired_GlobalVariables + SharedMemoryRequired_SystemVariables + SharedMemoryRequired_CouplingMatrices + SharedMemoryRequired_TolerancesAndEvents + SharedMemoryRequired_CouplingTerms;
+	SharedMemoryRequiredGlobalVariables  = sizeof(Precision)*(NGP) + sizeof(int)*(NiGP);
+	SharedMemoryRequiredCouplingMatrices = sizeof(Precision)*(SizeOfCouplingMatrix);
 	
-	SharedMemoryRequired_Actual = SharedMemoryUsage.GlobalVariables * SharedMemoryRequired_GlobalVariables + \
-	                              SharedMemoryUsage.SystemVariables * SharedMemoryRequired_SystemVariables + \
-								  SharedMemoryUsage.CouplingMatrices * SharedMemoryRequired_CouplingMatrices + \
-								  SharedMemoryUsage.TolerancesAndEvents * SharedMemoryRequired_TolerancesAndEvents + \
-								  SharedMemoryUsage.CouplingTerms * SharedMemoryRequired_CouplingTerms;
+	DynamicSharedMemoryRequired = SharedMemoryUsage.GlobalVariables  * SharedMemoryRequiredGlobalVariables + \
+						          SharedMemoryUsage.CouplingMatrices * SharedMemoryRequiredCouplingMatrices;
 	
-	SharedMemoryAvailable       = SelectedDeviceProperties.sharedMemPerBlock;
+	StaticSharedMemoryRequired  = sizeof(Precision)*( SPB*UPS*NC ) + \
+	                              sizeof(Precision)*( SPB*NC ) + \
+								  sizeof(Precision)*( SPB*2 ) + \
+								  sizeof(Precision)*( (NSP==0 ? 1 : SPB) * (NSP==0 ? 1 : NSP) ) + \
+								  sizeof(Precision)*( (NSA==0 ? 1 : SPB) * (NSA==0 ? 1 : NSA) ) + \
+								  sizeof(Precision)*( (IsAdaptive==0 ? 1 : UD) ) + \
+								  sizeof(Precision)*( (IsAdaptive==0 ? 1 : UD) ) + \
+								  sizeof(Precision)*( (NE==0 ? 1 : NE) ) + \
+								  sizeof(int)*( SPB ) + \
+								  sizeof(int)*( (NiSA==0 ? 1 : SPB) * (NiSA==0 ? 1 : NiSA) ) + \
+								  sizeof(int)*( (NE==0 ? 1 : NE) ) + \
+								  sizeof(int)*( (NE==0 ? 1 : NE) );
 	
-	std::cout << "   Required shared memory per block for different variables:" << std::endl;
-	std::cout << "   Shared memory required by global variables:      " << std::setw(6) << SharedMemoryRequired_GlobalVariables     << " b (OFF -> SolverOption)" << std::endl;
-	std::cout << "   Shared memory required by system variables:      " << std::setw(6) << SharedMemoryRequired_SystemVariables     << " b (OFF -> SolverOption)" << std::endl;
-	std::cout << "   Shared memory required by coupling matrices:     " << std::setw(6) << SharedMemoryRequired_CouplingMatrices    << " b (OFF -> SolverOption)" << std::endl;
-	std::cout << "   Shared memory required by tolerances and events: " << std::setw(6) << SharedMemoryRequired_TolerancesAndEvents << " b (OFF -> SolverOption)" << std::endl;
-	std::cout << "   Shared memory required by coupling terms:        " << std::setw(6) << SharedMemoryRequired_CouplingTerms       << " b (ON -> SolverOption)" << std::endl << std::endl;
+	SharedMemoryRequired = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
 	
-	std::cout << "   Upper limit of possible shared memory usage per block:  " << std::setw(6) << SharedMemoryRequired_UpperLimit << " b (All is ON)" << std::endl;
-	std::cout << "   Actual shared memory required per block:                " << std::setw(6) << SharedMemoryRequired_Actual << " b" << std::endl;
-	std::cout << "   Available shared memory per block:                      " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
+	SharedMemoryRequiredUpperLimit = StaticSharedMemoryRequired + \
+	                                 SharedMemoryRequiredGlobalVariables + \
+						             SharedMemoryRequiredCouplingMatrices;
 	
-	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired_Actual << std::endl;
+	SharedMemoryAvailable = SelectedDeviceProperties.sharedMemPerBlock;
 	
-	if ( SharedMemoryRequired_Actual >= SharedMemoryAvailable )
+	std::cout << "   Required shared memory per block for managable variables:" << std::endl;
+	std::cout << "    Shared memory required by global variables:     " << std::setw(6) << SharedMemoryRequiredGlobalVariables << " b (ON  -> SolverOption)" << std::endl;
+	std::cout << "    Shared memory required by coupling matrices:    " << std::setw(6) << SharedMemoryRequiredCouplingMatrices << " b (OFF -> SolverOption)" << std::endl;
+	std::cout << "   Total possible shared memory usage per block:    " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + All is ON)" << std::endl;
+	std::cout << "   Actual shared memory required per block:         " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
+	std::cout << "   Available shared memory per block:               " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
+	
+	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired << std::endl;
+	
+	if ( SharedMemoryRequired >= SharedMemoryAvailable )
 	{
         std::cout << std::endl;
 		std::cout << "   WARNING: The required amount of shared memory is larger than the available!" << std::endl;
@@ -498,10 +518,10 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	std::cout << std::endl;
 	
 	
-	// Constant memory management
+	// CONSTANT MEMORY MANAGEMENT
 	std::cout << "CONSTANT MEMORY MANAGEMENT:" << std::endl;
 	
-	h_BT_RKCK45[0]  =     1.0/5.0;
+	h_BT_RKCK45[0]  =     1.0/5.0;   // TODO: rewrite to Matrix form
 	h_BT_RKCK45[1]  =     3.0/10.0;
 	h_BT_RKCK45[2]	=     3.0/40.0;
 	h_BT_RKCK45[3]  =     9.0/40.0;
@@ -532,7 +552,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	std::cout << std::endl;
 	
 	
-	// Default values of Solver Options
+	// DEFAULT VALUES OF SOLVER OPTIONS
 	std::cout << "DEFAULT SOLVER OPTIONS:" << std::endl;
 	
 	SolverOptions.InitialTimeStep          = 1e-2;
@@ -545,18 +565,20 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	SolverOptions.DenseOutputTimeStep      = -1e-2;
 	SolverOptions.MaximumNumberOfTimeSteps = 0;
 	
-	std::vector<Precision> DefaultAlgorithmTolerances(UD,1e-8);
-	gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance, &DefaultAlgorithmTolerances, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-	gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance, &DefaultAlgorithmTolerances, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-	
-	if ( NE > 0 )
+	Precision DefaultAlgorithmTolerances = 1e-8;
+	for (int i=0; i<UD; i++)
 	{
-		std::vector<Precision> DefaultEventTolerance(NE,1e-6);
-		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance, &DefaultEventTolerance, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-		
-		std::vector<int> EventStopCounterAndDirection(NE,0);
-		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection,   &EventStopCounterAndDirection, sizeof(int), cudaMemcpyHostToDevice, Stream) );
-		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventStopCounter, &EventStopCounterAndDirection, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance+i, &DefaultAlgorithmTolerances, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance+i, &DefaultAlgorithmTolerances, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+	}
+	
+	Precision DefaultEventTolerance = 1e-6;
+	int       DefaultEventStopCounterAndDirection = 0;
+	for ( int i=0; i< NE; i++ )
+	{
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance+i,   &DefaultEventTolerance,               sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+i,   &DefaultEventStopCounterAndDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventStopCounter+i, &DefaultEventStopCounterAndDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
 	}
 	
 	std::cout << "   Initial time step:            " << SolverOptions.InitialTimeStep << std::endl;
@@ -575,12 +597,12 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	std::cout << "   Event direction of detection: " << 0 << std::endl;
 	
 	
-	// End creating SolverObject
 	std::cout << std::endl;
-	
+	std::cout << "---------------------------------------------------" << std::endl;
 	std::cout << "Object for Parameters scan is successfully created!" << std::endl;
 	std::cout << "Required memory allocations have been done" << std::endl;
-	std::cout << "Coo man coo!!!" << std::endl << std::endl;
+	std::cout << "Coo man coo!!!" << std::endl;
+	std::cout << "---------------------------------------------------" << std::endl << std::endl;
 }
 
 // DESTRUCTOR
@@ -603,6 +625,8 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	gpuErrCHK( cudaFreeHost(h_SystemAccessories) );
 	gpuErrCHK( cudaFreeHost(h_IntegerSystemAccessories) );
 	gpuErrCHK( cudaFreeHost(h_CouplingMatrix) );
+	gpuErrCHK( cudaFreeHost(h_CouplingStrength) );
+	gpuErrCHK( cudaFreeHost(h_CouplingIndex) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputIndex) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputTimeInstances) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputStates) );
@@ -618,6 +642,8 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	gpuErrCHK( cudaFree(GlobalVariables.d_SystemAccessories) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_IntegerSystemAccessories) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_CouplingMatrix) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_CouplingStrength) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_CouplingIndex) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputIndex) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputTimeInstances) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputStates) );
@@ -656,26 +682,21 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 {
 	std::cout << "SHARED MEMORY MANAGEMENT CHANGED BY SOLVER OPTION:" << std::endl;
 	
-	SharedMemoryRequired_Actual = SharedMemoryUsage.GlobalVariables * SharedMemoryRequired_GlobalVariables + \
-	                              SharedMemoryUsage.SystemVariables * SharedMemoryRequired_SystemVariables + \
-								  SharedMemoryUsage.CouplingMatrices * SharedMemoryRequired_CouplingMatrices + \
-								  SharedMemoryUsage.TolerancesAndEvents * SharedMemoryRequired_TolerancesAndEvents + \
-								  SharedMemoryUsage.CouplingTerms * SharedMemoryRequired_CouplingTerms;
+	DynamicSharedMemoryRequired = SharedMemoryUsage.GlobalVariables  * SharedMemoryRequiredGlobalVariables + \
+						          SharedMemoryUsage.CouplingMatrices * SharedMemoryRequiredCouplingMatrices;
 	
-	std::cout << "   Required shared memory per block for different variables:" << std::endl;
-	std::cout << "   Shared memory required by global variables:      " << std::setw(6) << SharedMemoryRequired_GlobalVariables     << " b (" << ( (SharedMemoryUsage.GlobalVariables     == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
-	std::cout << "   Shared memory required by system variables:      " << std::setw(6) << SharedMemoryRequired_SystemVariables     << " b (" << ( (SharedMemoryUsage.SystemVariables     == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
-	std::cout << "   Shared memory required by coupling matrices:     " << std::setw(6) << SharedMemoryRequired_CouplingMatrices    << " b (" << ( (SharedMemoryUsage.CouplingMatrices    == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
-	std::cout << "   Shared memory required by tolerances and events: " << std::setw(6) << SharedMemoryRequired_TolerancesAndEvents << " b (" << ( (SharedMemoryUsage.TolerancesAndEvents == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
-	std::cout << "   Shared memory required by coupling terms:        " << std::setw(6) << SharedMemoryRequired_CouplingTerms       << " b (" << ( (SharedMemoryUsage.CouplingTerms       == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl << std::endl;
+	SharedMemoryRequired = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
 	
-	std::cout << "   Upper limit of possible shared memory usage per block:  " << std::setw(6) << SharedMemoryRequired_UpperLimit << " b (All is ON)" << std::endl;
-	std::cout << "   Actual shared memory required per block:                " << std::setw(6) << SharedMemoryRequired_Actual << " b" << std::endl;
-	std::cout << "   Available shared memory per block:                      " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
+	std::cout << "   Required shared memory per block for managable variables:" << std::endl;
+	std::cout << "    Shared memory required by global variables:     " << std::setw(6) << SharedMemoryRequiredGlobalVariables << " b (" << ( (SharedMemoryUsage.GlobalVariables     == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
+	std::cout << "    Shared memory required by coupling matrices:    " << std::setw(6) << SharedMemoryRequiredCouplingMatrices << " b (" << ( (SharedMemoryUsage.CouplingMatrices    == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
+	std::cout << "   Total possible shared memory usage per block:    " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + All is ON)" << std::endl;
+	std::cout << "   Actual shared memory required per block:         " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
+	std::cout << "   Available shared memory per block:               " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
 	
-	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired_Actual << std::endl;
+	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired << std::endl;
 	
-	if ( SharedMemoryRequired_Actual >= SharedMemoryAvailable )
+	if ( SharedMemoryRequired >= SharedMemoryAvailable )
 	{
         std::cout << std::endl;
 		std::cout << "   WARNING: The required amount of shared memory is larger than the available!" << std::endl;
@@ -733,25 +754,11 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 			SharedMemoryCheck();
 			break;
 		
-		case SharedSystemVariables:
-			SharedMemoryUsage.SystemVariables = (bool)Value;
-			SharedMemoryCheck();
-			break;
-		
 		case SharedCouplingMatrices:
 			SharedMemoryUsage.CouplingMatrices = (bool)Value;
 			SharedMemoryCheck();
 			break;
 		
-		case SharedTolerancesAndEvents:
-			SharedMemoryUsage.TolerancesAndEvents = (bool)Value;
-			SharedMemoryCheck();
-			break;
-		
-		case SharedCouplingTerms:
-			SharedMemoryUsage.CouplingTerms = (bool)Value;
-			SharedMemoryCheck();
-			break;
 		//---------------------------------------
 		default:
 			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
@@ -884,6 +891,11 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 			h_DenseOutputTimeInstances[GlobalMemoryID] = (Precision)Value;
 			break;
 		
+		case CouplingStrength:
+			BoundCheck("SetHost", "CouplingStrength", SerialNumber, NC);
+			h_CouplingStrength[GlobalMemoryID] = (Precision)Value;
+			break;
+		
 		default:
 			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -909,6 +921,11 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 		case IntegerGlobalParameters:
 			BoundCheck("SetHost", "IntegerGlobalParameters", SerialNumber, NiGP);
 			h_IntegerGlobalParameters[GlobalMemoryID] = (int)Value;
+			break;
+		
+		case CouplingIndex:
+			BoundCheck("SetHost", "CouplingIndex", SerialNumber, NC);
+			h_CouplingIndex[GlobalMemoryID] = (int)Value;
 			break;
 		
 		default:
@@ -1050,6 +1067,14 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_CouplingMatrix, h_CouplingMatrix, SizeOfCouplingMatrix*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
 		
+		case CouplingStrength:
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_CouplingStrength, h_CouplingStrength, SizeOfCouplingStrength*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case CouplingIndex:
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_CouplingIndex, h_CouplingIndex, SizeOfCouplingIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
 		case DenseOutput:
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
@@ -1068,6 +1093,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_SystemAccessories, h_SystemAccessories, SizeOfSystemAccessories*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_IntegerSystemAccessories, h_IntegerSystemAccessories, SizeOfIntegerSystemAccessories*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_CouplingMatrix, h_CouplingMatrix, SizeOfCouplingMatrix*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_CouplingStrength, h_CouplingStrength, SizeOfCouplingStrength*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_CouplingIndex, h_CouplingIndex, SizeOfCouplingIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
@@ -1133,6 +1160,14 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 			gpuErrCHK( cudaMemcpyAsync(h_CouplingMatrix, GlobalVariables.d_CouplingMatrix, SizeOfCouplingMatrix*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			break;
 		
+		case CouplingStrength:
+			gpuErrCHK( cudaMemcpyAsync(h_CouplingStrength, GlobalVariables.d_CouplingStrength, SizeOfCouplingStrength*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			break;
+		
+		case CouplingIndex:
+			gpuErrCHK( cudaMemcpyAsync(h_CouplingIndex, GlobalVariables.d_CouplingIndex, SizeOfCouplingIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
+			break;
+		
 		case DenseOutput:
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, GlobalVariables.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
@@ -1151,6 +1186,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 			gpuErrCHK( cudaMemcpyAsync(h_SystemAccessories, GlobalVariables.d_SystemAccessories, SizeOfSystemAccessories*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_IntegerSystemAccessories, GlobalVariables.d_IntegerSystemAccessories, SizeOfIntegerSystemAccessories*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_CouplingMatrix, GlobalVariables.d_CouplingMatrix, SizeOfCouplingMatrix*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_CouplingStrength, GlobalVariables.d_CouplingStrength, SizeOfCouplingStrength*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_CouplingIndex, GlobalVariables.d_CouplingIndex, SizeOfCouplingIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, GlobalVariables.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, GlobalVariables.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
@@ -1236,6 +1273,10 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 			BoundCheck("SetHost", "DenseTime", SerialNumber, NDO);
 			return (T)h_DenseOutputTimeInstances[GlobalMemoryID];
 		
+		case CouplingStrength:
+			BoundCheck("SetHost", "CouplingStrength", SerialNumber, NC);
+			return (T)h_CouplingStrength[GlobalMemoryID];
+		
 		default:
 			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -1260,6 +1301,10 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 		case IntegerGlobalParameters:
 			BoundCheck("SetHost", "IntegerGlobalParameters", SerialNumber, NiGP);
 			return (T)h_IntegerGlobalParameters[GlobalMemoryID];
+		
+		case CouplingIndex:
+			BoundCheck("SetHost", "CouplingIndex", SerialNumber, NC);
+			return (T)h_CouplingIndex[GlobalMemoryID];
 		
 		default:
 			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
@@ -1701,6 +1746,20 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 			WriteToFileSystemAndGlobalScope(FileName, NumberOfRows, NumberOfColumns, h_IntegerSystemAccessories);
 			break;
 		
+		case CouplingStrength:
+			FileName        = "CouplingStrengthInSolverObject.txt";
+			NumberOfRows    = NS;
+			NumberOfColumns = NC;
+			WriteToFileSystemAndGlobalScope(FileName, NumberOfRows, NumberOfColumns, h_CouplingStrength);
+			break;
+			
+		case CouplingIndex:
+			FileName        = "CouplingIndexInSolverObject.txt";
+			NumberOfRows    = NC;
+			NumberOfColumns = 1;
+			WriteToFileSystemAndGlobalScope(FileName, NumberOfRows, NumberOfColumns, h_CouplingIndex);
+			break;
+		
 		default :
 			std::cerr << "ERROR: In solver member function Print!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -1748,7 +1807,7 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	//SingleSystem_PerThread_RungeKutta<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
+	CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision><<<ThreadConfiguration.GridSize, ThreadConfiguration.BlockSize, DynamicSharedMemoryRequired, Stream>>> (ThreadConfiguration, GlobalVariables, SharedMemoryUsage, SolverOptions);
 }
 
 // SYNCHRONISE DEVICE
@@ -1862,14 +1921,8 @@ std::string SolverOptionsToString(ListOfSolverOptions Option)
 			return "DenseOutputTimeStep";
 		case SharedGlobalVariables:
 			return "SharedGlobalVariables";
-		case SharedSystemVariables:
-			return "SharedSystemVariables";
 		case SharedCouplingMatrices:
 			return "SharedCouplingMatrices";
-		case SharedTolerancesAndEvents:
-			return "SharedTolerancesAndEvents";
-		case SharedCouplingTerms:
-			return "SharedCouplingTerms";
 		default:
 			return "Non-existent solver option!";
 	}
@@ -1903,6 +1956,10 @@ std::string VariablesToString(ListOfVariables Option)
 			return "IntegerSystemAccessories";
 		case CouplingMatrix:
 			return "CouplingMatrix";
+		case CouplingStrength:
+			return "CouplingStrength";
+		case CouplingIndex:
+			return "CouplingIndex";
 		case DenseOutput:
 			return "DenseOutput";
 		case DenseIndex:

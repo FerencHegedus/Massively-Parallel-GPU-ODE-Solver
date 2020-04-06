@@ -1,6 +1,0 @@
-#ifndef COUPLEDSYSTEM_PERBLOCK_RUNGEKUTTA_H
-#define COUPLEDSYSTEM_PERBLOCK_RUNGEKUTTA_H
-
-__constant__ double d_BT_RKCK45[26];
-
-#endif
