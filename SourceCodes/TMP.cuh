@@ -18,6 +18,13 @@
 		GlobalThreadID_Logical, GlobalThreadID_GPU, BlockID, LocalThreadID_Logical, LocalThreadID_GPU, GlobalSystemID, LocalSystemID, UnitID, LimitReached);
 	}
 	
+	// Testing block scope shared memory variables
+	if ( ( threadIdx.x == 0 ) )
+	{
+		printf("Block ID: %d, s_TerminatedSystemsPerBlock: %d \n", blockIdx.x, s_TerminatedSystemsPerBlock);
+		printf("Block ID: %d, s_TSS[0]: %d, s_TSS[1]: %d, s_TSS[2]: %d \n", blockIdx.x, s_TerminateSystemScope[0], s_TerminateSystemScope[1], s_TerminateSystemScope[2]);
+	}
+	
 	// Testing global shared memory variables
 	if ( ( blockIdx.x == 0 ) && ( threadIdx.x == 0 ) )
 	{
@@ -215,3 +222,54 @@
 		}
 	}
 	__syncthreads(); // -------------------------------------------------------
+	
+	// Test final state -------------------------------------------------------
+	int GSID = 7;
+	int UID  = 5;
+	for (int BL=0; BL<NumberOfBlockLaunches; BL++)
+	{
+		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
+		LocalSystemID         = LocalThreadID_Logical / UPS;
+		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + blockIdx.x*SPB;
+		
+		// All
+		if ( (LocalSystemID<SPB) && (GlobalSystemID<NS) )
+		{
+			printf("BL: %2d, GSID: %2d, LSID: %2d, UID: %2d, T: %+6.7e, X1: %+6.7e, X2: %+6.7e \n", \
+			    BL, GlobalSystemID, LocalSystemID, UnitID, s_ActualTime[LocalSystemID], r_ActualState[BL][0], r_ActualState[BL][1]);
+		}
+		
+		// Specific
+		/*if ( (GlobalSystemID==GSID) && (UnitID==UID) && (LocalSystemID<SPB) )
+		{
+			printf("BL: %2d, GSID: %2d, LSID: %2d, UID: %2d, X1: %+6.3e, X2: %+6.3e, X1new: %+6.7e, X2new: %+6.7e \n", \
+			    BL, GlobalSystemID, LocalSystemID, UnitID, \
+				r_ActualState[BL][0], r_ActualState[BL][1], r_NextState[BL][0], r_NextState[BL][1]);
+		}*/
+	}
+	__syncthreads(); //--------------------------------------------------------
+	
+	// Test calculation of global minimum
+	for (int BL=0; BL<NBL; BL++)
+	{
+		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
+		LocalSystemID         = LocalThreadID_Logical / UPS;
+		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
+		
+		if ( ( LocalSystemID < SPB ) && ( GlobalSystemID == 2 ) && ( UnitID == 0 ) )
+		{
+			printf("GSID: %d, GLB_MIN_RERR: %+6.3e, GLB_UPD: %d \n", GlobalSystemID, s_RelativeError[LocalSystemID], s_UpdateStep[LocalSystemID]);
+			printf("s_TimeStepMultiplicator: %+6.3e, s_Timestep, %+6.3e, s_NewTimeStep: %+6.3e \n", s_TimeStepMultiplicator[LocalSystemID], s_TimeStep[LocalSystemID], s_NewTimeStep[LocalSystemID]);
+		}
+	}
+	__syncthreads();
+	
+				// Test reduction operation in error handling
+				if ( GlobalSystemID == 2 )
+					printf("GSID: %d, UID: %d, Comp: %d, RERR: %+6.3e, ERR: %+6.3e, TOL: %+6.3e, UPD: %d \n", GlobalSystemID, UnitID, i, r_ErrorTolerance / r_Error[BL][i], r_Error[BL][i], r_ErrorTolerance, r_UpdateStep);
+	
+	// Testing termination in update process
+	printf("A system is terminated, Block ID: %d, SysID: %d, s_TSS[0]: %d, s_TSS[1]: %d, s_TSS[2]: %d \n", blockIdx.x, LocalSystemID, s_TerminateSystemScope[0], s_TerminateSystemScope[1], s_TerminateSystemScope[2]);
+	printf("Block ID: %d, SysID: %d, IsFinite %d \n", blockIdx.x, LocalSystemID, s_IsFinite[0]);

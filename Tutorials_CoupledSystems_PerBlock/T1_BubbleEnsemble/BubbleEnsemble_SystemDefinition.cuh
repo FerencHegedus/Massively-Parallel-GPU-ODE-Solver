@@ -5,10 +5,11 @@
 
 // SYSTEM
 template <class Precision>
-__device__ void CoupledSystems_PerBlock_OdeFunction(Precision*    F, Precision*     X, Precision     T,             \
-											        Precision* uPAR, Precision*  sPAR, Precision* gPAR, int* igPAR, \
-													Precision* uACC,       int* iuACC, Precision* sACC, int* isACC, \
-													Precision*  CPT, Precision*   CPF)
+__device__ void CoupledSystems_PerBlock_OdeFunction(\
+			Precision*    F, Precision*     X, Precision     T,             \
+			Precision* uPAR, Precision*  sPAR, Precision* gPAR, int* igPAR, \
+			Precision* uACC,       int* iuACC, Precision* sACC, int* isACC, \
+			Precision*  CPT, Precision*   CPF)
 {
 	Precision rx1 = 1.0/X[0];
 	Precision p   = pow(rx1, uPAR[10]);
@@ -33,6 +34,10 @@ __device__ void CoupledSystems_PerBlock_OdeFunction(Precision*    F, Precision* 
 	
 	CPT[0] = -(2*X[0]*X[1]*X[1] + X[0]*X[0]*N*rD); // i=0...NC
 	CPF[0] = rD;                                   // i=0...NC
+	
+	// DUMMY (ONLY FOR TESTING PURPOSES)
+	//CPT[1] = 0.0;
+	//CPF[1] = 0.0;
 }
 
 #endif

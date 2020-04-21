@@ -172,9 +172,6 @@ class ProblemSolver
 		size_t DynamicSharedMemoryRequired;
 		size_t StaticSharedMemoryRequired;
 		
-		// Constant memory management
-		double h_BT_RKCK45[26]; // TODO: rewrite to Matrix form, Aij, bi+difference, cj
-		
 		// Default solver options
 		Struct_SolverOptions<Precision> SolverOptions;
 		
@@ -515,40 +512,6 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 		std::cout << "            The solver kernel function cannot be run on the selected GPU!" << std::endl;
 		std::cout << "            Turn OFF some variables using shared memory!" << std::endl;
     }
-	std::cout << std::endl;
-	
-	
-	// CONSTANT MEMORY MANAGEMENT
-	std::cout << "CONSTANT MEMORY MANAGEMENT:" << std::endl;
-	
-	h_BT_RKCK45[0]  =     1.0/5.0;   // TODO: rewrite to Matrix form
-	h_BT_RKCK45[1]  =     3.0/10.0;
-	h_BT_RKCK45[2]	=     3.0/40.0;
-	h_BT_RKCK45[3]  =     9.0/40.0;
-	h_BT_RKCK45[4]  =     3.0/5.0;
-	h_BT_RKCK45[5]  =    -9.0/10.0;
-	h_BT_RKCK45[6]  =     6.0/5.0;
-	h_BT_RKCK45[7]  =   -11.0/54.0;
-	h_BT_RKCK45[8]  =     5.0/2.0;
-	h_BT_RKCK45[9]  =   -70.0/27.0;
-	h_BT_RKCK45[10] =    35.0/27.0;
-	h_BT_RKCK45[11] =     7.0/8.0;
-	h_BT_RKCK45[12] =  1631.0/55296.0;
-	h_BT_RKCK45[13] =   175.0/512.0;
-	h_BT_RKCK45[14] =   575.0/13824.0;
-	h_BT_RKCK45[15] = 44275.0/110592.0;
-	h_BT_RKCK45[16] =   253.0/4096.0;
-	h_BT_RKCK45[17] =    37.0/378.0;
-	h_BT_RKCK45[18] =   250.0/621.0;
-	h_BT_RKCK45[19] =   125.0/594.0;
-	h_BT_RKCK45[20] =   512.0/1771.0;
-	h_BT_RKCK45[21] =  2825.0/27648.0;
-	h_BT_RKCK45[22] = 18575.0/48384.0;
-	h_BT_RKCK45[23] = 13525.0/55296.0;
-	h_BT_RKCK45[24] =   277.0/14336.0;
-	h_BT_RKCK45[25] =     1.0/4.0;
-	
-	gpuErrCHK( cudaMemcpyToSymbol(d_BT_RKCK45, h_BT_RKCK45, 26*sizeof(double)) );
 	std::cout << std::endl;
 	
 	
