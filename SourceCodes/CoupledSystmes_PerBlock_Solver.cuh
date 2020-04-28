@@ -5,7 +5,7 @@
 #include "CoupledSystems_PerBlock_ExplicitRungeKutta_Steppers.cuh"         // No specialised templates
 #include "CoupledSystems_PerBlock_ExplicitRungeKutta_ErrorController.cuh"  // No specialised templates
 
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(Struct_ThreadConfiguration ThreadConfiguration, Struct_GlobalVariables<Precision> GlobalVariables, Struct_SharedMemoryUsage SharedMemoryUsage, Struct_SolverOptions<Precision> SolverOptions)
 {
 	// THREAD MANAGEMENT ------------------------------------------------------
@@ -35,14 +35,24 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	//    MINIMUM ALLOCABLE MEMORY IS 1
 	extern __shared__ int DynamicSharedMemory[];
 	int MemoryShift;
-	Precision* gs_GlobalParameters        = (Precision*)&DynamicSharedMemory;               MemoryShift = (SharedMemoryUsage.GlobalVariables  == 1 ? NGP : 0);
-	Precision* gs_CouplingMatrix          = (Precision*)&gs_GlobalParameters[MemoryShift];  MemoryShift = (SharedMemoryUsage.CouplingMatrices == 1 ? NC*UPS*UPS : 0);
-	int*       gs_IntegerGlobalParameters = (int*)&gs_CouplingMatrix[MemoryShift];
 	
-	const bool IsAdaptive = ( Algorithm==RK4 ? 0 : 1 );
-	//const bool NCpadding  = 
-	__shared__ Precision s_CouplingTerms[SPB][UPS][NC];                                       // Need access by user
-	__shared__ Precision s_CouplingStrength[SPB][NC];                                         // Internal
+	Precision* gs_GlobalParameters = (Precision*)&DynamicSharedMemory;
+		MemoryShift = (SharedMemoryUsage.GlobalVariables  == 1 ? NGP : 0);
+	
+	Precision* gs_CouplingMatrix = (Precision*)&gs_GlobalParameters[MemoryShift];
+		MemoryShift = (SharedMemoryUsage.CouplingMatrices == 1 ? NC*SharedMemoryUsage.SingleCouplingMatrixSize : 0);
+	
+	int* gs_IntegerGlobalParameters = (int*)&gs_CouplingMatrix[MemoryShift];
+	
+	const bool IsAdaptive  = ( Algorithm==RK4 ? 0 : 1 );
+	
+	// NC must be padded by 1 if NCmod = 0, 2, 4, 8 or 16 (to avoid bank conflict of shared memory)
+	const int NCmod        = NC % 32;
+	const int IsPowerOfTwo = !( NCmod & (NCmod-1) ); // Including 0!
+	const int NCpadding    = NC + ( NCmod==1 ? 0 : ( IsPowerOfTwo==1 ? 1 : 0 ) );
+	
+	__shared__ Precision s_CouplingTerms[SPB][UPS][NCpadding];                                       // Need access by user
+	__shared__ Precision s_CouplingStrength[SPB][NCpadding];                                         // Internal
 	__shared__ Precision s_TimeDomain[SPB][2];                                                // Need access by user
 	__shared__ Precision s_ActualTime[SPB];                                                   // Need access by user
 	__shared__ Precision s_TimeStep[SPB];                                                     // Need access by user
@@ -52,7 +62,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	__shared__ Precision s_RelativeTolerance[ (IsAdaptive==0 ? 1 : UD) ];                     // Internal
 	__shared__ Precision s_AbsoluteTolerance[ (IsAdaptive==0 ? 1 : UD) ];                     // Internal
 	__shared__ Precision s_EventTolerance[ (NE==0 ? 1 : NE) ];                                // Internal
-	__shared__ int s_CouplingIndex[NC];                                                       // Internal
+	__shared__ int s_CouplingIndex[NCpadding];                                                       // Internal
 	__shared__ int s_DenseOutputIndex[SPB];                                                   // Internal
 	__shared__ int s_IntegerSystemAccessories[ (NiSA==0 ? 1 : SPB) ][ (NiSA==0 ? 1 : NiSA) ]; // Need access by user
 	__shared__ int s_EventDirection[ (NE==0 ? 1 : NE) ];                                      // Need access by user
@@ -193,7 +203,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		gs_CouplingMatrix = GlobalVariables.d_CouplingMatrix;
 	} else
 	{
-		int MaxElementNumber = NC*UPS*UPS;
+		int MaxElementNumber = NC*SharedMemoryUsage.SingleCouplingMatrixSize;
 		Launches = MaxElementNumber / blockDim.x + (MaxElementNumber % blockDim.x == 0 ? 0 : 1);
 		
 		for (int i=0; i<Launches; i++)
@@ -262,6 +272,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	
 	// SOLVER MANAGEMENT ------------------------------------------------------
 	while ( s_TerminatedSystemsPerBlock < SPB )
+	//for (int kk=0; kk<10; kk++)
 	{
 		// INITIALISE TIME STEPPING -------------------------------------------
 		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
@@ -293,7 +304,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		// STEPPER ------------------------------------------------------------
 		if ( Algorithm == RK4 ) // Resolved at compile time as Algorithm is a template parameter and RK4 is constant
 		{
-			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RK4<NumberOfBlockLaunches, NS, UPS, UD, TPB, SPB, NC, NUP, NSP, NGP, NiGP, NUA, NiUA, NSA, NiSA, NE, NDO, Precision>( \
+			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RK4<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCpadding,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Precision>( \
 				r_ActualState, \
 				r_NextState, \
 				s_ActualTime, \
@@ -324,7 +335,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		
 		if ( Algorithm == RKCK45 ) // Resolved at compile time as Algorithm is a template parameter and RKCK45 is constant
 		{
-			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RKCK45<NumberOfBlockLaunches, NS, UPS, UD, TPB, SPB, NC, NUP, NSP, NGP, NiGP, NUA, NiUA, NSA, NiSA, NE, NDO, Precision>( \
+			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RKCK45<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCpadding,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Precision>( \
 				r_ActualState, \
 				r_NextState, \
 				s_ActualTime, \
@@ -366,29 +377,13 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 			LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 			LocalSystemID         = LocalThreadID_Logical / UPS;
 			UnitID                = LocalThreadID_Logical % UPS;
-			GlobalSystemID        = LocalSystemID + BlockID*SPB;
 			
 			if ( ( LocalSystemID < SPB ) && ( s_UpdateStep[LocalSystemID] == 1 ) )
 			{
 				if ( UnitID == 0 )
 				{
 					s_ActualTime[LocalSystemID] += s_TimeStep[LocalSystemID];
-					
-					if ( s_EndTimeDomainReached[LocalSystemID] == 1 )
-					{
-						s_TerminateSystemScope[LocalSystemID] = 1;
-						atomicAdd(&s_TerminatedSystemsPerBlock, 1);
-						
-						s_UpdateStep[LocalSystemID]           = 0;
-					}
-					
 					s_NumberOfSuccessfulTimeStep[LocalSystemID]++;
-					if ( ( SolverOptions.MaximumNumberOfTimeSteps != 0 ) && ( s_NumberOfSuccessfulTimeStep[LocalSystemID] == SolverOptions.MaximumNumberOfTimeSteps ) )
-					{
-						printf("Warning: Maximum number of allowed time steps is reachd! (global system id: %d, @time: %+6.5e \n", GlobalSystemID, s_ActualTime[LocalSystemID]);
-						s_TerminateSystemScope[LocalSystemID] = 1;
-						atomicAdd(&s_TerminatedSystemsPerBlock, 1);
-					}
 				}
 				
 				for (int i=0; i<UD; i++)
@@ -396,12 +391,43 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 			}
 		}
 		__syncthreads();
+		
+		// CHECK TERMINATION
+		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
+		{
+			LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
+			LocalSystemID         = LocalThreadID_Logical / UPS;
+			UnitID                = LocalThreadID_Logical % UPS;
+			GlobalSystemID        = LocalSystemID + BlockID*SPB;
+			
+			if ( ( LocalSystemID < SPB ) && ( s_UpdateStep[LocalSystemID] == 1 ) )
+			{
+				if ( UnitID == 0 )
+				{
+					if ( s_EndTimeDomainReached[LocalSystemID] == 1 )
+					{
+						s_TerminateSystemScope[LocalSystemID] = 1;
+						atomicAdd(&s_TerminatedSystemsPerBlock, 1);
+						
+						s_UpdateStep[LocalSystemID] = 0;
+					}
+					
+					if ( ( SolverOptions.MaximumNumberOfTimeSteps != 0 ) && ( s_NumberOfSuccessfulTimeStep[LocalSystemID] == SolverOptions.MaximumNumberOfTimeSteps ) )
+					{
+						printf("Warning: Maximum number of allowed time steps is reachd! (global system id: %d, @time: %+6.5e \n", GlobalSystemID, s_ActualTime[LocalSystemID]);
+						s_TerminateSystemScope[LocalSystemID] = 1;
+						atomicAdd(&s_TerminatedSystemsPerBlock, 1);
+					}
+				}
+			}
+		}
+		__syncthreads();
+		
 	}
 	__syncthreads();
 	
 	
 	// WRITE DATA BACK TO GLOBAL MEMORY ---------------------------------------
-	
 	// Unit scope variables (register variables)
 	for (int BL=0; BL<NumberOfBlockLaunches; BL++)
 	{

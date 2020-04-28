@@ -14,24 +14,26 @@
 #define PI 3.14159265358979323846
 
 #define COUPLINGSTRENGTH 1.0
-#define DISTANCE 50.0;
+#define DISTANCE 2000.0;
 
 using namespace std;
 
 // Physical control parameters
 const int NumberOfFrequency      = 1; // Control parameter
-const int NumberOfAmplitude      = 10001; // Control parameter
-const int NumberOfUnitsPerSystem = 128;  // Number coupled units
+const int NumberOfAmplitude      = 120*5; // Control parameter
+const int NumberOfUnitsPerSystem = 128; // Number coupled units
 
 // Solver Configuration
 #define SOLVER RKCK45      // RK4, RKCK45
-#define PRECISION double // float, double
+#define PRECISION double   // float, double
 const int NS   = NumberOfFrequency * NumberOfAmplitude; // NumberOfSystems
 const int UPS  = NumberOfUnitsPerSystem;                // UnitsPerSystem
 const int UD   = 2;     // UnitDimension
-const int TPB  = 128;   // ThreadsPerBlock (integer multiple of the warp size that is 32)
+const int TPB  = 128;    // ThreadsPerBlock (integer multiple of the warp size that is 32)
 const int SPB  = 1;     // SystemsPerBlock
 const int NC   = 1;     // NumberOfCouplings
+const int CBW  = 0;     // CouplingBandwidthRadius (0: full coupling matrix)
+const int CCI  = 1;     // CouplingCircularity (0: non-circular matrix, 1: circular matrix)
 
 const int NUP  = 21;    // NumberOfUnitParameters (different form system to system, different from unit to unit)
 const int NSP  = 0;     // NumberOfSystemParameters (different from system to system, shared by all units)
@@ -51,12 +53,12 @@ void Logspace(vector<PRECISION>&, PRECISION, PRECISION, int);
 void Random(vector<PRECISION>&, PRECISION, PRECISION, int, int);
 void Gauss(vector<PRECISION>&, PRECISION, PRECISION, int);
 
-void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&);
-void FillCouplingMatrix(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&);
+void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&);
+void FillCouplingMatrix(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&);
 
 void SavePositions(vector<PRECISION>&, vector<PRECISION>&, vector<PRECISION>&, string, int);
 void SaveBubbleSizes(vector<PRECISION>&, string, int);
-void SaveData(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>&, ofstream&, int, int, int);
+void SaveData(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>&, ofstream&, int, int, int);
 
 // ------------------------------------------------------------------------------------------------
 
@@ -71,7 +73,7 @@ int main()
 	
 	Logspace(Frequency, 1000.0, 2000.0, NumberOfFrequency);  // kHz
 	Linspace(Amplitude,   0.0,    5.0, NumberOfAmplitude);  // bar
-	Random(BubbleSize,    3.0,    8.0, UPS, 10001); // micron
+	Random(BubbleSize,    4.0,    4.0, UPS, 10001); // micron
 	Gauss(PositionX,      0.0,   10.0, UPS); // mm
 	Gauss(PositionY,      0.0,   10.0, UPS); // mm
 	Gauss(PositionZ,      0.0,   10.0, UPS); // mm
@@ -88,10 +90,10 @@ int main()
 	PrintPropertiesOfSpecificDevice(SelectedDevice);
 	
 	
-	ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION> ScanSystem(SelectedDevice);
+	ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION> ScanSystem(SelectedDevice);
 	
 	ScanSystem.SolverOption(SharedCouplingMatrices, 0);
-	ScanSystem.SolverOption(InitialTimeStep, 1e-2);
+	ScanSystem.SolverOption(InitialTimeStep, 1e-3);
 	ScanSystem.SolverOption(RelativeTolerance, 0, 1e-10);
 	ScanSystem.SolverOption(AbsoluteTolerance, 0, 1e-10);
 	ScanSystem.SolverOption(MinimumTimeStep, 1e-13);
@@ -106,6 +108,18 @@ int main()
 	ScanSystem.Print(ActualState);
 	ScanSystem.Print(UnitParameters);
 	ScanSystem.Print(CouplingMatrix,0);
+	//ScanSystem.Print(CouplingMatrix,1);
+	
+	
+	// CHECK COUPLING MATRIX
+	/*cout << ScanSystem.GetHost<PRECISION>(0, CouplingMatrix, 0, 0) << " " << endl;
+	cout << endl;
+	cout << ScanSystem.GetHost<PRECISION>(1, CouplingMatrix, 0, 0) << " " << endl;*/
+	
+	
+	
+	
+	
 	
 	// SIMULATION -------------------------------------------------------------
 	
@@ -119,7 +133,8 @@ int main()
 	StreamFilename.str("");
 	StreamFilename.precision(0);
 	StreamFilename.setf(ios::fixed);
-	StreamFilename << "BubbleEnsemble_" << Frequency[0] << "_" << Tmp1 << "_" << Tmp2 << ".txt";
+	//StreamFilename << "BubbleEnsemble_" << Frequency[0] << "_" << Tmp1 << "_" << Tmp2 << ".txt";
+	StreamFilename << "TestCase_N64_1.txt";
 	Filename = StreamFilename.str();
 		
 	DataFile.open ( Filename.c_str() );
@@ -130,17 +145,26 @@ int main()
 	
 	ScanSystem.SynchroniseFromHostToDevice(All);
 	// Transients
-	for (int i=0; i<512; i++)
+	for (int i=0; i<100; i++)
 	{
 		ScanSystem.Solve();
 		ScanSystem.InsertSynchronisationPoint();
 		ScanSystem.SynchroniseSolver();
 		
-		cout << "Transient finished: " << i << endl;
+		//cout << "Transient finished: " << i << endl;
 	}
 	
+		ScanSystem.SynchroniseFromDeviceToHost(All);
+		ScanSystem.InsertSynchronisationPoint();
+		ScanSystem.SynchroniseSolver();
+		
+	clock_t SimulationEnd = clock();
+		cout << "Total simulation time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
+	
+		SaveData(ScanSystem, DataFile, NS, UPS, UD);
+		
 	// Save Poincare section
-	for (int i=0; i<32; i++)
+	/*for (int i=0; i<0; i++)
 	{
 		ScanSystem.Solve();
 		ScanSystem.SynchroniseFromDeviceToHost(All);
@@ -150,10 +174,9 @@ int main()
 		SaveData(ScanSystem, DataFile, NS, UPS, UD);
 		
 		cout << "Poincare finished: " << i << endl;
-	}
+	}*/
 	
-	clock_t SimulationEnd = clock();
-		cout << "Total simulation time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
+	
 	
 	DataFile.close();
 	
@@ -226,7 +249,7 @@ void Gauss(vector<PRECISION>& x, PRECISION M, PRECISION D, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& Frequency, const vector<PRECISION>& Amplitude, const vector<PRECISION>& BubbleSize)
+void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& Frequency, const vector<PRECISION>& Amplitude, const vector<PRECISION>& BubbleSize)
 {
 	srand(time(NULL));
 	PRECISION LowerLimit = 0.75;
@@ -297,7 +320,8 @@ void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,Ni
 				P6 = CP0; // equilibrium radius  [mum]
 				
 				Random = (rand() % Resolution);
-				Solver.SetHost(SystemNumber, UnitNumber, ActualState, 0, LowerLimit + Random*(UpperLimit-LowerLimit)/Resolution );
+				//Solver.SetHost(SystemNumber, UnitNumber, ActualState, 0, LowerLimit + Random*(UpperLimit-LowerLimit)/Resolution );
+				Solver.SetHost(SystemNumber, UnitNumber, ActualState, 0, 1.0);
 				Solver.SetHost(SystemNumber, UnitNumber, ActualState, 1, 0.0);
 				
 				// Dimensional physical parameters
@@ -367,26 +391,127 @@ void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,Ni
 	// ------------------------------------------------------------
 }
 
-void FillCouplingMatrix(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& X, const vector<PRECISION>& Y, const vector<PRECISION>& Z, const vector<PRECISION>& RE)
+void FillCouplingMatrix(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& X, const vector<PRECISION>& Y, const vector<PRECISION>& Z, const vector<PRECISION>& RE)
 {
 	int N = X.size();
 	PRECISION Distance;
+	
+	int ModRow;
+	int ModCol;
+	int ColLimit;
 	
 	for (int Row=0; Row<N; Row++)
 	{
 		for (int Col=0; Col<N; Col++)
 		{
-			if ( Row != Col )
+			// Full Matrix Storage---------------------------------------------
+			if ( ( CBW == 0 ) && ( CCI == 0 ) )
 			{
-				//Distance = DISTANCE;
-				Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [m]
+				if ( Row != Col )
+				{
+					Distance = DISTANCE;
+					//Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [mum]
+					Solver.SetHost(0, CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
+					
+					if ( Distance < 100 )
+						cout << Distance << endl;
+					
+					// DUMMY second coupling matrix
+					//Solver.SetHost(1, CouplingMatrix, Row, Col, 1.125);
+				} else
+				{
+					Solver.SetHost(0, CouplingMatrix, Row, Col, 0.0);
+					
+					// DUMMY second coupling matrix
+					//Solver.SetHost(1, CouplingMatrix, Row, Col, 2.5);
+				}
+			}
+			
+			// Diagonal Matrix Storage-----------------------------------------
+			if ( ( CBW > 0 ) && ( CCI == 0 ) )
+			{
+				ModRow = Row;
+				ModCol = Col - Row + CBW;
+				
+				if ( ModCol >= UPS )
+					ModCol = ModCol - UPS;
+				
+				if ( ModCol < 0 )
+					ModCol = ModCol + UPS;
+				
+				if ( ( Row != Col ) && ( ModCol < 2*CBW+1 ) )
+				{
+					Distance = DISTANCE;
+					//Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [mum]
+					Solver.SetHost(0, CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
+					if ( Distance < 100 )
+						cout << Distance << endl;
+					
+					// DUMMY second coupling matrix
+					//Solver.SetHost(1, CouplingMatrix, Row, Col, 1.125);
+				}
+				
+				if ( Row == Col )
+				{
+					Solver.SetHost(0, CouplingMatrix, Row, Col, 0.0);
+					
+					// DUMMY second coupling matrix
+					//Solver.SetHost(1, CouplingMatrix, Row, Col, 2.5);
+				}
+			}
+			
+			// Collapsed Diagonal Matrix Storage-------------------------------
+			if ( CCI == 1 )
+			{
+				ModRow = Row;
+				ModCol = Col - Row + CBW;
+				
+				if ( ModCol >= UPS )
+					ModCol = ModCol - UPS;
+				
+				if ( ModCol < 0 )
+					ModCol = ModCol + UPS;
+				
+				if ( CBW == 0 )
+					ColLimit = UPS;
+				else
+					ColLimit = 2*CBW+1;
+				
+				if ( ( Row != Col ) && ( ModCol < ColLimit ) )
+				{
+					Distance = DISTANCE;
+					//Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [mum]
+					Solver.SetHost(0, CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
+					if ( Distance < 100 )
+						cout << Distance << endl;
+					
+					// DUMMY second coupling matrix
+					//Solver.SetHost(1, CouplingMatrix, Row, Col, 1.125);
+				}
+				
+				if ( Row == Col )
+				{
+					Solver.SetHost(0, CouplingMatrix, Row, Col, 0.0);
+					
+					// DUMMY second coupling matrix
+					//Solver.SetHost(1, CouplingMatrix, Row, Col, 2.5);
+				}
+			}
+			
+			// Original
+			/*if ( Row != Col )
+			{
+				Distance = DISTANCE;
+				//Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [mum]
 				Solver.SetHost(0, CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
 				if ( Distance < 100 )
 					cout << Distance << endl;
 			} else
 			{
 				Solver.SetHost(0, CouplingMatrix, Row, Col, 0.0);
-			}
+			}*/
+			
+			//cout << endl;
 		}
 	}
 }
@@ -446,7 +571,7 @@ void SaveBubbleSizes(vector<PRECISION>& BubbleSize, string FileName, int UPS)
 	DataFile.close();
 }
 
-void SaveData(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>& Solver, ofstream& DataFile, int NS, int UPS, int UD)
+void SaveData(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>& Solver, ofstream& DataFile, int NS, int UPS, int UD)
 {
 	int Width = 18;
 	DataFile.precision(10);

@@ -90,6 +90,7 @@ struct Struct_SharedMemoryUsage
 {
 	bool GlobalVariables;  // Default: ON
 	bool CouplingMatrices; // Default: OFF
+	int  SingleCouplingMatrixSize;
 };
 
 template <class Precision>
@@ -106,7 +107,7 @@ struct Struct_SolverOptions
 	int       MaximumNumberOfTimeSteps;
 };
 
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 class ProblemSolver
 {
     private:
@@ -136,6 +137,7 @@ class ProblemSolver
 		long SizeOfIntegerSystemAccessories;
 		long SizeOfEvents;
 		long SizeOfCouplingMatrix;
+		long SizeOfCouplingMatrixOriginal;
 		long SizeOfCouplingStrength;
 		long SizeOfCouplingIndex;
 		long SizeOfDenseOutputIndex;
@@ -153,6 +155,7 @@ class ProblemSolver
 		Precision* h_SystemAccessories;        // System scope
 		int*       h_IntegerSystemAccessories; // System scope
 		Precision* h_CouplingMatrix;           // Global scope
+		Precision* h_CouplingMatrixOriginal;   // ONLY IN HOST
 		Precision* h_CouplingStrength;         // System scope
 		int*       h_CouplingIndex;            // Global scope
 		int*       h_DenseOutputIndex;         // System scope
@@ -175,7 +178,7 @@ class ProblemSolver
 		// Default solver options
 		Struct_SolverOptions<Precision> SolverOptions;
 		
-		void BoundCheck(std::string, std::string, int, int);
+		void BoundCheck(std::string, std::string, int, int, int);
 		void SharedMemoryCheck();
 		template <typename T> void WriteToFileUniteScope(std::string, int, int, T*);
 		template <typename T> void WriteToFileSystemAndGlobalScope(std::string, int, int, T*);
@@ -318,8 +321,8 @@ void PrintPropertiesOfSpecificDevice(int SelectedDevice)
 
 
 // CONSTRUCTOR
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::ProblemSolver(int AssociatedDevice)
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::ProblemSolver(int AssociatedDevice)
 {
     std::cout << "---------------------------" << std::endl;
 	std::cout << "Creating a SolverObject ..." << std::endl;
@@ -384,12 +387,25 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	SizeOfSystemAccessories        = (long) NS * NSA;
 	SizeOfIntegerSystemAccessories = (long) NS * NiSA;
 	SizeOfEvents                   = (long) ThreadConfiguration.TotalLogicalThreads * NE;
-	SizeOfCouplingMatrix           = (long) NC * UPS * UPS;
 	SizeOfCouplingStrength         = (long) NC * NS;
 	SizeOfCouplingIndex            = (long) NC;
 	SizeOfDenseOutputIndex         = (long) NS;
 	SizeOfDenseOutputTimeInstances = (long) NS * NDO;
 	SizeOfDenseOutputStates        = (long) ThreadConfiguration.TotalLogicalThreads * UD * NDO;
+	
+	SizeOfCouplingMatrixOriginal   = (long) NC * UPS * UPS;
+	
+	if ( ( CCI == 0 ) && ( CBW == 0 ) ) // Full irregular
+		SizeOfCouplingMatrix = (long) NC * UPS * UPS;
+	
+	if ( ( CCI == 0 ) && ( CBW > 0  ) ) // Diagonal (including the circular extensions)
+		SizeOfCouplingMatrix = (long) NC * UPS * (2*CBW+1);
+	
+	if ( ( CCI == 1 ) && ( CBW > 0  ) ) // Circularly diagonal
+		SizeOfCouplingMatrix = (long) NC * (2*CBW+1);
+	
+	if ( ( CCI == 1 ) && ( CBW == 0 ) ) // Full circular
+		SizeOfCouplingMatrix = (long) NC * UPS;
 	
 	GlobalMemoryRequired = sizeof(Precision) * ( SizeOfTimeDomain + SizeOfActualState + SizeOfUnitParameters + SizeOfSystemParameters + SizeOfGlobalParameters + SizeOfUnitAccessories + SizeOfSystemAccessories + SizeOfCouplingMatrix + SizeOfDenseOutputTimeInstances + SizeOfDenseOutputStates + 2*UD + NE) + \
 						   sizeof(int) * ( SizeOfIntegerGlobalParameters + SizeOfIntegerUnitAccessories + SizeOfIntegerSystemAccessories + SizeOfDenseOutputIndex + 2*NE);
@@ -422,6 +438,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	h_SystemAccessories        = AllocateHostPinnedMemory<Precision>( SizeOfSystemAccessories );
 	h_IntegerSystemAccessories = AllocateHostPinnedMemory<int>( SizeOfIntegerSystemAccessories );
 	h_CouplingMatrix           = AllocateHostPinnedMemory<Precision>( SizeOfCouplingMatrix );
+	h_CouplingMatrixOriginal   = AllocateHostPinnedMemory<Precision>( SizeOfCouplingMatrixOriginal );
 	h_CouplingStrength         = AllocateHostPinnedMemory<Precision>( SizeOfCouplingStrength );
 	h_CouplingIndex            = AllocateHostPinnedMemory<int>( SizeOfCouplingIndex );
 	h_DenseOutputIndex         = AllocateHostPinnedMemory<int>( SizeOfDenseOutputIndex );
@@ -455,8 +472,16 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	// SHARED MEMORY MANAGEMENT
 	std::cout << "SHARED MEMORY MANAGEMENT:" << std::endl;
 	
+	SharedMemoryUsage.SingleCouplingMatrixSize = SizeOfCouplingMatrix/NC;
+	
 	SharedMemoryUsage.GlobalVariables  = 1; // Default: ON
 	SharedMemoryUsage.CouplingMatrices = 0; // Default: OFF
+	
+	if ( CCI == 1 )
+	{
+		SharedMemoryUsage.CouplingMatrices = 1; // Circular matrix: ON
+		std::cout << "   Coupling matrix is circular: its shared memory usage is automatically ON!" << std::endl << std::endl;
+	}
 	
 	bool IsAdaptive;
 	switch (Algorithm)
@@ -497,8 +522,8 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	SharedMemoryAvailable = SelectedDeviceProperties.sharedMemPerBlock;
 	
 	std::cout << "   Required shared memory per block for managable variables:" << std::endl;
-	std::cout << "    Shared memory required by global variables:     " << std::setw(6) << SharedMemoryRequiredGlobalVariables << " b (ON  -> SolverOption)" << std::endl;
-	std::cout << "    Shared memory required by coupling matrices:    " << std::setw(6) << SharedMemoryRequiredCouplingMatrices << " b (OFF -> SolverOption)" << std::endl;
+	std::cout << "    Shared memory required by global variables:     " << std::setw(6) << SharedMemoryRequiredGlobalVariables << " b (" << ( (SharedMemoryUsage.GlobalVariables     == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
+	std::cout << "    Shared memory required by coupling matrices:    " << std::setw(6) << SharedMemoryRequiredCouplingMatrices << " b (" << ( (SharedMemoryUsage.CouplingMatrices    == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
 	std::cout << "   Total possible shared memory usage per block:    " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + All is ON)" << std::endl;
 	std::cout << "   Actual shared memory required per block:         " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
 	std::cout << "   Available shared memory per block:               " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
@@ -569,8 +594,8 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 }
 
 // DESTRUCTOR
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::~ProblemSolver()
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::~ProblemSolver()
 {
     gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -588,6 +613,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 	gpuErrCHK( cudaFreeHost(h_SystemAccessories) );
 	gpuErrCHK( cudaFreeHost(h_IntegerSystemAccessories) );
 	gpuErrCHK( cudaFreeHost(h_CouplingMatrix) );
+	gpuErrCHK( cudaFreeHost(h_CouplingMatrixOriginal) );
 	gpuErrCHK( cudaFreeHost(h_CouplingStrength) );
 	gpuErrCHK( cudaFreeHost(h_CouplingIndex) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputIndex) );
@@ -621,18 +647,18 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Alg
 }
 
 // BOUND CHECK, set/get host, options
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::BoundCheck(std::string Function, std::string Variable, int Value, int Limit)
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::BoundCheck(std::string Function, std::string Variable, int Value, int LowerLimit, int UpperLimit)
 {
-	if ( Value >= Limit )
+	if ( ( Value < LowerLimit ) || ( Value > UpperLimit ) )
 	{
         std::cerr << "ERROR: In solver member function " << Function << "!" << std::endl;
 		std::cerr << "       Option: " << Variable << std::endl;
 		
-		if ( Limit==0 )
-		std::cerr << "       Acceptable index: none" << std::endl;
+		if ( LowerLimit>UpperLimit )
+			std::cerr << "       Acceptable index: none" << std::endl;
 		else
-		std::cerr << "       Acceptable index: " << 0 << "-" << Limit-1 << std::endl;
+			std::cerr << "       Acceptable index: " << LowerLimit << "-" << UpperLimit << std::endl;
 		
 		std::cerr << "       Current index:    " << Value << std::endl;
         exit(EXIT_FAILURE);
@@ -640,10 +666,16 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SHARED MEMORY CHECK
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SharedMemoryCheck()
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SharedMemoryCheck()
 {
 	std::cout << "SHARED MEMORY MANAGEMENT CHANGED BY SOLVER OPTION:" << std::endl;
+	
+	if ( CCI == 1 )
+	{
+		SharedMemoryUsage.CouplingMatrices = 1; // Circular matrix: ON
+		std::cout << "   Coupling matrix is circular: its shared memory usage is automatically ON!" << std::endl << std::endl;
+	}
 	
 	DynamicSharedMemoryRequired = SharedMemoryUsage.GlobalVariables  * SharedMemoryRequiredGlobalVariables + \
 						          SharedMemoryUsage.CouplingMatrices * SharedMemoryRequiredCouplingMatrices;
@@ -670,9 +702,9 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // OPTION, single input argument
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, T Value)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, T Value)
 {
 	switch (Option)
 	{
@@ -732,36 +764,36 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // OPTION, double input argument
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, int Index, T Value)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, int Index, T Value)
 {
 	Precision PValue = (Precision)Value;
 	int       IValue = (int)Value;
 	switch (Option)
 	{
 		case RelativeTolerance:
-			BoundCheck("SolverOption", "RelativeTolerance", Index, UD);
+			BoundCheck("SolverOption", "RelativeTolerance", Index, 0, UD-1);
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
 		
 		case AbsoluteTolerance:
-			BoundCheck("SolverOption", "AbsoluteTolerance", Index, UD);
+			BoundCheck("SolverOption", "AbsoluteTolerance", Index, 0, UD-1);
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
 		
 		case EventTolerance:
-			BoundCheck("SolverOption", "EventTolerance", Index, NE);
+			BoundCheck("SolverOption", "EventTolerance", Index, 0, NE-1);
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
 		
 		case EventDirection:
-			BoundCheck("SolverOption", "EventDirection", Index, NE);
+			BoundCheck("SolverOption", "EventDirection", Index, 0, NE-1);
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			break;
 		
 		case EventStopCounter:
-			BoundCheck("SolverOption", "EventStopCounter", Index, NE);
+			BoundCheck("SolverOption", "EventStopCounter", Index, 0, NE-1);
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventStopCounter+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			break;
 		
@@ -774,12 +806,12 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SETHOST, Unit scope
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int SerialNumber, T Value)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int SerialNumber, T Value)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, NS );
-	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   UPS);
+	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1 );
+	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   0, UPS-1);
 	
 	int BlockID       = SystemNumber / SPB;
 	int LocalSystemID = SystemNumber % SPB;
@@ -790,22 +822,22 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 	switch (Variable)
 	{
 		case ActualState:
-			BoundCheck("SetHost", "ActualState", SerialNumber, UD);
+			BoundCheck("SetHost", "ActualState", SerialNumber, 0, UD-1);
 			h_ActualState[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		case UnitParameters:
-			BoundCheck("SetHost", "UnitParameters", SerialNumber, NUP);
+			BoundCheck("SetHost", "UnitParameters", SerialNumber, 0, NUP-1);
 			h_UnitParameters[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		case UnitAccessories:
-			BoundCheck("SetHost", "UnitAccessories", SerialNumber, NUA);
+			BoundCheck("SetHost", "UnitAccessories", SerialNumber, 0, NUA-1);
 			h_UnitAccessories[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		case IntegerUnitAccessories:
-			BoundCheck("SetHost", "IntegerUnitAccessories", SerialNumber, NiUA);
+			BoundCheck("SetHost", "IntegerUnitAccessories", SerialNumber, 0, NiUA-1);
 			h_IntegerUnitAccessories[GlobalMemoryID] = (int)Value;
 			break;
 		
@@ -818,11 +850,11 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SETHOST, System scope and dense time
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int SystemNumber, ListOfVariables Variable, int SerialNumber, T Value)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int SystemNumber, ListOfVariables Variable, int SerialNumber, T Value)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, NS);
+	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1);
 	
 	int GlobalSystemID = SystemNumber;
 	int GlobalMemoryID = GlobalSystemID + SerialNumber*NS;
@@ -830,32 +862,32 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 	switch (Variable)
 	{
 		case TimeDomain:
-			BoundCheck("SetHost", "TimeDomain", SerialNumber, 2);
+			BoundCheck("SetHost", "TimeDomain", SerialNumber, 0, 1);
 			h_TimeDomain[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		case SystemParameters:
-			BoundCheck("SetHost", "SystemParameters", SerialNumber, NSP);
+			BoundCheck("SetHost", "SystemParameters", SerialNumber, 0, NSP-1);
 			h_SystemParameters[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		case SystemAccessories:
-			BoundCheck("SetHost", "SystemAccessories", SerialNumber, NSA);
+			BoundCheck("SetHost", "SystemAccessories", SerialNumber, 0, NSA-1);
 			h_SystemAccessories[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		case IntegerSystemAccessories:
-			BoundCheck("SetHost", "IntegerSystemAccessories", SerialNumber, NiSA);
+			BoundCheck("SetHost", "IntegerSystemAccessories", SerialNumber, 0, NiSA-1);
 			h_IntegerSystemAccessories[GlobalMemoryID] = (int)Value;
 			break;
 		
 		case DenseTime:
-			BoundCheck("SetHost", "DenseTime", SerialNumber, NDO);
+			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, NDO-1);
 			h_DenseOutputTimeInstances[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		case CouplingStrength:
-			BoundCheck("SetHost", "CouplingStrength", SerialNumber, NC);
+			BoundCheck("SetHost", "CouplingStrength", SerialNumber, 0, NC-1);
 			h_CouplingStrength[GlobalMemoryID] = (Precision)Value;
 			break;
 		
@@ -868,26 +900,26 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SETHOST, Global scope
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(ListOfVariables Variable, int SerialNumber, T Value)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(ListOfVariables Variable, int SerialNumber, T Value)
 {
 	int GlobalMemoryID = SerialNumber;
 	
 	switch (Variable)
 	{
 		case GlobalParameters:
-			BoundCheck("SetHost", "GlobalParameters", SerialNumber, NGP);
+			BoundCheck("SetHost", "GlobalParameters", SerialNumber, 0, NGP-1);
 			h_GlobalParameters[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		case IntegerGlobalParameters:
-			BoundCheck("SetHost", "IntegerGlobalParameters", SerialNumber, NiGP);
+			BoundCheck("SetHost", "IntegerGlobalParameters", SerialNumber, 0, NiGP-1);
 			h_IntegerGlobalParameters[GlobalMemoryID] = (int)Value;
 			break;
 		
 		case CouplingIndex:
-			BoundCheck("SetHost", "CouplingIndex", SerialNumber, NC);
+			BoundCheck("SetHost", "CouplingIndex", SerialNumber, 0, NC-1);
 			h_CouplingIndex[GlobalMemoryID] = (int)Value;
 			break;
 		
@@ -900,19 +932,84 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SETHOST, Coupling matrix
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int CouplingNumber, ListOfVariables Variable, int Row, int Col, T Value)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int CouplingNumber, ListOfVariables Variable, int Row, int Col, T Value)
 {
-	BoundCheck("SetHost", "CouplingNumber", CouplingNumber, NC);
-	BoundCheck("SetHost", "Row", Row, UPS);
-	BoundCheck("SetHost", "Col", Col, UPS);
+	BoundCheck("SetHost", "CouplingNumber", CouplingNumber, 0, NC-1);
+	BoundCheck("SetHost", "Coupling Matrix Row", Row, 0, UPS-1);
+	BoundCheck("SetHost", "Coupling Matrix Col", Col, 0, UPS-1);
 	
-	int GlobalMemoryID = Row + Col*UPS + CouplingNumber*UPS*UPS;
+	int GlobalMemoryIDOriginal = Row + Col*UPS + CouplingNumber*UPS*UPS;
+	
+	int ModRow;
+	int ModCol;
+	int ColLimit;
+	int GlobalMemoryID;
+	
+	// Full irregular
+	if ( ( CCI == 0 ) && ( CBW == 0 ) )
+		GlobalMemoryID = GlobalMemoryIDOriginal;
+	
+	// Diagonal (including the circular extensions)
+	if ( ( CCI == 0 ) && ( CBW > 0  ) ) 
+	{
+		ModRow = Row;
+		ModCol = Col - Row + CBW;
+		
+		if ( ModCol >= UPS )
+			ModCol = ModCol - UPS;
+		
+		if ( ModCol < 0 )
+			ModCol = ModCol + UPS;
+		
+		ColLimit = 2*CBW+1;
+		
+		BoundCheck("SetHost", "Coupling Matrix Shifted Diagonal", ModCol, 0, ColLimit-1);
+		GlobalMemoryID = ModRow + ModCol*UPS + CouplingNumber*UPS*ColLimit;
+	}
+	
+	// Circularly diagonal
+	if ( ( CCI == 1 ) && ( CBW > 0  ) )
+	{
+		ModRow = Row;
+		ModCol = Col - Row + CBW;
+		
+		if ( ModCol >= UPS )
+			ModCol = ModCol - UPS;
+		
+		if ( ModCol < 0 )
+			ModCol = ModCol + UPS;
+		
+		ColLimit = 2*CBW+1;
+		
+		BoundCheck("SetHost", "Coupling Matrix Shifted Diagonal", ModCol, 0, ColLimit-1);
+		GlobalMemoryID = ModCol + CouplingNumber*ColLimit;
+	}
+	
+	// Full circular
+	if ( ( CCI == 1 ) && ( CBW == 0 ) )
+	{
+		ModRow = Row;
+		ModCol = Col - Row + CBW;
+		
+		if ( ModCol >= UPS )
+			ModCol = ModCol - UPS;
+		
+		if ( ModCol < 0 )
+			ModCol = ModCol + UPS;
+		
+		ColLimit = UPS;
+		
+		BoundCheck("SetHost", "Coupling Matrix Shifted Diagonal", ModCol, 0, ColLimit-1);
+		GlobalMemoryID = ModCol + CouplingNumber*ColLimit;
+	}
+	
 	
 	switch (Variable)
 	{
 		case CouplingMatrix:
+			h_CouplingMatrixOriginal[GlobalMemoryIDOriginal] = (Precision)Value;
 			h_CouplingMatrix[GlobalMemoryID] = (Precision)Value;
 			break;
 		
@@ -925,11 +1022,11 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SETHOST, Dense index
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int SystemNumber, ListOfVariables Variable, T Value)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int SystemNumber, ListOfVariables Variable, T Value)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, NS );
+	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1);
 	
 	int GlobalMemoryID = SystemNumber;
 	
@@ -948,14 +1045,14 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SETHOST, Dense state
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int ComponentNumber, int SerialNumber, T Value)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int ComponentNumber, int SerialNumber, T Value)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, NS );
-	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   UPS);
+	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1 );
+	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   0, UPS-1);
 	
-	BoundCheck("SetHost", "ComponentNumber in dense state", ComponentNumber, UD);
+	BoundCheck("SetHost", "ComponentNumber in dense state", ComponentNumber, 0, UD-1);
 	
 	int BlockID       = SystemNumber / SPB;
 	int LocalSystemID = SystemNumber % SPB;
@@ -966,7 +1063,7 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 	switch (Variable)
 	{
 		case DenseState:
-			BoundCheck("SetHost", "DenseState", SerialNumber, NDO);
+			BoundCheck("SetHost", "DenseState", SerialNumber, 0, NDO-1);
 			h_DenseOutputStates[GlobalMemoryID] = (Precision)Value;
 			break;
 		
@@ -979,8 +1076,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SYNCHRONISE, Host -> Device
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SynchroniseFromHostToDevice(ListOfVariables Variable)
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SynchroniseFromHostToDevice(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -1072,8 +1169,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SYNCHRONISE, Device -> Host
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SynchroniseFromDeviceToHost(ListOfVariables Variable)
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SynchroniseFromDeviceToHost(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -1165,12 +1262,12 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // GETHOST, Unit scope
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int SerialNumber)
+T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int SerialNumber)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, NS );
-	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   UPS);
+	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1 );
+	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   0, UPS-1);
 	
 	int BlockID       = SystemNumber / SPB;
 	int LocalSystemID = SystemNumber % SPB;
@@ -1181,19 +1278,19 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 	switch (Variable)
 	{
 		case ActualState:
-			BoundCheck("SetHost", "ActualState", SerialNumber, UD);
+			BoundCheck("SetHost", "ActualState", SerialNumber, 0, UD-1);
 			return (T)h_ActualState[GlobalMemoryID];
 		
 		case UnitParameters:
-			BoundCheck("SetHost", "UnitParameters", SerialNumber, NUP);
+			BoundCheck("SetHost", "UnitParameters", SerialNumber, 0, NUP-1);
 			return (T)h_UnitParameters[GlobalMemoryID];
 		
 		case UnitAccessories:
-			BoundCheck("SetHost", "UnitAccessories", SerialNumber, NUA);
+			BoundCheck("SetHost", "UnitAccessories", SerialNumber, 0, NUA-1);
 			return (T)h_UnitAccessories[GlobalMemoryID];
 		
 		case IntegerUnitAccessories:
-			BoundCheck("SetHost", "IntegerUnitAccessories", SerialNumber, NiUA);
+			BoundCheck("SetHost", "IntegerUnitAccessories", SerialNumber, 0, NiUA-1);
 			return (T)h_IntegerUnitAccessories[GlobalMemoryID];
 		
 		default:
@@ -1205,11 +1302,11 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 }
 
 // GETHOST, System scope and dense time
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, ListOfVariables Variable, int SerialNumber)
+T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, ListOfVariables Variable, int SerialNumber)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, NS);
+	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1);
 	
 	int GlobalSystemID = SystemNumber;
 	int GlobalMemoryID = GlobalSystemID + SerialNumber*NS;
@@ -1217,27 +1314,27 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 	switch (Variable)
 	{
 		case TimeDomain:
-			BoundCheck("SetHost", "TimeDomain", SerialNumber, 2);
+			BoundCheck("SetHost", "TimeDomain", SerialNumber, 0, 1);
 			return (T)h_TimeDomain[GlobalMemoryID];
 		
 		case SystemParameters:
-			BoundCheck("SetHost", "SystemParameters", SerialNumber, NSP);
+			BoundCheck("SetHost", "SystemParameters", SerialNumber, 0, NSP-1);
 			return (T)h_SystemParameters[GlobalMemoryID];
 		
 		case SystemAccessories:
-			BoundCheck("SetHost", "SystemAccessories", SerialNumber, NSA);
+			BoundCheck("SetHost", "SystemAccessories", SerialNumber, 0, NSA-1);
 			return (T)h_SystemAccessories[GlobalMemoryID];
 		
 		case IntegerSystemAccessories:
-			BoundCheck("SetHost", "IntegerSystemAccessories", SerialNumber, NiSA);
+			BoundCheck("SetHost", "IntegerSystemAccessories", SerialNumber, 0, NiSA-1);
 			return (T)h_IntegerSystemAccessories[GlobalMemoryID];
 		
 		case DenseTime:
-			BoundCheck("SetHost", "DenseTime", SerialNumber, NDO);
+			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, NDO-1);
 			return (T)h_DenseOutputTimeInstances[GlobalMemoryID];
 		
 		case CouplingStrength:
-			BoundCheck("SetHost", "CouplingStrength", SerialNumber, NC);
+			BoundCheck("SetHost", "CouplingStrength", SerialNumber, 0, NC-1);
 			return (T)h_CouplingStrength[GlobalMemoryID];
 		
 		default:
@@ -1249,24 +1346,24 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 }
 
 // GETHOST, Global scope
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(ListOfVariables Variable, int SerialNumber)
+T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(ListOfVariables Variable, int SerialNumber)
 {
 	int GlobalMemoryID = SerialNumber;
 	
 	switch (Variable)
 	{
 		case GlobalParameters:
-			BoundCheck("SetHost", "GlobalParameters", SerialNumber, NGP);
+			BoundCheck("SetHost", "GlobalParameters", SerialNumber, 0, NGP-1);
 			return (T)h_GlobalParameters[GlobalMemoryID];
 		
 		case IntegerGlobalParameters:
-			BoundCheck("SetHost", "IntegerGlobalParameters", SerialNumber, NiGP);
+			BoundCheck("SetHost", "IntegerGlobalParameters", SerialNumber, 0, NiGP-1);
 			return (T)h_IntegerGlobalParameters[GlobalMemoryID];
 		
 		case CouplingIndex:
-			BoundCheck("SetHost", "CouplingIndex", SerialNumber, NC);
+			BoundCheck("SetHost", "CouplingIndex", SerialNumber, 0, NC-1);
 			return (T)h_CouplingIndex[GlobalMemoryID];
 		
 		default:
@@ -1278,20 +1375,20 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 }
 
 // GETHOST, Coupling matrix
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int CouplingNumber, ListOfVariables Variable, int Row, int Col)
+T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int CouplingNumber, ListOfVariables Variable, int Row, int Col)
 {
-	BoundCheck("SetHost", "CouplingNumber", CouplingNumber, NC);
-	BoundCheck("SetHost", "Row", Row, UPS);
-	BoundCheck("SetHost", "Col", Col, UPS);
+	BoundCheck("SetHost", "CouplingNumber", CouplingNumber, 0, NC-1);
+	BoundCheck("SetHost", "Row", Row, 0, UPS-1);
+	BoundCheck("SetHost", "Col", Col, 0, UPS-1);
 	
 	int GlobalMemoryID = Row + Col*UPS + CouplingNumber*UPS*UPS;
 	
 	switch (Variable)
 	{
 		case CouplingMatrix:
-			return (T)h_CouplingMatrix[GlobalMemoryID];
+			return (T)h_CouplingMatrixOriginal[GlobalMemoryID];
 		
 		default:
 			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
@@ -1302,11 +1399,11 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 }
 
 // GETHOST, Dense index
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, ListOfVariables Variable)
+T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, ListOfVariables Variable)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, NS );
+	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1);
 	
 	int GlobalMemoryID = SystemNumber;
 	
@@ -1324,14 +1421,14 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 }
 
 // GETHOST, Dense state
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int ComponentNumber, int SerialNumber)
+T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int ComponentNumber, int SerialNumber)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, NS );
-	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   UPS);
+	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1 );
+	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   0, UPS-1);
 	
-	BoundCheck("SetHost", "ComponentNumber in dense state", ComponentNumber, UD);
+	BoundCheck("SetHost", "ComponentNumber in dense state", ComponentNumber, 0, UD-1);
 	
 	int BlockID       = SystemNumber / SPB;
 	int LocalSystemID = SystemNumber % SPB;
@@ -1342,7 +1439,7 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 	switch (Variable)
 	{
 		case DenseState:
-			BoundCheck("SetHost", "DenseState", SerialNumber, NDO);
+			BoundCheck("SetHost", "DenseState", SerialNumber, 0, NDO-1);
 			return (T)h_DenseOutputStates[GlobalMemoryID];
 		
 		default:
@@ -1354,9 +1451,9 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,A
 }
 
 // WRITE TO FILE, Unit scope
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::WriteToFileUniteScope(std::string FileName, int NumberOfRows, int NumberOfColumns, T* Data)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::WriteToFileUniteScope(std::string FileName, int NumberOfRows, int NumberOfColumns, T* Data)
 {
 	std::ofstream DataFile;
 	DataFile.open (FileName);
@@ -1397,9 +1494,9 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // WRITE TO FILE, System and global scope
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::WriteToFileSystemAndGlobalScope(std::string FileName, int NumberOfRows, int NumberOfColumns, T* Data)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::WriteToFileSystemAndGlobalScope(std::string FileName, int NumberOfRows, int NumberOfColumns, T* Data)
 {
 	std::ofstream DataFile;
 	DataFile.open (FileName);
@@ -1423,9 +1520,9 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // WRITE TO FILE, Dense output
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::WriteToFileDenseOutput(std::string FileName, int NumberOfRows, int SystemNumber, T* TimeInstances, T* States)
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::WriteToFileDenseOutput(std::string FileName, int NumberOfRows, int SystemNumber, T* TimeInstances, T* States)
 {
 	std::ofstream DataFile;
 	DataFile.open (FileName);
@@ -1630,8 +1727,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // PRINT, Unit, system and global scope
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::Print(ListOfVariables Variable)
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::Print(ListOfVariables Variable)
 {
 	std::string FileName;
 	int NumberOfRows;
@@ -1732,8 +1829,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // PRINT, Coupling matrix, dense output
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::Print(ListOfVariables Variable, int SerialNumber)
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::Print(ListOfVariables Variable, int SerialNumber)
 {
 	std::string FileName;
 	int NumberOfRows;
@@ -1742,15 +1839,15 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 	switch (Variable)
 	{
 		case CouplingMatrix:
-			BoundCheck("Print", "CouplingMatrix", SerialNumber, NC);
+			BoundCheck("Print", "CouplingMatrix", SerialNumber, 0, NC-1);
 			FileName = "CouplingMatrixInSolverObject_" + std::to_string(SerialNumber) + ".txt";
 			NumberOfRows    = UPS;
 			NumberOfColumns = UPS;
-			WriteToFileSystemAndGlobalScope(FileName, NumberOfRows, NumberOfColumns, h_CouplingMatrix+SerialNumber*UPS*UPS);
+			WriteToFileSystemAndGlobalScope(FileName, NumberOfRows, NumberOfColumns, h_CouplingMatrixOriginal+SerialNumber*UPS*UPS);
 			break;
 		
 		case DenseOutput:
-			BoundCheck("Print", "DenseOutput", SerialNumber, NS);
+			BoundCheck("Print", "DenseOutput", SerialNumber, 0, NS-1);
 			FileName = "DenseOutput_" + std::to_string(SerialNumber)+ ".txt";
 			NumberOfRows = h_DenseOutputIndex[SerialNumber];
 			WriteToFileDenseOutput(FileName, NumberOfRows, SerialNumber, h_DenseOutputTimeInstances, h_DenseOutputStates);
@@ -1765,17 +1862,17 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SOLVE
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::Solve()
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::Solve()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision><<<ThreadConfiguration.GridSize, ThreadConfiguration.BlockSize, DynamicSharedMemoryRequired, Stream>>> (ThreadConfiguration, GlobalVariables, SharedMemoryUsage, SolverOptions);
+	CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision><<<ThreadConfiguration.GridSize, ThreadConfiguration.BlockSize, DynamicSharedMemoryRequired, Stream>>> (ThreadConfiguration, GlobalVariables, SharedMemoryUsage, SolverOptions);
 }
 
 // SYNCHRONISE DEVICE
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SynchroniseDevice()
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SynchroniseDevice()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -1783,8 +1880,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // INSERT SYNCHRONISATION POINT
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::InsertSynchronisationPoint()
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::InsertSynchronisationPoint()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -1792,8 +1889,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,ND
 }
 
 // SYNCHRONISE SOLVER
-template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SynchroniseSolver()
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SynchroniseSolver()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	

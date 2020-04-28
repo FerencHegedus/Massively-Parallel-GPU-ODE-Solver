@@ -1,9 +1,11 @@
 #ifndef COUPLEDSYSTEM_PERBLOCK_EXPLICITRUNGEKUTTA_STEPPERS_H
 #define COUPLEDSYSTEM_PERBLOCK_EXPLICITRUNGEKUTTA_STEPPERS_H
 
+template <int UPS, int SPB, int NC, int NCpadding, int CBW, int CCI, class Precision>
+__forceinline__ __device__ Precision ComputeCouplingValue( Precision* gs_CouplingMatrix, Precision s_CouplingTerms[SPB][UPS][NCpadding], int LocalSystemID, int UnitID, int CouplingSerialNumber);
 
 // ----------------------------------------------------------------------------
-template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, class Precision>
+template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCpadding, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, class Precision>
 __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RK4( \
 			Precision  r_ActualState[NBL][UD], \
 			Precision  r_NextState[NBL][UD], \
@@ -18,11 +20,11 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			int        r_IntegerUnitAccessories[(NiUA==0?1:NBL)][(NiUA==0?1:NiUA)], \
 			Precision  s_SystemAccessories[(NSA==0?1:SPB)][(NSA==0?1:NSA)], \
 			int        s_IntegerSystemAccessories[(NiSA==0?1:SPB)][(NiSA==0?1:NiSA)], \
-			Precision  s_CouplingTerms[SPB][UPS][NC], \
+			Precision  s_CouplingTerms[SPB][UPS][NCpadding], \
 			Precision  r_CouplingFactor[NBL][NC], \
 			Precision* gs_CouplingMatrix, \
-			Precision  s_CouplingStrength[SPB][NC], \
-			int        s_CouplingIndex[NC])
+			Precision  s_CouplingStrength[SPB][NCpadding], \
+			int        s_CouplingIndex[NCpadding])
 {
 	// THREAD MANAGEMENT ------------------------------------------------------
 	int LocalThreadID_GPU = threadIdx.x;
@@ -73,17 +75,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_NextState[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -142,17 +134,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -211,17 +193,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -283,17 +255,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -324,7 +286,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 
 
 // ----------------------------------------------------------------------------
-template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, class Precision>
+template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCpadding, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, class Precision>
 __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RKCK45( \
 			Precision  r_ActualState[NBL][UD], \
 			Precision  r_NextState[NBL][UD], \
@@ -340,11 +302,11 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			int        r_IntegerUnitAccessories[(NiUA==0?1:NBL)][(NiUA==0?1:NiUA)], \
 			Precision  s_SystemAccessories[(NSA==0?1:SPB)][(NSA==0?1:NSA)], \
 			int        s_IntegerSystemAccessories[(NiSA==0?1:SPB)][(NiSA==0?1:NiSA)], \
-			Precision  s_CouplingTerms[SPB][UPS][NC], \
+			Precision  s_CouplingTerms[SPB][UPS][NCpadding], \
 			Precision  r_CouplingFactor[NBL][NC], \
 			Precision* gs_CouplingMatrix, \
-			Precision  s_CouplingStrength[SPB][NC], \
-			int        s_CouplingIndex[NC])
+			Precision  s_CouplingStrength[SPB][NCpadding], \
+			int        s_CouplingIndex[NCpadding])
 {
 	// THREAD MANAGEMENT ------------------------------------------------------
 	int LocalThreadID_GPU = threadIdx.x;
@@ -400,17 +362,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -469,17 +421,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage2[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -539,17 +481,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage3[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -610,17 +542,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage4[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -682,17 +604,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage5[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -755,17 +667,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = 0;
-				int MemoryShift = i*UPS*UPS;
-				int Row = UnitID;
-				int idx;
-				
-				for (int Col=0; Col<UPS; Col++)
-				{
-					idx = Row + Col*UPS + MemoryShift;
-					CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][i];
-				}
-		
+				Precision CouplingValue = ComputeCouplingValue<UPS,SPB,NC,NCpadding,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage6[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -802,6 +704,93 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		}
 	}
 	__syncthreads();
+}
+
+
+// --- AUXILIARY FUNCTIONS ---
+
+
+// COMPUTE COUPLING VALUES
+template <int UPS, int SPB, int NC, int NCpadding, int CBW, int CCI, class Precision>
+__forceinline__ __device__ Precision ComputeCouplingValue( \
+			Precision* gs_CouplingMatrix, \
+			Precision  s_CouplingTerms[SPB][UPS][NCpadding], \
+			int        LocalSystemID, \
+			int        UnitID, \
+			int        CouplingSerialNumber)
+{
+	Precision CouplingValue = 0;
+	int idx;
+	
+	// FULL IRREGULAR
+	if ( ( CCI == 0 ) && ( CBW == 0 ) )
+	{
+		int MemoryShift = CouplingSerialNumber * UPS*UPS;
+		for (int Col=0; Col<UPS; Col++)
+		{
+			idx = UnitID + Col*UPS + MemoryShift;
+			CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][Col][CouplingSerialNumber];
+		}
+	}
+	
+	// DIAGONAL (including the circular extensions)
+	if ( ( CCI == 0 ) && ( CBW > 0  ) )
+	{
+		int MemoryShift = CouplingSerialNumber * UPS*(2*CBW+1);
+		int ShiftedUnitID;
+		for (int Diag=0; Diag<(2*CBW+1); Diag++)
+		{
+			idx = UnitID + Diag*UPS + MemoryShift;
+			
+			ShiftedUnitID = UnitID + Diag - CBW;
+			if ( ShiftedUnitID >= UPS )
+				ShiftedUnitID = ShiftedUnitID - UPS;
+			if ( ShiftedUnitID < 0 )
+				ShiftedUnitID = ShiftedUnitID + UPS;
+			
+			CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][ShiftedUnitID][CouplingSerialNumber];
+		}
+	}
+	
+	// CIRCULARLY DIAGONAL
+	if ( ( CCI == 1 ) && ( CBW > 0  ) )
+	{
+		int MemoryShift = CouplingSerialNumber * (2*CBW+1);
+		int ShiftedUnitID;
+		for (int Diag=0; Diag<(2*CBW+1); Diag++)
+		{
+			idx = Diag + MemoryShift;
+			
+			ShiftedUnitID = UnitID + Diag - CBW;
+			if ( ShiftedUnitID >= UPS )
+				ShiftedUnitID = ShiftedUnitID - UPS;
+			if ( ShiftedUnitID < 0 )
+				ShiftedUnitID = ShiftedUnitID + UPS;
+			
+			CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][ShiftedUnitID][CouplingSerialNumber];
+		}
+	}
+	
+	// FULL CIRCULAR
+	if ( ( CCI == 1 ) && ( CBW == 0 ) )
+	{
+		int MemoryShift = CouplingSerialNumber * UPS;
+		int ShiftedUnitID;
+		for (int Diag=0; Diag<UPS; Diag++)
+		{
+			idx = Diag + MemoryShift;
+		
+			ShiftedUnitID = UnitID + Diag - CBW;
+			if ( ShiftedUnitID >= UPS )
+				ShiftedUnitID = ShiftedUnitID - UPS;
+			if ( ShiftedUnitID < 0 )
+				ShiftedUnitID = ShiftedUnitID + UPS;
+			
+			CouplingValue += gs_CouplingMatrix[idx]*s_CouplingTerms[LocalSystemID][ShiftedUnitID][CouplingSerialNumber];
+		}
+	}
+	
+	return CouplingValue;
 }
 
 

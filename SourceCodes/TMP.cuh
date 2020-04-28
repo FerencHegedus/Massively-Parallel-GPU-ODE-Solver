@@ -79,16 +79,65 @@
 	}
 	
 	// Testing coupling matrices
-	if ( ( BlockID == 1 ) && ( threadIdx.x == 0 ) )
+	if ( ( BlockID == 0 ) && ( threadIdx.x == 0 ) )
 	{
 		int SerialNumber = 0;
-		int MemoryShift  = SerialNumber*UPS*UPS;
-		int idx;
-		for (int row=0; row<UPS; row++)
+		int MemoryShift  = SerialNumber*SharedMemoryUsage.SingleCouplingMatrixSize;
+		
+		unsigned int IsGlobal = __isGlobal(gs_CouplingMatrix);
+		//unsigned int IsShared = __isShared(gs_CouplingMatrix);
+		printf("Is couplin matrix in global memory: %d \n", IsGlobal);
+		//printf("Is couplin matrix in shared memory: %d \n", IsShared);
+		
+		// Full irregular
+		if ( ( CCI == 0 ) && ( CBW == 0 ) )
 		{
+			int idx;
+			for (int row=0; row<UPS; row++)
+			{
+				for (int col=0; col<UPS; col++)
+				{
+					idx = row + col*UPS + MemoryShift;
+					printf("%6.3e ", gs_CouplingMatrix[idx]);
+				}
+				printf("\n");
+			}
+		}
+		
+		// Diagonal (including the circular extensions)
+		if ( ( CCI == 0 ) && ( CBW > 0  ) ) 
+		{
+			int idx;
+			for (int row=0; row<UPS; row++)
+			{
+				for (int col=0; col<(2*CBW+1); col++)
+				{
+					idx = row + col*UPS + MemoryShift;
+					printf("%6.3e ", gs_CouplingMatrix[idx]);
+				}
+				printf("\n");
+			}
+		}
+		
+		// Circularly diagonal
+		if ( ( CCI == 1 ) && ( CBW > 0  ) )
+		{
+			int idx;
+			for (int col=0; col<(2*CBW+1); col++)
+			{
+				idx = col + MemoryShift;
+				printf("%6.3e ", gs_CouplingMatrix[idx]);
+			}
+			printf("\n");
+		}
+		
+		// Full circular
+		if ( ( CCI == 1 ) && ( CBW == 0 ) )
+		{
+			int idx;
 			for (int col=0; col<UPS; col++)
 			{
-				idx = row + col*UPS + MemoryShift;
+				idx = col + MemoryShift;
 				printf("%6.3e ", gs_CouplingMatrix[idx]);
 			}
 			printf("\n");
@@ -273,3 +322,11 @@
 	// Testing termination in update process
 	printf("A system is terminated, Block ID: %d, SysID: %d, s_TSS[0]: %d, s_TSS[1]: %d, s_TSS[2]: %d \n", blockIdx.x, LocalSystemID, s_TerminateSystemScope[0], s_TerminateSystemScope[1], s_TerminateSystemScope[2]);
 	printf("Block ID: %d, SysID: %d, IsFinite %d \n", blockIdx.x, LocalSystemID, s_IsFinite[0]);
+	
+	
+	
+	// Test NC padding
+	if ( GlobalThreadID_GPU == 0 )
+	{
+		printf("NC: %d, NCmod: %d, NCpadding: %d, power of 2: %d\n", NC, NCmod, NCpadding, IsPowerOfTwo);
+	}
