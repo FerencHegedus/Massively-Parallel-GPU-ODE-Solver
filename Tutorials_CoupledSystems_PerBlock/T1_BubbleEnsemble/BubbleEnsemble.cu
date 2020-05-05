@@ -33,7 +33,7 @@ const int TPB  = 128;    // ThreadsPerBlock (integer multiple of the warp size t
 const int SPB  = 1;     // SystemsPerBlock
 const int NC   = 1;     // NumberOfCouplings
 const int CBW  = 0;     // CouplingBandwidthRadius (0: full coupling matrix)
-const int CCI  = 1;     // CouplingCircularity (0: non-circular matrix, 1: circular matrix)
+const int CCI  = 0;     // CouplingCircularity (0: non-circular matrix, 1: circular matrix)
 
 const int NUP  = 21;    // NumberOfUnitParameters (different form system to system, different from unit to unit)
 const int NSP  = 0;     // NumberOfSystemParameters (different from system to system, shared by all units)

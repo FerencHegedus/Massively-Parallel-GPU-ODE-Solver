@@ -46,33 +46,37 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	
 	const bool IsAdaptive  = ( Algorithm==RK4 ? 0 : 1 );
 	
-	// NC must be padded by 1 if NCmod = 0, 2, 4, 8 or 16 (to avoid bank conflict of shared memory)
+	// Bank conflict if NCmod = 0, 2, 4, 8 or 16
 	const int NCmod        = NC % 32;
 	const int IsPowerOfTwo = !( NCmod & (NCmod-1) ); // Including 0!
-	const int NCpadding    = NC + ( NCmod==1 ? 0 : ( IsPowerOfTwo==1 ? 1 : 0 ) );
+	const int NCp          = NC + ( NCmod==1 ? 0 : ( IsPowerOfTwo==1 ? 1 : 0 ) );
+	// Bank conflicts if NSP, NSA and NiSA = 4, 8 or 16
+	const int NSPp  = (  NSP==4 ?  NSP+1 : (  NSP==8 ?  NSP+1 : (  NSP==16 ?  NSP+1 : NSP  ) ) );
+	const int NSAp  = (  NSA==4 ?  NSA+1 : (  NSA==8 ?  NSA+1 : (  NSA==16 ?  NSA+1 : NSA  ) ) );
+	const int NiSAp = ( NiSA==4 ? NiSA+1 : ( NiSA==8 ? NiSA+1 : ( NiSA==16 ? NiSA+1 : NiSA ) ) );
 	
-	__shared__ Precision s_CouplingTerms[SPB][UPS][NCpadding];                                       // Need access by user
-	__shared__ Precision s_CouplingStrength[SPB][NCpadding];                                         // Internal
-	__shared__ Precision s_TimeDomain[SPB][2];                                                // Need access by user
-	__shared__ Precision s_ActualTime[SPB];                                                   // Need access by user
-	__shared__ Precision s_TimeStep[SPB];                                                     // Need access by user
-	__shared__ Precision s_NewTimeStep[SPB];                                                  // Need access by user
-	__shared__ Precision s_SystemParameters[ (NSP==0 ? 1 : SPB) ][ (NSP==0 ? 1 : NSP) ];      // Need access by user
-	__shared__ Precision s_SystemAccessories[ (NSA==0 ? 1 : SPB) ][ (NSA==0 ? 1 : NSA) ];     // Need access by user
-	__shared__ Precision s_RelativeTolerance[ (IsAdaptive==0 ? 1 : UD) ];                     // Internal
-	__shared__ Precision s_AbsoluteTolerance[ (IsAdaptive==0 ? 1 : UD) ];                     // Internal
-	__shared__ Precision s_EventTolerance[ (NE==0 ? 1 : NE) ];                                // Internal
-	__shared__ int s_CouplingIndex[NCpadding];                                                       // Internal
-	__shared__ int s_DenseOutputIndex[SPB];                                                   // Internal
-	__shared__ int s_IntegerSystemAccessories[ (NiSA==0 ? 1 : SPB) ][ (NiSA==0 ? 1 : NiSA) ]; // Need access by user
-	__shared__ int s_EventDirection[ (NE==0 ? 1 : NE) ];                                      // Need access by user
-	__shared__ int s_EventStopCounter[ (NE==0 ? 1 : NE) ];                                    // Need access by user
-	__shared__ int s_TerminatedSystemsPerBlock;                                               // Internal
-	__shared__ int s_IsFinite[SPB];                                                           // Internal
-	__shared__ int s_TerminateSystemScope[SPB];                                               // Internal
-	__shared__ int s_UpdateStep[SPB];                                                         // Internal
-	__shared__ int s_EndTimeDomainReached[SPB];                                               // Internal
-	__shared__ int s_NumberOfSuccessfulTimeStep[SPB];                                         // Internal
+	__shared__ Precision s_CouplingTerms[SPB][UPS][NCp];                                         // Need access by user
+	__shared__ Precision s_CouplingStrength[SPB][NCp];                                           // Internal
+	__shared__ Precision s_TimeDomain[SPB][2];                                                   // Need access by user
+	__shared__ Precision s_ActualTime[SPB];                                                      // Need access by user
+	__shared__ Precision s_TimeStep[SPB];                                                        // Need access by user
+	__shared__ Precision s_NewTimeStep[SPB];                                                     // Need access by user
+	__shared__ Precision s_SystemParameters[ (NSPp==0 ? 1 : SPB) ][ (NSPp==0 ? 1 : NSPp) ];      // Need access by user
+	__shared__ Precision s_SystemAccessories[ (NSAp==0 ? 1 : SPB) ][ (NSAp==0 ? 1 : NSAp) ];     // Need access by user
+	__shared__ Precision s_RelativeTolerance[ (IsAdaptive==0 ? 1 : UD) ];                        // Internal
+	__shared__ Precision s_AbsoluteTolerance[ (IsAdaptive==0 ? 1 : UD) ];                        // Internal
+	__shared__ Precision s_EventTolerance[ (NE==0 ? 1 : NE) ];                                   // Internal
+	__shared__ int s_CouplingIndex[NC];                                                          // Internal
+	__shared__ int s_DenseOutputIndex[SPB];                                                      // Internal
+	__shared__ int s_IntegerSystemAccessories[ (NiSAp==0 ? 1 : SPB) ][ (NiSAp==0 ? 1 : NiSAp) ]; // Need access by user
+	__shared__ int s_EventDirection[ (NE==0 ? 1 : NE) ];                                         // Need access by user
+	__shared__ int s_EventStopCounter[ (NE==0 ? 1 : NE) ];                                       // Need access by user
+	__shared__ int s_TerminatedSystemsPerBlock;                                                  // Internal
+	__shared__ int s_IsFinite[SPB];                                                              // Internal
+	__shared__ int s_TerminateSystemScope[SPB];                                                  // Internal
+	__shared__ int s_UpdateStep[SPB];                                                            // Internal
+	__shared__ int s_EndTimeDomainReached[SPB];                                                  // Internal
+	__shared__ int s_NumberOfSuccessfulTimeStep[SPB];                                            // Internal
 	
 	// Initialise block scope variables
 	if ( LocalThreadID_GPU == 0 )
@@ -304,7 +308,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		// STEPPER ------------------------------------------------------------
 		if ( Algorithm == RK4 ) // Resolved at compile time as Algorithm is a template parameter and RK4 is constant
 		{
-			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RK4<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCpadding,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Precision>( \
+			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RK4<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>( \
 				r_ActualState, \
 				r_NextState, \
 				s_ActualTime, \
@@ -335,7 +339,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		
 		if ( Algorithm == RKCK45 ) // Resolved at compile time as Algorithm is a template parameter and RKCK45 is constant
 		{
-			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RKCK45<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCpadding,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Precision>( \
+			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RKCK45<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>( \
 				r_ActualState, \
 				r_NextState, \
 				s_ActualTime, \
@@ -360,6 +364,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 				s_IsFinite, \
 				s_TimeStep, \
 				s_NewTimeStep, \
+				r_ActualState, \
 				r_NextState, \
 				r_Error, \
 				s_RelativeTolerance, \

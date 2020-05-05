@@ -29,7 +29,7 @@ DataType* AllocateHostPinnedMemory(int);
 template <class DataType>
 DataType* AllocateDeviceMemory(int);
 
-enum Algorithms{ RK4=2, RKCK45=6 };
+enum Algorithms{ RK4, RKCK45 };
 
 enum ListOfVariables{ All,                    TimeDomain,        ActualState,              UnitParameters,  \
                       SystemParameters,       GlobalParameters,  IntegerGlobalParameters,  UnitAccessories, \

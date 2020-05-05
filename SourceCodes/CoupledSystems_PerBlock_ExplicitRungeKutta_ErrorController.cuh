@@ -48,6 +48,7 @@ __forceinline__ __device__ void MultipleSystems_MultipleBlockLaunches_ErrorContr
 			int*       s_IsFinite, \
 			Precision* s_TimeStep, \
 			Precision* s_NewTimeStep, \
+			Precision  r_ActualState[NBL][UD], \
 			Precision  r_NextState[NBL][UD], \
 			Precision  r_Error[NBL][UD], \
 			Precision* s_RelativeTolerance, \
@@ -96,7 +97,8 @@ __forceinline__ __device__ void MultipleSystems_MultipleBlockLaunches_ErrorContr
 			
 			for (int i=0; i<UD; i++)
 			{
-				r_ErrorTolerance = MPGOS::FMAX( s_RelativeTolerance[i] * abs( r_NextState[BL][i]), s_AbsoluteTolerance[i] );
+				//r_ErrorTolerance = MPGOS::FMAX( s_RelativeTolerance[i] * abs( r_NextState[BL][i]), s_AbsoluteTolerance[i] );
+				r_ErrorTolerance = s_RelativeTolerance[i] * MPGOS::FMAX( abs(r_NextState[BL][i]), abs(r_ActualState[BL][i]) ) + s_AbsoluteTolerance[i];
 				r_UpdateStep     = r_UpdateStep & ( r_Error[BL][i] < r_ErrorTolerance );
 				r_RelativeError  = MPGOS::FMIN( r_RelativeError, r_ErrorTolerance / r_Error[BL][i] );
 			}
@@ -118,9 +120,9 @@ __forceinline__ __device__ void MultipleSystems_MultipleBlockLaunches_ErrorContr
 		{
 			// Base time step multiplicator
 			if ( s_UpdateStep[LocalSystemID] == 1 )
-				s_TimeStepMultiplicator[LocalSystemID] = 0.9 * pow(s_RelativeError[LocalSystemID], (1.0/5.0) );
+				s_TimeStepMultiplicator[LocalSystemID] = 0.8 * pow(s_RelativeError[LocalSystemID], (1.0/5.0) ); // 1.0/5.0
 			else
-				s_TimeStepMultiplicator[LocalSystemID] = 0.9 * pow(s_RelativeError[LocalSystemID], (1.0/4.0) );
+				s_TimeStepMultiplicator[LocalSystemID] = 0.8 * pow(s_RelativeError[LocalSystemID], (1.0/4.0) ); // 1.0/4.0
 			
 			if ( isfinite(s_TimeStepMultiplicator[LocalSystemID]) == 0 )
 				s_IsFinite[LocalSystemID] = 0;

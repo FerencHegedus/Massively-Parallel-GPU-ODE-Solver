@@ -5,7 +5,7 @@ template <int UPS, int SPB, int NC, int NCpadding, int CBW, int CCI, class Preci
 __forceinline__ __device__ Precision ComputeCouplingValue( Precision* gs_CouplingMatrix, Precision s_CouplingTerms[SPB][UPS][NCpadding], int LocalSystemID, int UnitID, int CouplingSerialNumber);
 
 // ----------------------------------------------------------------------------
-template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCpadding, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, class Precision>
+template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCpadding, int CBW, int CCI, int NUP, int NSPp, int NGP, int NiGP, int NUA, int NiUA, int NSAp, int NiSAp, int NE, int NDO, class Precision>
 __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RK4( \
 			Precision  r_ActualState[NBL][UD], \
 			Precision  r_NextState[NBL][UD], \
@@ -13,13 +13,13 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			Precision* s_TimeStep, \
 			int*       s_IsFinite, \
 			Precision  r_UnitParameters[(NUP==0?1:NBL)][(NUP==0?1:NUP)], \
-			Precision  s_SystemParameters[(NSP==0?1:SPB)][(NSP==0?1:NSP)], \
+			Precision  s_SystemParameters[(NSPp==0?1:SPB)][(NSPp==0?1:NSPp)], \
 			Precision* gs_GlobalParameters, \
 			int*       gs_IntegerGlobalParameters, \
 			Precision  r_UnitAccessories[(NUA==0?1:NBL)][(NUA==0?1:NUA)], \
 			int        r_IntegerUnitAccessories[(NiUA==0?1:NBL)][(NiUA==0?1:NiUA)], \
-			Precision  s_SystemAccessories[(NSA==0?1:SPB)][(NSA==0?1:NSA)], \
-			int        s_IntegerSystemAccessories[(NiSA==0?1:SPB)][(NiSA==0?1:NiSA)], \
+			Precision  s_SystemAccessories[(NSAp==0?1:SPB)][(NSAp==0?1:NSAp)], \
+			int        s_IntegerSystemAccessories[(NiSAp==0?1:SPB)][(NiSAp==0?1:NiSAp)], \
 			Precision  s_CouplingTerms[SPB][UPS][NCpadding], \
 			Precision  r_CouplingFactor[NBL][NC], \
 			Precision* gs_CouplingMatrix, \
@@ -286,7 +286,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 
 
 // ----------------------------------------------------------------------------
-template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCpadding, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, class Precision>
+template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCpadding, int CBW, int CCI, int NUP, int NSPp, int NGP, int NiGP, int NUA, int NiUA, int NSAp, int NiSAp, int NE, int NDO, class Precision>
 __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RKCK45( \
 			Precision  r_ActualState[NBL][UD], \
 			Precision  r_NextState[NBL][UD], \
@@ -295,13 +295,13 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			int*       s_IsFinite, \
 			Precision  r_Error[NBL][UD], \
 			Precision  r_UnitParameters[(NUP==0?1:NBL)][(NUP==0?1:NUP)], \
-			Precision  s_SystemParameters[(NSP==0?1:SPB)][(NSP==0?1:NSP)], \
+			Precision  s_SystemParameters[(NSPp==0?1:SPB)][(NSPp==0?1:NSPp)], \
 			Precision* gs_GlobalParameters, \
 			int*       gs_IntegerGlobalParameters, \
 			Precision  r_UnitAccessories[(NUA==0?1:NBL)][(NUA==0?1:NUA)], \
 			int        r_IntegerUnitAccessories[(NiUA==0?1:NBL)][(NiUA==0?1:NiUA)], \
-			Precision  s_SystemAccessories[(NSA==0?1:SPB)][(NSA==0?1:NSA)], \
-			int        s_IntegerSystemAccessories[(NiSA==0?1:SPB)][(NiSA==0?1:NiSA)], \
+			Precision  s_SystemAccessories[(NSAp==0?1:SPB)][(NSAp==0?1:NSAp)], \
+			int        s_IntegerSystemAccessories[(NiSAp==0?1:SPB)][(NiSAp==0?1:NiSAp)], \
 			Precision  s_CouplingTerms[SPB][UPS][NCpadding], \
 			Precision  r_CouplingFactor[NBL][NC], \
 			Precision* gs_CouplingMatrix, \
