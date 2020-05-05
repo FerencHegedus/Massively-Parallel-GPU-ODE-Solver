@@ -27,8 +27,11 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			int        s_CouplingIndex[NCpadding])
 {
 	// THREAD MANAGEMENT ------------------------------------------------------
-	int LocalThreadID_GPU = threadIdx.x;
+	const int LocalThreadID_GPU  = threadIdx.x;
+	const int BlockID            = blockIdx.x;
+	
 	int LocalThreadID_Logical;
+	int GlobalSystemID;
 	int LocalSystemID;
 	int UnitID;
 	
@@ -47,10 +50,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_NextState[BL][0], &r_ActualState[BL][0], s_ActualTime[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_NextState[BL][0], \
+				&r_ActualState[BL][0], \
+				s_ActualTime[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \
@@ -106,10 +115,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_Stage1[BL][0], &r_State[BL][0], s_Time[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_Stage1[BL][0], \
+				&r_State[BL][0], \
+				s_Time[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \
@@ -165,10 +180,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_Stage1[BL][0], &r_State[BL][0], s_Time[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_Stage1[BL][0], \
+				&r_State[BL][0], \
+				s_Time[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \
@@ -227,10 +248,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_Stage1[BL][0], &r_State[BL][0], s_Time[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_Stage1[BL][0], \
+				&r_State[BL][0], \
+				s_Time[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \
@@ -309,8 +336,11 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			int        s_CouplingIndex[NCpadding])
 {
 	// THREAD MANAGEMENT ------------------------------------------------------
-	int LocalThreadID_GPU = threadIdx.x;
+	const int LocalThreadID_GPU  = threadIdx.x;
+	const int BlockID            = blockIdx.x;
+	
 	int LocalThreadID_Logical;
+	int GlobalSystemID;
 	int LocalSystemID;
 	int UnitID;
 	
@@ -334,10 +364,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_Stage1[BL][0], &r_ActualState[BL][0], s_ActualTime[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_Stage1[BL][0], \
+				&r_ActualState[BL][0], \
+				s_ActualTime[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \
@@ -393,10 +429,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_Stage2[BL][0], &r_State[BL][0], s_Time[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_Stage2[BL][0], \
+				&r_State[BL][0], \
+				s_Time[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \
@@ -453,10 +495,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_Stage3[BL][0], &r_State[BL][0], s_Time[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_Stage3[BL][0], \
+				&r_State[BL][0], \
+				s_Time[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \
@@ -514,10 +562,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_Stage4[BL][0], &r_State[BL][0], s_Time[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_Stage4[BL][0], \
+				&r_State[BL][0], \
+				s_Time[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \
@@ -576,10 +630,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_Stage5[BL][0], &r_State[BL][0], s_Time[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_Stage5[BL][0], \
+				&r_State[BL][0], \
+				s_Time[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \
@@ -639,10 +699,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
 		
 		if ( LocalSystemID < SPB )
 		{
-			CoupledSystems_PerBlock_OdeFunction<Precision>(&r_Stage6[BL][0], &r_State[BL][0], s_Time[LocalSystemID], \
+			CoupledSystems_PerBlock_OdeFunction<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				&r_Stage6[BL][0], \
+				&r_State[BL][0], \
+				s_Time[LocalSystemID], \
 				&r_UnitParameters[BL][0], \
 				&s_SystemParameters[LocalSystemID][0], \
 				gs_GlobalParameters, \

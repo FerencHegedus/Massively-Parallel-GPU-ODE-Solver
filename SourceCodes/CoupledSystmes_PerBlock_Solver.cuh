@@ -274,6 +274,33 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	__syncthreads();
 	
 	
+	// INITIALISATION
+	for (int BL=0; BL<NumberOfBlockLaunches; BL++)
+	{
+		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
+		LocalSystemID         = LocalThreadID_Logical / UPS;
+		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
+			
+		CoupledSystems_PerBlock_Initialization<Precision>(\
+			GlobalSystemID, \
+			UnitID, \
+			s_ActualTime[LocalSystemID], \
+			s_NewTimeStep[LocalSystemID], \
+			&s_TimeDomain[LocalSystemID][0], \
+			&r_ActualState[BL][0], \
+			&r_UnitParameters[BL][0], \
+			&s_SystemParameters[LocalSystemID][0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[BL][0], \
+			&r_IntegerUnitAccessories[BL][0], \
+			&s_SystemAccessories[LocalSystemID][0], \
+			&s_IntegerSystemAccessories[LocalSystemID][0]);
+	}
+	__syncthreads();
+	
+	
 	// SOLVER MANAGEMENT ------------------------------------------------------
 	while ( s_TerminatedSystemsPerBlock < SPB )
 	//for (int kk=0; kk<10; kk++)
@@ -393,6 +420,22 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 				
 				for (int i=0; i<UD; i++)
 					r_ActualState[BL][i] = r_NextState[BL][i];
+				
+				CoupledSystems_PerBlock_ActionAfterSuccessfulTimeStep<Precision>(\
+					GlobalSystemID, \
+					UnitID, \
+					s_ActualTime[LocalSystemID], \
+					s_TimeStep[LocalSystemID], \
+					&s_TimeDomain[LocalSystemID][0], \
+					&r_ActualState[BL][0], \
+					&r_UnitParameters[BL][0], \
+					&s_SystemParameters[LocalSystemID][0], \
+					gs_GlobalParameters, \
+					gs_IntegerGlobalParameters, \
+					&r_UnitAccessories[BL][0], \
+					&r_IntegerUnitAccessories[BL][0], \
+					&s_SystemAccessories[LocalSystemID][0], \
+					&s_IntegerSystemAccessories[LocalSystemID][0]);
 			}
 		}
 		__syncthreads();
@@ -428,6 +471,33 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		}
 		__syncthreads();
 		
+	}
+	__syncthreads();
+	
+	
+	// FINALISATION
+	for (int BL=0; BL<NumberOfBlockLaunches; BL++)
+	{
+		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
+		LocalSystemID         = LocalThreadID_Logical / UPS;
+		UnitID                = LocalThreadID_Logical % UPS;
+		GlobalSystemID        = LocalSystemID + BlockID*SPB;
+			
+		CoupledSystems_PerBlock_Finalization<Precision>(\
+			GlobalSystemID, \
+			UnitID, \
+			s_ActualTime[LocalSystemID], \
+			s_TimeStep[LocalSystemID], \
+			&s_TimeDomain[LocalSystemID][0], \
+			&r_ActualState[BL][0], \
+			&r_UnitParameters[BL][0], \
+			&s_SystemParameters[LocalSystemID][0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[BL][0], \
+			&r_IntegerUnitAccessories[BL][0], \
+			&s_SystemAccessories[LocalSystemID][0], \
+			&s_IntegerSystemAccessories[LocalSystemID][0]);
 	}
 	__syncthreads();
 	

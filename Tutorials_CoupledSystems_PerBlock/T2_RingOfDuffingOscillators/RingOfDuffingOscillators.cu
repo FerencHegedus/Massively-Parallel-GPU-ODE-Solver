@@ -25,7 +25,7 @@ const int NumberOfUnitsPerSystem = 25; // Number coupled units
 
 // Solver Configuration
 #define TIMESTEP   0.5e-3
-#define TOLERANCE  1.0e-12
+#define TOLERANCE  1.0e-10
 
 #define SOLVER RKCK45      // RK4, RKCK45
 #define PRECISION double   // float, double
@@ -44,9 +44,9 @@ const int NGP  = 1;     // NumberOfGlobalParameters (shared by all systems, shar
 const int NiGP = 0;     // NumberOfIntegerGlobalParameters (shared by all systems, shared by all units)
 
 const int NUA  = 2;     // NumberOfUnitAccessories (different form system to system, different from unit to unit)
-const int NiUA = 0;     // NumberOfIntegerUnitAccessories (different form system to system, different from unit to unit)
+const int NiUA = 1;     // NumberOfIntegerUnitAccessories (different form system to system, different from unit to unit)
 const int NSA  = 3;     // NumberOfSystemAccessories (different from system to system, shared by all units)
-const int NiSA = 0;     // NumberOfIntegerSystemAccessories (different from system to system, shared by all units)
+const int NiSA = 1;     // NumberOfIntegerSystemAccessories (different from system to system, shared by all units)
 
 const int NE   = 0;     // NumberOfEvents (per units)
 const int NDO  = 0;     // NumberOfPointsOfDenseOutput (per units)
@@ -156,6 +156,20 @@ int main()
 	
 	
 	DataFile.close();
+	
+	for (int sid=0; sid<NS; sid++)
+	{
+		for (int uid=0; uid<UPS; uid++)
+		{
+			cout << "SID: " << sid << ", UID: " << uid << ", uACC[0]: " << ScanSystem.GetHost<PRECISION>(sid, uid, UnitAccessories, 0) \
+			                                           << ", uACC[1]: " << ScanSystem.GetHost<PRECISION>(sid, uid, UnitAccessories, 1) << endl;
+		}
+	}
+	
+	for (int sid=0; sid<NS; sid++)
+	{
+		cout << "SID: " << sid << ", sACC[0]: " << ScanSystem.GetHost<PRECISION>(sid, IntegerSystemAccessories, 0) << endl;
+	}
 	
 	
 	cout <<  "Maximum time step: " << ScanSystem.GetHost<PRECISION>(0, SystemAccessories, 0) << endl;
