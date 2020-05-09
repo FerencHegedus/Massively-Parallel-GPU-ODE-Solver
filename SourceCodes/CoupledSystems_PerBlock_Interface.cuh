@@ -31,16 +31,39 @@ DataType* AllocateDeviceMemory(int);
 
 enum Algorithms{ RK4, RKCK45 };
 
-enum ListOfVariables{ All,                    TimeDomain,        ActualState,              UnitParameters,  \
-                      SystemParameters,       GlobalParameters,  IntegerGlobalParameters,  UnitAccessories, \
-					  IntegerUnitAccessories, SystemAccessories, IntegerSystemAccessories, CouplingMatrix,  \
-					  CouplingStrength,       CouplingIndex,     DenseOutput,              DenseIndex,      \
-					  DenseTime,              DenseState };
+enum ListOfVariables{ All, \
+					  TimeDomain, \
+					  ActualTime, \
+					  ActualState, \
+                      UnitParameters, \
+					  SystemParameters, \
+					  GlobalParameters, \
+					  IntegerGlobalParameters, \
+					  UnitAccessories, \
+					  IntegerUnitAccessories, \
+					  SystemAccessories, \
+					  IntegerSystemAccessories, \
+					  CouplingMatrix, \
+					  CouplingStrength, \
+					  CouplingIndex, \
+					  DenseOutput, \
+					  DenseIndex, \
+					  DenseTime, \
+					  DenseState};
 
-enum ListOfSolverOptions{ InitialTimeStep,        ActiveSystems,             MaximumTimeStep,       MinimumTimeStep,          \
-                          TimeStepGrowLimit,      TimeStepShrinkLimit,       MaxStepInsideEvent,    MaximumNumberOfTimeSteps, \
-						  RelativeTolerance,      AbsoluteTolerance,         EventTolerance,        EventDirection,           \
-						  EventStopCounter,       DenseOutputTimeStep,       SharedGlobalVariables, SharedCouplingMatrices};
+enum ListOfSolverOptions{ InitialTimeStep, \
+						  ActiveSystems, \
+						  MaximumTimeStep, \
+						  MinimumTimeStep, \
+                          TimeStepGrowLimit, \
+						  TimeStepShrinkLimit, \
+						  RelativeTolerance, \
+						  AbsoluteTolerance, \
+						  EventTolerance, \
+						  EventDirection, \
+						  DenseOutputTimeStep, \
+						  SharedGlobalVariables, \
+						  SharedCouplingMatrices};
 			
 std::string SolverOptionsToString(ListOfSolverOptions);
 std::string VariablesToString(ListOfVariables);
@@ -64,6 +87,7 @@ struct Struct_GlobalVariables
 {
 	Precision* d_TimeDomain;
 	Precision* d_ActualState;
+	Precision* d_ActualTime;
 	Precision* d_UnitParameters;
 	Precision* d_SystemParameters;
 	Precision* d_GlobalParameters;
@@ -78,12 +102,10 @@ struct Struct_GlobalVariables
 	int*       d_DenseOutputIndex;
 	Precision* d_DenseOutputTimeInstances;
 	Precision* d_DenseOutputStates;
-	
 	Precision* d_RelativeTolerance;
 	Precision* d_AbsoluteTolerance;
 	Precision* d_EventTolerance;
 	int*       d_EventDirection;
-	int*       d_EventStopCounter;
 };
 
 struct Struct_SharedMemoryUsage
@@ -102,9 +124,7 @@ struct Struct_SolverOptions
 	Precision MinimumTimeStep;
 	Precision TimeStepGrowLimit;
 	Precision TimeStepShrinkLimit;
-	int       MaxStepInsideEvent;
 	Precision DenseOutputTimeStep;
-	int       MaximumNumberOfTimeSteps;
 };
 
 template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
@@ -127,6 +147,7 @@ class ProblemSolver
 		
 		long SizeOfTimeDomain;
 		long SizeOfActualState;
+		long SizeOfActualTime;
 		long SizeOfUnitParameters;
 		long SizeOfSystemParameters;
 		long SizeOfGlobalParameters;
@@ -146,6 +167,7 @@ class ProblemSolver
 		
 		Precision* h_TimeDomain;               // System scope
 		Precision* h_ActualState;              // Unit scope
+		Precision* h_ActualTime;               // System scope
 		Precision* h_UnitParameters;           // Unit scope
 		Precision* h_SystemParameters;         // System scope
 		Precision* h_GlobalParameters;         // Global scope
@@ -378,6 +400,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	
 	SizeOfTimeDomain               = (long) NS * 2;
 	SizeOfActualState              = (long) ThreadConfiguration.TotalLogicalThreads * UD;
+	SizeOfActualTime               = (long) NS;
 	SizeOfUnitParameters           = (long) ThreadConfiguration.TotalLogicalThreads * NUP;
 	SizeOfSystemParameters         = (long) NS * NSP;
 	SizeOfGlobalParameters         = (long) NGP;
@@ -429,6 +452,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	
 	h_TimeDomain               = AllocateHostPinnedMemory<Precision>( SizeOfTimeDomain );
 	h_ActualState              = AllocateHostPinnedMemory<Precision>( SizeOfActualState );
+	h_ActualTime               = AllocateHostPinnedMemory<Precision>( SizeOfActualTime );
 	h_UnitParameters           = AllocateHostPinnedMemory<Precision>( SizeOfUnitParameters );
 	h_SystemParameters         = AllocateHostPinnedMemory<Precision>( SizeOfSystemParameters );
 	h_GlobalParameters         = AllocateHostPinnedMemory<Precision>( SizeOfGlobalParameters );
@@ -447,6 +471,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	
 	GlobalVariables.d_TimeDomain               = AllocateDeviceMemory<Precision>( SizeOfTimeDomain );               // SHARED
 	GlobalVariables.d_ActualState              = AllocateDeviceMemory<Precision>( SizeOfActualState );              // REGISTERS
+	GlobalVariables.d_ActualTime               = AllocateDeviceMemory<Precision>( SizeOfActualTime );               // SHARED
 	GlobalVariables.d_UnitParameters           = AllocateDeviceMemory<Precision>( SizeOfUnitParameters );           // REGISTERS
 	GlobalVariables.d_SystemParameters         = AllocateDeviceMemory<Precision>( SizeOfSystemParameters );         // SHARED
 	GlobalVariables.d_GlobalParameters         = AllocateDeviceMemory<Precision>( SizeOfGlobalParameters );         // SHARED/GLOBAL
@@ -461,12 +486,10 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	GlobalVariables.d_DenseOutputIndex         = AllocateDeviceMemory<int>( SizeOfDenseOutputIndex );               // SHARED
 	GlobalVariables.d_DenseOutputTimeInstances = AllocateDeviceMemory<Precision>( SizeOfDenseOutputTimeInstances ); // GLOBAL
 	GlobalVariables.d_DenseOutputStates        = AllocateDeviceMemory<Precision>( SizeOfDenseOutputStates );        // GLOBAL
-	
 	GlobalVariables.d_RelativeTolerance        = AllocateDeviceMemory<Precision>( UD );                             // SHARED(ADAPTIVE)
 	GlobalVariables.d_AbsoluteTolerance        = AllocateDeviceMemory<Precision>( UD );                             // SHARED(ADAPTIVE)
 	GlobalVariables.d_EventTolerance           = AllocateDeviceMemory<Precision>( NE );                             // SHARED
 	GlobalVariables.d_EventDirection           = AllocateDeviceMemory<int>( NE );                                   // SHARED
-	GlobalVariables.d_EventStopCounter         = AllocateDeviceMemory<int>( NE );                                   // SHARED
 	
 	
 	// SHARED MEMORY MANAGEMENT
@@ -549,9 +572,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	SolverOptions.MinimumTimeStep          = 1.0e-12;
 	SolverOptions.TimeStepGrowLimit        = 5.0;
 	SolverOptions.TimeStepShrinkLimit      = 0.1;
-	SolverOptions.MaxStepInsideEvent       = 50;
 	SolverOptions.DenseOutputTimeStep      = -1e-2;
-	SolverOptions.MaximumNumberOfTimeSteps = 0;
 	
 	Precision DefaultAlgorithmTolerances = 1e-8;
 	for (int i=0; i<UD; i++)
@@ -561,12 +582,11 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	}
 	
 	Precision DefaultEventTolerance = 1e-6;
-	int       DefaultEventStopCounterAndDirection = 0;
+	int       DefaultEventDirection = 0;
 	for ( int i=0; i< NE; i++ )
 	{
-		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance+i,   &DefaultEventTolerance,               sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+i,   &DefaultEventStopCounterAndDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
-		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventStopCounter+i, &DefaultEventStopCounterAndDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance+i,   &DefaultEventTolerance, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+i,   &DefaultEventDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
 	}
 	
 	std::cout << "   Initial time step:            " << SolverOptions.InitialTimeStep << std::endl;
@@ -575,13 +595,10 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	std::cout << "   Minimum time step:            " << SolverOptions.MinimumTimeStep << std::endl;
 	std::cout << "   Time step grow limit:         " << SolverOptions.TimeStepGrowLimit << std::endl;
 	std::cout << "   Time step shrink limit:       " << SolverOptions.TimeStepShrinkLimit << std::endl;
-	std::cout << "   Max time step inside event:   " << SolverOptions.MaxStepInsideEvent << std::endl;
 	std::cout << "   Dense output time step:       " << SolverOptions.DenseOutputTimeStep << std::endl;
-	std::cout << "   Maximum number of time steps: " << SolverOptions.MaximumNumberOfTimeSteps << std::endl;
 	std::cout << "   Algorithm absolute tolerance: " << 1e-8 << std::endl;
 	std::cout << "   Algorithm relative tolerance: " << 1e-8 << std::endl;
 	std::cout << "   Event absolute tolerance:     " << 1e-6 << std::endl;
-	std::cout << "   Event stop counter:           " << 0 << std::endl;
 	std::cout << "   Event direction of detection: " << 0 << std::endl;
 	
 	
@@ -604,6 +621,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	
 	gpuErrCHK( cudaFreeHost(h_TimeDomain) );
 	gpuErrCHK( cudaFreeHost(h_ActualState) );
+	gpuErrCHK( cudaFreeHost(h_ActualTime) );
 	gpuErrCHK( cudaFreeHost(h_UnitParameters) );
 	gpuErrCHK( cudaFreeHost(h_SystemParameters) );
 	gpuErrCHK( cudaFreeHost(h_GlobalParameters) );
@@ -622,6 +640,7 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	
 	gpuErrCHK( cudaFree(GlobalVariables.d_TimeDomain) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_ActualState) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_ActualTime) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_UnitParameters) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_SystemParameters) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_GlobalParameters) );
@@ -640,7 +659,6 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	gpuErrCHK( cudaFree(GlobalVariables.d_AbsoluteTolerance) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_EventTolerance) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_EventDirection) );
-	gpuErrCHK( cudaFree(GlobalVariables.d_EventStopCounter) );
 	
 	std::cout << "Object for Parameters scan is deleted!" << std::endl;
 	std::cout << "Every memory have been deallocated!" << std::endl << std::endl;
@@ -732,16 +750,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 			SolverOptions.TimeStepShrinkLimit = (Precision)Value;
 			break;
 		
-		case MaxStepInsideEvent:
-			SolverOptions.MaxStepInsideEvent = (int)Value;
-			break;
-		
 		case DenseOutputTimeStep:
 			SolverOptions.DenseOutputTimeStep = (Precision)Value;
-			break;
-		
-		case MaximumNumberOfTimeSteps:
-			SolverOptions.MaximumNumberOfTimeSteps = (int)Value;
 			break;
 		//---------------------------------------
 		case SharedGlobalVariables:
@@ -790,11 +800,6 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 		case EventDirection:
 			BoundCheck("SolverOption", "EventDirection", Index, 0, NE-1);
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
-			break;
-		
-		case EventStopCounter:
-			BoundCheck("SolverOption", "EventStopCounter", Index, 0, NE-1);
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventStopCounter+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			break;
 		
 		default:
@@ -864,6 +869,11 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 		case TimeDomain:
 			BoundCheck("SetHost", "TimeDomain", SerialNumber, 0, 1);
 			h_TimeDomain[GlobalMemoryID] = (Precision)Value;
+			break;
+		
+		case ActualTime:
+			BoundCheck("SetHost", "ActualTime", SerialNumber, 0, 0);
+			h_ActualTime[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		case SystemParameters:
@@ -1091,6 +1101,10 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualState, h_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
 		
+		case ActualTime:
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualTime, h_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
 		case UnitParameters:
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_UnitParameters, h_UnitParameters, SizeOfUnitParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
@@ -1144,6 +1158,7 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 		case All:
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualState, h_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualTime, h_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_UnitParameters, h_UnitParameters, SizeOfUnitParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_SystemParameters, h_SystemParameters, SizeOfSystemParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_GlobalParameters, h_GlobalParameters, SizeOfGlobalParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
@@ -1182,6 +1197,10 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 		
 		case ActualState:
 			gpuErrCHK( cudaMemcpyAsync(h_ActualState, GlobalVariables.d_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			break;
+		
+		case ActualTime:
+			gpuErrCHK( cudaMemcpyAsync(h_ActualTime, GlobalVariables.d_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			break;
 		
 		case UnitParameters:
@@ -1237,6 +1256,7 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 		case All:
 			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, GlobalVariables.d_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_ActualState, GlobalVariables.d_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ActualTime, GlobalVariables.d_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_UnitParameters, GlobalVariables.d_UnitParameters, SizeOfUnitParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_SystemParameters, GlobalVariables.d_SystemParameters, SizeOfSystemParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_GlobalParameters, GlobalVariables.d_GlobalParameters, SizeOfGlobalParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
@@ -1316,6 +1336,10 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 		case TimeDomain:
 			BoundCheck("SetHost", "TimeDomain", SerialNumber, 0, 1);
 			return (T)h_TimeDomain[GlobalMemoryID];
+		
+		case ActualTime:
+			BoundCheck("SetHost", "ActualTime", SerialNumber, 0, 0);
+			return (T)h_ActualTime[GlobalMemoryID];
 		
 		case SystemParameters:
 			BoundCheck("SetHost", "SystemParameters", SerialNumber, 0, NSP-1);
@@ -1743,6 +1767,13 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 			WriteToFileSystemAndGlobalScope(FileName, NumberOfRows, NumberOfColumns, h_TimeDomain);
 			break;
 		
+		case ActualTime:
+			FileName        = "ActualTimeInSolverObject.txt";
+			NumberOfRows    = NS;
+			NumberOfColumns = 1;
+			WriteToFileSystemAndGlobalScope(FileName, NumberOfRows, NumberOfColumns, h_ActualTime);
+			break;
+		
 		case ActualState:
 			FileName        = "ActualStateInSolverObject.txt";
 			NumberOfRows    = ThreadConfiguration.TotalLogicalThreads;
@@ -1963,10 +1994,6 @@ std::string SolverOptionsToString(ListOfSolverOptions Option)
 			return "TimeStepGrowLimit";
 		case TimeStepShrinkLimit:
 			return "TimeStepShrinkLimit";
-		case MaxStepInsideEvent:
-			return "MaxStepInsideEvent";
-		case MaximumNumberOfTimeSteps:
-			return "MaximumNumberOfTimeSteps";
 		case RelativeTolerance:
 			return "RelativeTolerance";
 		case AbsoluteTolerance:
@@ -1975,8 +2002,6 @@ std::string SolverOptionsToString(ListOfSolverOptions Option)
 			return "EventTolerance";
 		case EventDirection:
 			return "EventDirection";
-		case EventStopCounter:
-			return "EventStopCounter";
 		case DenseOutputTimeStep:
 			return "DenseOutputTimeStep";
 		case SharedGlobalVariables:
@@ -1998,6 +2023,8 @@ std::string VariablesToString(ListOfVariables Option)
 			return "TimeDomain";
 		case ActualState:
 			return "ActualState";
+		case ActualTime:
+			return "ActualTime";
 		case UnitParameters:
 			return "UnitParameters";
 		case SystemParameters:

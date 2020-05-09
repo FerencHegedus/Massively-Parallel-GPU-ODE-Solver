@@ -25,33 +25,41 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_OdeFunction(\
 
 
 // EVENTS
-/*__forceinline__ __device__ void PerThread_EventFunction(int tid, int NT, double* EF, double* X, double T, double* cPAR, double* sPAR, int* sPARi, double* ACC, int* ACCi)
+template <class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_EventFunction(\
+			int sid, int uid, Precision* EF, \
+			Precision     T, Precision     dT, Precision*   TD, Precision*     X, \
+			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
+			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
 {	
 	EF[0] = X[1];
-	EF[1] = X[0];
 }
 
-__forceinline__ __device__ void PerThread_ActionAfterEventDetection(int tid, int NT, int IDX, int CNT, double &T, double &dT, double* TD, double* X, double* cPAR, double* sPAR, int* sPARi, double* ACC, int* ACCi)
+template <class Precision> // ActionAfterSuccessfulTimeStep called first!
+__forceinline__ __device__ void CoupledSystems_PerBlock_ActionAfterEventDetection(\
+			int sid, int uid, int IDX, int& UDT, \
+			Precision&    T, Precision&    dT, Precision*   TD, Precision*     X, \
+			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
+			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
 {	
-	if ( X[0] > ACC[0] )
-		ACC[0] = X[0];
 	
-	if ( (IDX==1) && (CNT==2) )
-		ACC[1] = X[1];
-}*/
+}
 
 
 // ACCESSORIES
 template <class Precision>
 __forceinline__ __device__ void CoupledSystems_PerBlock_ActionAfterSuccessfulTimeStep(\
-			int sid, int uid, \
+			int sid, int uid, int& UDT, \
 			Precision&    T, Precision&    dT, Precision*   TD, Precision*     X, \
 			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
 			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
 {
-	if (uid==0)
+	if ( uid == 0 )
 	{
 		isACC[0]++;
+		
+		//if ( isACC[0] == 50 )
+		//	UDT = 1;
 	}
 }
 
@@ -62,10 +70,8 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_Initialization(\
 			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
 			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
 {
-	if (uid==0)
-	{
+	if ( uid == 0 )
 		isACC[0] = 0;
-	}
 }
 
 template <class Precision>

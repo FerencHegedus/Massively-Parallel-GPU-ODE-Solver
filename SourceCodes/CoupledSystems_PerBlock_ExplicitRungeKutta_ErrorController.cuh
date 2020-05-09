@@ -3,7 +3,7 @@
 
 
 template <int NBL, int UPS, int SPB, class Precision>
-__forceinline__ __device__ void MultipleSystems_MultipleBlockLaunches_ErrorController_RK4( \
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_ErrorController_RK4( \
 			int*       s_IsFinite, \
 			Precision* s_NewTimeStep, \
 			Precision  InitialTimeStep, \
@@ -44,7 +44,7 @@ __forceinline__ __device__ void MultipleSystems_MultipleBlockLaunches_ErrorContr
 
 
 template <int NBL, int UPS, int UD, int SPB, class Precision>
-__forceinline__ __device__ void MultipleSystems_MultipleBlockLaunches_ErrorController_RKCK45( \
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_ErrorController_RKCK45( \
 			int*       s_IsFinite, \
 			Precision* s_TimeStep, \
 			Precision* s_NewTimeStep, \
@@ -62,7 +62,6 @@ __forceinline__ __device__ void MultipleSystems_MultipleBlockLaunches_ErrorContr
 	int BlockID           = blockIdx.x;
 	int LocalThreadID_Logical;
 	int LocalSystemID;
-	int UnitID;
 	int GlobalSystemID;
 	
 	__shared__ Precision s_RelativeError[SPB];
@@ -88,7 +87,6 @@ __forceinline__ __device__ void MultipleSystems_MultipleBlockLaunches_ErrorContr
 	{
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 		LocalSystemID         = LocalThreadID_Logical / UPS;
-		UnitID                = LocalThreadID_Logical % UPS;
 		
 		if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
 		{

@@ -48,7 +48,7 @@ const int NiUA = 1;     // NumberOfIntegerUnitAccessories (different form system
 const int NSA  = 3;     // NumberOfSystemAccessories (different from system to system, shared by all units)
 const int NiSA = 1;     // NumberOfIntegerSystemAccessories (different from system to system, shared by all units)
 
-const int NE   = 0;     // NumberOfEvents (per units)
+const int NE   = 1;     // NumberOfEvents (per units)
 const int NDO  = 0;     // NumberOfPointsOfDenseOutput (per units)
 
 void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);
@@ -87,6 +87,8 @@ int main()
 	ScanSystem.SolverOption(RelativeTolerance, 0, TOLERANCE);
 	ScanSystem.SolverOption(AbsoluteTolerance, 0, TOLERANCE);
 	ScanSystem.SolverOption(MinimumTimeStep, 1e-13);
+	
+	
 	
 	FillSolverObject(ScanSystem, ICX12, ICY12);
 	FillCouplingMatrix(ScanSystem);
@@ -137,7 +139,7 @@ int main()
 		}
 		OrderParameter = (PRECISION)Sum / (PRECISION)UPS;
 		
-		cout << "System number: " << i << " Order parameter: " << OrderParameter << endl;
+		//cout << "System number: " << i << " Order parameter: " << OrderParameter << endl;
 		
 		DataFile.width(Width); DataFile << i << ',';
 		DataFile.width(Width); DataFile << ScanSystem.GetHost<PRECISION>(i, 11, UnitAccessories, 0) << ',';
@@ -157,18 +159,21 @@ int main()
 	
 	DataFile.close();
 	
-	for (int sid=0; sid<NS; sid++)
+	/*for (int sid=0; sid<NS; sid++)
 	{
 		for (int uid=0; uid<UPS; uid++)
 		{
 			cout << "SID: " << sid << ", UID: " << uid << ", uACC[0]: " << ScanSystem.GetHost<PRECISION>(sid, uid, UnitAccessories, 0) \
 			                                           << ", uACC[1]: " << ScanSystem.GetHost<PRECISION>(sid, uid, UnitAccessories, 1) << endl;
 		}
-	}
+	}*/
 	
 	for (int sid=0; sid<NS; sid++)
 	{
-		cout << "SID: " << sid << ", sACC[0]: " << ScanSystem.GetHost<PRECISION>(sid, IntegerSystemAccessories, 0) << endl;
+		cout << "SID: " << sid << ", number of time steps: " << ScanSystem.GetHost<PRECISION>(sid, IntegerSystemAccessories, 0);
+		cout << ", time instant: " << ScanSystem.GetHost<PRECISION>(sid, ActualTime, 0);
+		cout << ", X00: " << ScanSystem.GetHost<PRECISION>(sid, 11, ActualState, 0);
+		cout << ", X10: " << ScanSystem.GetHost<PRECISION>(sid, 11, ActualState, 1) << endl;
 	}
 	
 	
@@ -176,6 +181,8 @@ int main()
 	cout <<  "Minimum time step: " << ScanSystem.GetHost<PRECISION>(0, SystemAccessories, 1) << endl;
 	
 	cout << "Total simulation time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
+	
+	ScanSystem.Print(ActualTime);
 	
 	// SIMULATION -------------------------------------------------------------
 	
@@ -320,7 +327,7 @@ void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiG
 		{
 			// SYSTEM SCOPE
 			Solver.SetHost(SystemNumber, TimeDomain, 0, 0.0);
-			Solver.SetHost(SystemNumber, TimeDomain, 1, 2.0*PI/0.5);
+			Solver.SetHost(SystemNumber, TimeDomain, 1, 0.01*2.0*PI/0.5);
 			
 			for (int i=0; i<NC; i++)
 				Solver.SetHost(SystemNumber, CouplingStrength, i, CPS);

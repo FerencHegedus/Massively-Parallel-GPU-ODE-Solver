@@ -6,7 +6,7 @@ __forceinline__ __device__ Precision ComputeCouplingValue( Precision* gs_Couplin
 
 // ----------------------------------------------------------------------------
 template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCpadding, int CBW, int CCI, int NUP, int NSPp, int NGP, int NiGP, int NUA, int NiUA, int NSAp, int NiSAp, int NE, int NDO, class Precision>
-__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RK4( \
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_Stepper_RK4( \
 			Precision  r_ActualState[NBL][UD], \
 			Precision  r_NextState[NBL][UD], \
 			Precision* s_ActualTime, \
@@ -314,7 +314,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 
 // ----------------------------------------------------------------------------
 template <int NBL, int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCpadding, int CBW, int CCI, int NUP, int NSPp, int NGP, int NiGP, int NUA, int NiUA, int NSAp, int NiSAp, int NE, int NDO, class Precision>
-__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_RKCK45( \
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_Stepper_RKCK45( \
 			Precision  r_ActualState[NBL][UD], \
 			Precision  r_NextState[NBL][UD], \
 			Precision* s_ActualTime, \
