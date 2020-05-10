@@ -42,7 +42,13 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_ActionAfterEventDetectio
 			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
 			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
 {	
+	iuACC[0]++;
 	
+	if ( iuACC[0] == 2 )
+	{
+		UDT = 1;
+		uACC[2] = X[0];
+	}
 }
 
 
@@ -56,10 +62,13 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_ActionAfterSuccessfulTim
 {
 	if ( uid == 0 )
 	{
-		isACC[0]++;
+		if ( sACC[0] > dT ) // Update minimum dT
+			sACC[0] = dT;
 		
-		//if ( isACC[0] == 50 )
-		//	UDT = 1;
+		if ( sACC[1] < dT ) // Update maximum dT
+			sACC[1] = dT;
+		
+		isACC[0]++;         // Accumulate number of time steps
 	}
 }
 
@@ -71,7 +80,14 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_Initialization(\
 			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
 {
 	if ( uid == 0 )
-		isACC[0] = 0;
+	{
+		sACC[0]  = dT; // Minimum dT
+		sACC[1]  = dT; // Maximum dT
+		isACC[0] = 0;  // Number of time steps
+	}
+	
+	uACC[2]  = X[0];   // End state of the unit first reach the second local maximum; initial state otherwise
+	iuACC[0] = 0;      // Event counter
 }
 
 template <class Precision>

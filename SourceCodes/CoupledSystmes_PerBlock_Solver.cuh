@@ -10,21 +10,17 @@ template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, i
 __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(Struct_ThreadConfiguration ThreadConfiguration, Struct_GlobalVariables<Precision> GlobalVariables, Struct_SharedMemoryUsage SharedMemoryUsage, Struct_SolverOptions<Precision> SolverOptions)
 {
 	// THREAD MANAGEMENT ------------------------------------------------------
-	const int LogicalThreadsPerBlock = SPB * UPS;
-	const int NumberOfBlockLaunches  = LogicalThreadsPerBlock / TPB + (LogicalThreadsPerBlock % TPB == 0 ? 0 : 1);
-	const int ThreadPaddingPerBlock  = NumberOfBlockLaunches * TPB - LogicalThreadsPerBlock;
+	const int LogicalThreadsPerBlock      = SPB * UPS;
+	const int NumberOfBlockLaunches       = LogicalThreadsPerBlock / TPB + (LogicalThreadsPerBlock % TPB == 0 ? 0 : 1);
+	const int ThreadPaddingPerBlock       = NumberOfBlockLaunches * TPB - LogicalThreadsPerBlock;
 	const int TotalLogicalThreads         = (LogicalThreadsPerBlock + ThreadPaddingPerBlock) * gridDim.x;
 	const int TotalLogicalThreadsPerBlock = (LogicalThreadsPerBlock + ThreadPaddingPerBlock);
-	
-	//const int GlobalThreadID_GPU = threadIdx.x + blockIdx.x*blockDim.x;
-	const int LocalThreadID_GPU  = threadIdx.x;
-	const int BlockID            = blockIdx.x;
+	const int LocalThreadID_GPU           = threadIdx.x;
+	const int BlockID                     = blockIdx.x;
 	
 	int GlobalThreadID_Logical; // Depends on BlockLaunch
 	int LocalThreadID_Logical;  // Depends on BlockLaunch
 	int GlobalMemoryID;         // Depends on BlockLaunch
-	//int LocalMemoryID;          // Depends on BlockLaunch
-	
 	int GlobalSystemID;         // Depends on BlockLaunch
 	int LocalSystemID;          // Depends on BlockLaunch
 	int UnitID;                 // Depends on BlockLaunch
@@ -282,46 +278,52 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		LocalSystemID         = LocalThreadID_Logical / UPS;
 		UnitID                = LocalThreadID_Logical % UPS;
 		GlobalSystemID        = LocalSystemID + BlockID*SPB;
-			
-		CoupledSystems_PerBlock_Initialization<Precision>(\
-			GlobalSystemID, \
-			UnitID, \
-			s_ActualTime[LocalSystemID], \
-			s_TimeStep[LocalSystemID], \
-			&s_TimeDomain[LocalSystemID][0], \
-			&r_ActualState[BL][0], \
-			&r_UnitParameters[BL][0], \
-			&s_SystemParameters[LocalSystemID][0], \
-			gs_GlobalParameters, \
-			gs_IntegerGlobalParameters, \
-			&r_UnitAccessories[BL][0], \
-			&r_IntegerUnitAccessories[BL][0], \
-			&s_SystemAccessories[LocalSystemID][0], \
-			&s_IntegerSystemAccessories[LocalSystemID][0]);
 		
-		CoupledSystems_PerBlock_EventFunction<Precision>(\
-			GlobalSystemID, \
-			UnitID, \
-			&r_ActualEventValue[BL][0], \
-			s_ActualTime[LocalSystemID], \
-			s_TimeStep[LocalSystemID], \
-			&s_TimeDomain[LocalSystemID][0], \
-			&r_ActualState[BL][0], \
-			&r_UnitParameters[BL][0], \
-			&s_SystemParameters[LocalSystemID][0], \
-			gs_GlobalParameters, \
-			gs_IntegerGlobalParameters, \
-			&r_UnitAccessories[BL][0], \
-			&r_IntegerUnitAccessories[BL][0], \
-			&s_SystemAccessories[LocalSystemID][0], \
-			&s_IntegerSystemAccessories[LocalSystemID][0]);
+		if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
+		{
+			CoupledSystems_PerBlock_Initialization<Precision>(\
+				GlobalSystemID, \
+				UnitID, \
+				s_ActualTime[LocalSystemID], \
+				s_TimeStep[LocalSystemID], \
+				&s_TimeDomain[LocalSystemID][0], \
+				&r_ActualState[BL][0], \
+				&r_UnitParameters[BL][0], \
+				&s_SystemParameters[LocalSystemID][0], \
+				gs_GlobalParameters, \
+				gs_IntegerGlobalParameters, \
+				&r_UnitAccessories[BL][0], \
+				&r_IntegerUnitAccessories[BL][0], \
+				&s_SystemAccessories[LocalSystemID][0], \
+				&s_IntegerSystemAccessories[LocalSystemID][0]);
+			
+			if ( NE > 0 ) // Eliminated at compile time if NE=0
+			{
+				CoupledSystems_PerBlock_EventFunction<Precision>(\
+					GlobalSystemID, \
+					UnitID, \
+					&r_ActualEventValue[BL][0], \
+					s_ActualTime[LocalSystemID], \
+					s_TimeStep[LocalSystemID], \
+					&s_TimeDomain[LocalSystemID][0], \
+					&r_ActualState[BL][0], \
+					&r_UnitParameters[BL][0], \
+					&s_SystemParameters[LocalSystemID][0], \
+					gs_GlobalParameters, \
+					gs_IntegerGlobalParameters, \
+					&r_UnitAccessories[BL][0], \
+					&r_IntegerUnitAccessories[BL][0], \
+					&s_SystemAccessories[LocalSystemID][0], \
+					&s_IntegerSystemAccessories[LocalSystemID][0]);
+			}
+		}
 	}
 	__syncthreads();
 	
 	
 	// SOLVER MANAGEMENT ------------------------------------------------------
 	while ( s_TerminatedSystemsPerBlock < SPB )
-	//for (int kk=0; kk<15; kk++)
+	//for (int kk=0; kk<1; kk++)
 	{
 		// INITIALISE TIME STEPPING -------------------------------------------
 		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
@@ -422,29 +424,32 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		
 		
 		// NEW EVENT VALUE AND TIME STEP CONTROL-------------------------------
-		for (int BL=0; BL<NumberOfBlockLaunches; BL++) // Eliminated at compile if CoupledSystems_PerBlock_EventFunction is an empty function
+		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
 		{
 			LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
 			LocalSystemID         = LocalThreadID_Logical / UPS;
 			UnitID                = LocalThreadID_Logical % UPS;
 			GlobalSystemID        = LocalSystemID + BlockID*SPB;
 			
-			CoupledSystems_PerBlock_EventFunction<Precision>(\
-				GlobalSystemID, \
-				UnitID, \
-				&r_NextEventValue[BL][0], \
-				s_ActualTime[LocalSystemID]+s_TimeStep[LocalSystemID], \
-				s_NewTimeStep[LocalSystemID], \
-				&s_TimeDomain[LocalSystemID][0], \
-				&r_NextState[BL][0], \
-				&r_UnitParameters[BL][0], \
-				&s_SystemParameters[LocalSystemID][0], \
-				gs_GlobalParameters, \
-				gs_IntegerGlobalParameters, \
-				&r_UnitAccessories[BL][0], \
-				&r_IntegerUnitAccessories[BL][0], \
-				&s_SystemAccessories[LocalSystemID][0], \
-				&s_IntegerSystemAccessories[LocalSystemID][0]);
+			if ( ( NE > 0 ) && ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) ) // Eliminated at compile time if NE=0
+			{
+				CoupledSystems_PerBlock_EventFunction<Precision>(\
+					GlobalSystemID, \
+					UnitID, \
+					&r_NextEventValue[BL][0], \
+					s_ActualTime[LocalSystemID]+s_TimeStep[LocalSystemID], \
+					s_NewTimeStep[LocalSystemID], \
+					&s_TimeDomain[LocalSystemID][0], \
+					&r_NextState[BL][0], \
+					&r_UnitParameters[BL][0], \
+					&s_SystemParameters[LocalSystemID][0], \
+					gs_GlobalParameters, \
+					gs_IntegerGlobalParameters, \
+					&r_UnitAccessories[BL][0], \
+					&r_IntegerUnitAccessories[BL][0], \
+					&s_SystemAccessories[LocalSystemID][0], \
+					&s_IntegerSystemAccessories[LocalSystemID][0]);
+			}
 		}
 		__syncthreads();
 		
@@ -521,22 +526,25 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 					}
 				}
 				
-				CoupledSystems_PerBlock_EventFunction<Precision>(\
-					GlobalSystemID, \
-					UnitID, \
-					&r_NextEventValue[BL][0], \
-					s_ActualTime[LocalSystemID], \
-					s_NewTimeStep[LocalSystemID], \
-					&s_TimeDomain[LocalSystemID][0], \
-					&r_ActualState[BL][0], \
-					&r_UnitParameters[BL][0], \
-					&s_SystemParameters[LocalSystemID][0], \
-					gs_GlobalParameters, \
-					gs_IntegerGlobalParameters, \
-					&r_UnitAccessories[BL][0], \
-					&r_IntegerUnitAccessories[BL][0], \
-					&s_SystemAccessories[LocalSystemID][0], \
-					&s_IntegerSystemAccessories[LocalSystemID][0]);
+				if ( NE > 0 ) // Eliminated at compile time if NE=0
+				{
+					CoupledSystems_PerBlock_EventFunction<Precision>(\
+						GlobalSystemID, \
+						UnitID, \
+						&r_NextEventValue[BL][0], \
+						s_ActualTime[LocalSystemID], \
+						s_NewTimeStep[LocalSystemID], \
+						&s_TimeDomain[LocalSystemID][0], \
+						&r_ActualState[BL][0], \
+						&r_UnitParameters[BL][0], \
+						&s_SystemParameters[LocalSystemID][0], \
+						gs_GlobalParameters, \
+						gs_IntegerGlobalParameters, \
+						&r_UnitAccessories[BL][0], \
+						&r_IntegerUnitAccessories[BL][0], \
+						&s_SystemAccessories[LocalSystemID][0], \
+						&s_IntegerSystemAccessories[LocalSystemID][0]);
+				}
 				
 				for (int i=0; i<NE; i++) // Eliminated at compile time if NE=0
 					r_ActualEventValue[BL][i] = r_NextEventValue[BL][i];
