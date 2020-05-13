@@ -61,7 +61,8 @@ enum ListOfSolverOptions{ InitialTimeStep, \
 						  AbsoluteTolerance, \
 						  EventTolerance, \
 						  EventDirection, \
-						  DenseOutputTimeStep, \
+						  DenseOutputSaveFrequency, \
+						  DenseOutputMinimumTimeStep, \
 						  SharedGlobalVariables, \
 						  SharedCouplingMatrices};
 			
@@ -124,7 +125,8 @@ struct Struct_SolverOptions
 	Precision MinimumTimeStep;
 	Precision TimeStepGrowLimit;
 	Precision TimeStepShrinkLimit;
-	Precision DenseOutputTimeStep;
+	int       DenseOutputSaveFrequency;
+	Precision DenseOutputMinimumTimeStep;
 };
 
 template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
@@ -566,13 +568,14 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	// DEFAULT VALUES OF SOLVER OPTIONS
 	std::cout << "DEFAULT SOLVER OPTIONS:" << std::endl;
 	
-	SolverOptions.InitialTimeStep          = 1e-2;
-	SolverOptions.ActiveSystems            = NS;
-	SolverOptions.MaximumTimeStep          = 1.0e6;
-	SolverOptions.MinimumTimeStep          = 1.0e-12;
-	SolverOptions.TimeStepGrowLimit        = 5.0;
-	SolverOptions.TimeStepShrinkLimit      = 0.1;
-	SolverOptions.DenseOutputTimeStep      = -1e-2;
+	SolverOptions.InitialTimeStep            = 1e-2;
+	SolverOptions.ActiveSystems              = NS;
+	SolverOptions.MaximumTimeStep            = 1.0e6;
+	SolverOptions.MinimumTimeStep            = 1.0e-12;
+	SolverOptions.TimeStepGrowLimit          = 5.0;
+	SolverOptions.TimeStepShrinkLimit        = 0.1;
+	SolverOptions.DenseOutputMinimumTimeStep = 0.0;
+	SolverOptions.DenseOutputSaveFrequency   = 1;
 	
 	Precision DefaultAlgorithmTolerances = 1e-8;
 	for (int i=0; i<UD; i++)
@@ -589,17 +592,18 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+i,   &DefaultEventDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
 	}
 	
-	std::cout << "   Initial time step:            " << SolverOptions.InitialTimeStep << std::endl;
-	std::cout << "   Active systems:               " << SolverOptions.ActiveSystems << std::endl;
-	std::cout << "   Maximum time step:            " << SolverOptions.MaximumTimeStep << std::endl;
-	std::cout << "   Minimum time step:            " << SolverOptions.MinimumTimeStep << std::endl;
-	std::cout << "   Time step grow limit:         " << SolverOptions.TimeStepGrowLimit << std::endl;
-	std::cout << "   Time step shrink limit:       " << SolverOptions.TimeStepShrinkLimit << std::endl;
-	std::cout << "   Dense output time step:       " << SolverOptions.DenseOutputTimeStep << std::endl;
-	std::cout << "   Algorithm absolute tolerance: " << 1e-8 << std::endl;
-	std::cout << "   Algorithm relative tolerance: " << 1e-8 << std::endl;
-	std::cout << "   Event absolute tolerance:     " << 1e-6 << std::endl;
-	std::cout << "   Event direction of detection: " << 0 << std::endl;
+	std::cout << "   Initial time step:              " << SolverOptions.InitialTimeStep << std::endl;
+	std::cout << "   Active systems:                 " << SolverOptions.ActiveSystems << std::endl;
+	std::cout << "   Maximum time step:              " << SolverOptions.MaximumTimeStep << std::endl;
+	std::cout << "   Minimum time step:              " << SolverOptions.MinimumTimeStep << std::endl;
+	std::cout << "   Time step grow limit:           " << SolverOptions.TimeStepGrowLimit << std::endl;
+	std::cout << "   Time step shrink limit:         " << SolverOptions.TimeStepShrinkLimit << std::endl;
+	std::cout << "   Dense output minimum time step: " << SolverOptions.DenseOutputMinimumTimeStep << std::endl;
+	std::cout << "   Dense output save frequency:    " << SolverOptions.DenseOutputSaveFrequency << std::endl;
+	std::cout << "   Algorithm absolute tolerance:   " << 1e-8 << std::endl;
+	std::cout << "   Algorithm relative tolerance:   " << 1e-8 << std::endl;
+	std::cout << "   Event absolute tolerance:       " << 1e-6 << std::endl;
+	std::cout << "   Event direction of detection:   " << 0 << std::endl;
 	
 	
 	std::cout << std::endl;
@@ -750,8 +754,12 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 			SolverOptions.TimeStepShrinkLimit = (Precision)Value;
 			break;
 		
-		case DenseOutputTimeStep:
-			SolverOptions.DenseOutputTimeStep = (Precision)Value;
+		case DenseOutputMinimumTimeStep:
+			SolverOptions.DenseOutputMinimumTimeStep = (Precision)Value;
+			break;
+		
+		case DenseOutputSaveFrequency:
+			SolverOptions.DenseOutputSaveFrequency = (int)Value;
 			break;
 		//---------------------------------------
 		case SharedGlobalVariables:
@@ -2002,8 +2010,10 @@ std::string SolverOptionsToString(ListOfSolverOptions Option)
 			return "EventTolerance";
 		case EventDirection:
 			return "EventDirection";
-		case DenseOutputTimeStep:
-			return "DenseOutputTimeStep";
+		case DenseOutputMinimumTimeStep:
+			return "DenseOutputMinimumTimeStep";
+		case DenseOutputSaveFrequency:
+			return "DenseOutputSaveFrequency";
 		case SharedGlobalVariables:
 			return "SharedGlobalVariables";
 		case SharedCouplingMatrices:

@@ -47,7 +47,7 @@ const int NSA  = 2;     // NumberOfSystemAccessories (different from system to s
 const int NiSA = 1;     // NumberOfIntegerSystemAccessories (different from system to system, shared by all units)
 
 const int NE   = 1;     // NumberOfEvents (per units)
-const int NDO  = 0;     // NumberOfPointsOfDenseOutput (per units)
+const int NDO  = 100;     // NumberOfPointsOfDenseOutput (per units)
 
 void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);
 void Logspace(vector<PRECISION>&, PRECISION, PRECISION, int);
@@ -82,6 +82,8 @@ int main()
 	ScanSystem.SolverOption(RelativeTolerance, 0, TOLERANCE);
 	ScanSystem.SolverOption(AbsoluteTolerance, 0, TOLERANCE);
 	ScanSystem.SolverOption(EventDirection, 0, -1); // Detect local maxima
+	ScanSystem.SolverOption(DenseOutputMinimumTimeStep, 1e-6);
+	ScanSystem.SolverOption(DenseOutputSaveFrequency, 1);
 	
 	FillSolverObject(ScanSystem, ICX12, ICY12);
 	FillCouplingMatrix(ScanSystem);
@@ -129,6 +131,8 @@ int main()
 	DataFile << "Total simulation time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 	
 	DataFile.close();
+	
+	ScanSystem.Print(DenseOutput, 0);
 }
 
 // ------------------------------------------------------------------------------------------------

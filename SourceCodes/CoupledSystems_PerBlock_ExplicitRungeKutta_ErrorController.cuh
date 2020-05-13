@@ -40,6 +40,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			s_NewTimeStep[LocalSystemID] = InitialTimeStep;
 		}
 	}
+	__syncthreads();
 }
 
 
