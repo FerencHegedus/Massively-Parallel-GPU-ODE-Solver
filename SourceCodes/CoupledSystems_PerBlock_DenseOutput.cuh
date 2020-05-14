@@ -59,21 +59,25 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 	{
 		LocalSystemID = threadIdx.x + j*blockDim.x;
 		
-		if ( s_UpdateDenseOutput[LocalSystemID] == 1 )
+		if ( LocalSystemID < SPB )
 		{
-			s_DenseOutputIndex[LocalSystemID]++;
-			s_NumberOfSkippedStores[LocalSystemID] = 0;
-			s_DenseOutputActualTime[LocalSystemID] = MPGOS::FMIN(s_ActualTime[LocalSystemID]+SolverOptions.DenseOutputMinimumTimeStep, s_TimeDomain[LocalSystemID][1]);
-		} else
-			s_NumberOfSkippedStores[LocalSystemID]++;
+			if ( s_UpdateDenseOutput[LocalSystemID] == 1 )
+			{
+				s_DenseOutputIndex[LocalSystemID]++;
+				s_NumberOfSkippedStores[LocalSystemID] = 0;
+				s_DenseOutputActualTime[LocalSystemID] = MPGOS::FMIN(s_ActualTime[LocalSystemID]+SolverOptions.DenseOutputMinimumTimeStep, s_TimeDomain[LocalSystemID][1]);
+			} else
+				s_NumberOfSkippedStores[LocalSystemID]++;
+		}
 	}
 	__syncthreads();
 }
 
 
 template <int NBL, int UPS, int SPB, int NDO, class Precision>
-__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_DenseOutputStrageCondition(\
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_DenseOutputStorageCondition(\
 			int*       s_EndTimeDomainReached, \
+			int*       s_UserDefinedTermination, \
 			int*       s_UpdateStep, \
 			int*       s_UpdateDenseOutput, \
 			int*       s_DenseOutputIndex, \
@@ -102,7 +106,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 				else
 					s_UpdateDenseOutput[LocalSystemID] = 0;
 				
-				if ( s_EndTimeDomainReached[LocalSystemID] == 1 )
+				if ( ( s_DenseOutputIndex[LocalSystemID] < NDO ) && ( ( s_EndTimeDomainReached[LocalSystemID] == 1 ) || ( s_UserDefinedTermination[LocalSystemID] == 1 ) ) )
 					s_UpdateDenseOutput[LocalSystemID] = 1;
 			} else
 				s_UpdateDenseOutput[LocalSystemID] = 0;

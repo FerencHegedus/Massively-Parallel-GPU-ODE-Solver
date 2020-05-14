@@ -23,7 +23,7 @@ const int NumberOfUnitsPerSystem = 14; // Number coupled units
 // Solver Configuration
 #define TIMESTEP   0.5e-3
 #define TOLERANCE  1.0e-8
-#define PERIOD     1.0
+#define PERIOD     10.0
 
 #define SOLVER RKCK45      // RK4, RKCK45
 #define PRECISION double   // float, double
@@ -47,7 +47,7 @@ const int NSA  = 2;     // NumberOfSystemAccessories (different from system to s
 const int NiSA = 1;     // NumberOfIntegerSystemAccessories (different from system to system, shared by all units)
 
 const int NE   = 1;     // NumberOfEvents (per units)
-const int NDO  = 100;     // NumberOfPointsOfDenseOutput (per units)
+const int NDO  = 500;     // NumberOfPointsOfDenseOutput (per units)
 
 void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);
 void Logspace(vector<PRECISION>&, PRECISION, PRECISION, int);
