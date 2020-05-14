@@ -342,39 +342,24 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	
 	if ( NDO > 0 ) // Eliminated at compile time if NDO=0
 	{
-		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
-		{
-			LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
-			LocalSystemID         = LocalThreadID_Logical / UPS;
-			UnitID                = LocalThreadID_Logical % UPS;
-			GlobalSystemID        = LocalSystemID + BlockID*SPB;
-			
-			if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
-			{
-				CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_StoreDenseOutput<NS, UPS, UD, Precision>(\
-					GlobalSystemID, \
-					LocalSystemID, \
-					UnitID, \
-					s_UpdateDenseOutput[LocalSystemID], \
-					s_DenseOutputIndex[LocalSystemID], \
-					s_NumberOfSkippedStores[LocalSystemID], \
-					s_DenseOutputActualTime[LocalSystemID], \
-					s_TimeDomain[LocalSystemID][1], \
-					GlobalVariables.d_DenseOutputTimeInstances, \
-					GlobalVariables.d_DenseOutputStates, \
-					s_ActualTime[LocalSystemID], \
-					&r_ActualState[BL][0], \
-					ThreadConfiguration, \
-					SolverOptions);
-			}
-		}
+		CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_StoreDenseOutput<NumberOfBlockLaunches, NS, UPS, UD, SPB, Precision>(\
+			s_UpdateDenseOutput, \
+			s_DenseOutputIndex, \
+			s_NumberOfSkippedStores, \
+			GlobalVariables.d_DenseOutputTimeInstances, \
+			GlobalVariables.d_DenseOutputStates, \
+			s_DenseOutputActualTime, \
+			s_ActualTime, \
+			r_ActualState, \
+			s_TimeDomain, \
+			ThreadConfiguration, \
+			SolverOptions);
 	}
-	__syncthreads();
 	
 	
 	// SOLVER MANAGEMENT ------------------------------------------------------
 	while ( s_TerminatedSystemsPerBlock < SPB )
-	//for (int kk=0; kk<200; kk++)
+	//for (int kk=0; kk<5; kk++)
 	{
 		// INITIALISE TIME STEPPING -------------------------------------------
 		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
@@ -647,7 +632,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 				
 				if ( ( LocalSystemID < SPB ) && ( s_UpdateStep[LocalSystemID] == 1 ) )
 				{
-					for (int i=0; i<NE; i++) // Eliminated at compile time if NE=0
+					for (int i=0; i<NE; i++)
 						r_ActualEventValue[BL][i] = r_NextEventValue[BL][i];
 				}
 			}
@@ -657,55 +642,28 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		// Dense output actions; Eliminated at compile time if NDO=0
 		if ( NDO > 0)
 		{
-			// Check store conditions
-			for (int BL=0; BL<NumberOfBlockLaunches; BL++)
-			{
-				LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
-				LocalSystemID         = LocalThreadID_Logical / UPS;
-				UnitID                = LocalThreadID_Logical % UPS;
-				
-				if ( ( LocalSystemID < SPB ) && ( s_UpdateStep[LocalSystemID] == 1 ) )
-				{	
-					CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_DenseOutputStrageCondition<NDO, Precision>(\
-						UnitID, \
-						s_UpdateDenseOutput[LocalSystemID], \
-						s_DenseOutputIndex[LocalSystemID], \
-						s_NumberOfSkippedStores[LocalSystemID], \
-						s_DenseOutputActualTime[LocalSystemID], \
-						s_ActualTime[LocalSystemID], \
-						SolverOptions);
-				}
-			}
-			__syncthreads();
+			//CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_DenseOutputStrageCondition<NumberOfBlockLaunches, UPS, SPB, NDO, Precision>(\
+				s_EndTimeDomainReached, \
+				s_UpdateStep, \
+				s_UpdateDenseOutput, \
+				s_DenseOutputIndex, \
+				s_NumberOfSkippedStores, \
+				s_DenseOutputActualTime, \
+				s_ActualTime, \
+				SolverOptions);
 			
-			// Store actual state
-			for (int BL=0; BL<NumberOfBlockLaunches; BL++)
-			{
-				LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
-				LocalSystemID         = LocalThreadID_Logical / UPS;
-				UnitID                = LocalThreadID_Logical % UPS;
-				GlobalSystemID        = LocalSystemID + BlockID*SPB;
-				
-				if ( ( LocalSystemID < SPB ) && ( s_UpdateStep[LocalSystemID] == 1 ) )
-				{
-					CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_StoreDenseOutput<NS, UPS, UD, Precision>(\
-						GlobalSystemID, \
-						LocalSystemID, \
-						UnitID, \
-						s_UpdateDenseOutput[LocalSystemID], \
-						s_DenseOutputIndex[LocalSystemID], \
-						s_NumberOfSkippedStores[LocalSystemID], \
-						s_DenseOutputActualTime[LocalSystemID], \
-						s_TimeDomain[LocalSystemID][1], \
-						GlobalVariables.d_DenseOutputTimeInstances, \
-						GlobalVariables.d_DenseOutputStates, \
-						s_ActualTime[LocalSystemID], \
-						&r_ActualState[BL][0], \
-						ThreadConfiguration, \
-						SolverOptions);
-				}
-			}
-			__syncthreads();
+			//CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_StoreDenseOutput<NumberOfBlockLaunches, NS, UPS, UD, SPB, Precision>(\
+				s_UpdateDenseOutput, \
+				s_DenseOutputIndex, \
+				s_NumberOfSkippedStores, \
+				GlobalVariables.d_DenseOutputTimeInstances, \
+				GlobalVariables.d_DenseOutputStates, \
+				s_DenseOutputActualTime, \
+				s_ActualTime, \
+				r_ActualState, \
+				s_TimeDomain, \
+				ThreadConfiguration, \
+				SolverOptions);
 		}
 		
 		

@@ -132,7 +132,8 @@ int main()
 	
 	DataFile.close();
 	
-	ScanSystem.Print(DenseOutput, 0);
+	for (int sid=0; sid<NS; sid++)
+		ScanSystem.Print(DenseOutput, sid);
 }
 
 // ------------------------------------------------------------------------------------------------
