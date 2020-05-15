@@ -18,10 +18,10 @@ using namespace std;
 // Physical control parameters
 const int NumberOfInitialConditionsX = 5; // Control parameter
 const int NumberOfInitialConditionsY = 5; // Control parameter
-const int NumberOfUnitsPerSystem = 14; // Number coupled units
+const int NumberOfUnitsPerSystem = 45; // Number coupled units
 
 // Solver Configuration
-#define TIMESTEP   0.5e-3
+#define TIMESTEP   1.0e-2
 #define TOLERANCE  1.0e-8
 #define PERIOD     10.0
 
@@ -31,7 +31,7 @@ const int NS   = NumberOfInitialConditionsX * NumberOfInitialConditionsY; // Num
 const int UPS  = NumberOfUnitsPerSystem;                // UnitsPerSystem
 const int UD   = 2;     // UnitDimension
 const int TPB  = 32;    // ThreadsPerBlock (integer multiple of the warp size that is 32)
-const int SPB  = 3;     // SystemsPerBlock
+const int SPB  = 1;     // SystemsPerBlock
 const int NC   = 2;     // NumberOfCouplings
 const int CBW  = 1;     // CouplingBandwidthRadius (0: full coupling matrix)
 const int CCI  = 1;     // CouplingCircularity (0: non-circular matrix, 1: circular matrix)
@@ -112,8 +112,11 @@ int main()
 		DataFile << ", dtmin: " << ScanSystem.GetHost<PRECISION>(sid, SystemAccessories, 0);
 		DataFile << ", dtmax: " << ScanSystem.GetHost<PRECISION>(sid, SystemAccessories, 1) << endl;
 		DataFile << " Initial conditions:";
-		DataFile << " X0_11: " << ScanSystem.GetHost<PRECISION>(sid, 11, UnitAccessories, 0);
-		DataFile << " X1_11: " << ScanSystem.GetHost<PRECISION>(sid, 11, UnitAccessories, 1) << endl;
+		if ( UPS >= 12 )
+		{
+			DataFile << " X0_11: " << ScanSystem.GetHost<PRECISION>(sid, 11, UnitAccessories, 0);
+			DataFile << " X1_11: " << ScanSystem.GetHost<PRECISION>(sid, 11, UnitAccessories, 1) << endl;
+		}
 		DataFile << "    States: " << endl;
 		DataFile << "    UID,            X0,            X1," << endl;
 		
@@ -214,7 +217,7 @@ void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiG
 	for (auto const& X0: ICX)
 	{
 		for (auto const& Y0: ICY)
-		{
+		{			
 			// SYSTEM SCOPE
 			Solver.SetHost(SystemNumber, TimeDomain, 0, 0.0);
 			Solver.SetHost(SystemNumber, TimeDomain, 1, PERIOD*2.0*PI/0.5);

@@ -4,6 +4,7 @@
 
 template <int NBL, int NS, int UPS, int UD, int SPB, class Precision>
 __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_StoreDenseOutput(\
+			int*       s_UpdateStep, \
 			int*       s_UpdateDenseOutput, \
 			int*       s_DenseOutputIndex, \
 			int*       s_NumberOfSkippedStores, \
@@ -66,7 +67,9 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 				s_DenseOutputIndex[LocalSystemID]++;
 				s_NumberOfSkippedStores[LocalSystemID] = 0;
 				s_DenseOutputActualTime[LocalSystemID] = MPGOS::FMIN(s_ActualTime[LocalSystemID]+SolverOptions.DenseOutputMinimumTimeStep, s_TimeDomain[LocalSystemID][1]);
-			} else
+			}
+			
+			if ( ( s_UpdateDenseOutput[LocalSystemID] == 0 ) && ( s_UpdateStep[LocalSystemID] == 1 ) )
 				s_NumberOfSkippedStores[LocalSystemID]++;
 		}
 	}
@@ -86,18 +89,14 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			Precision* s_ActualTime, \
 			Struct_SolverOptions<Precision> SolverOptions)
 {
-	int LocalThreadID_GPU = threadIdx.x;
-	int LocalThreadID_Logical;
 	int LocalSystemID;
-	int UnitID;
 	
-	for (int BL=0; BL<NBL; BL++)
+	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
+	for (int j=0; j<Launches; j++)
 	{
-		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
-		LocalSystemID         = LocalThreadID_Logical / UPS;
-		UnitID                = LocalThreadID_Logical % UPS;
+		LocalSystemID  = threadIdx.x + j*blockDim.x;
 		
-		if ( ( LocalSystemID < SPB ) && ( UnitID == 0 ) )
+		if ( LocalSystemID < SPB )
 		{
 			if ( s_UpdateStep[LocalSystemID] == 1 )
 			{
@@ -111,6 +110,99 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			} else
 				s_UpdateDenseOutput[LocalSystemID] = 0;
 		}
+	}
+	__syncthreads();
+}
+
+
+template <int NBL, int NS, int UPS, int UD, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_StoreDenseOutput(\
+			int        s_UpdateStep, \
+			int        s_UpdateDenseOutput, \
+			int&       s_DenseOutputIndex, \
+			int&       s_NumberOfSkippedStores, \
+			Precision* d_DenseOutputTimeInstances, \
+			Precision* d_DenseOutputStates, \
+			Precision& s_DenseOutputActualTime, \
+			Precision  s_ActualTime, \
+			Precision  r_ActualState[NBL][UD], \
+			Precision  s_TimeDomain[2], \
+			Struct_ThreadConfiguration ThreadConfiguration, \
+			Struct_SolverOptions<Precision> SolverOptions)
+{
+	int LocalThreadID_GPU = threadIdx.x;
+	int GlobalSystemID    = blockIdx.x;
+	int GlobalThreadID_Logical;
+	int UnitID;
+	int GlobalMemoryID;
+	
+	int SizeOfActualState = ThreadConfiguration.TotalLogicalThreads*UD;
+	
+	for (int BL=0; BL<NBL; BL++)
+	{
+		UnitID = LocalThreadID_GPU + BL*blockDim.x;
+		GlobalThreadID_Logical = GlobalSystemID*(ThreadConfiguration.LogicalThreadsPerBlock+ThreadConfiguration.ThreadPaddingPerBlock) + UnitID;
+		
+		if ( ( UnitID < UPS ) && ( s_UpdateDenseOutput == 1 ) )
+		{
+			for (int i=0; i<UD; i++)
+			{
+				GlobalMemoryID = GlobalThreadID_Logical + i*ThreadConfiguration.TotalLogicalThreads + s_DenseOutputIndex*SizeOfActualState;
+				
+				d_DenseOutputStates[GlobalMemoryID] = r_ActualState[BL][i];
+			}
+			
+			if ( UnitID == 0 )
+			{
+				GlobalMemoryID = GlobalSystemID + s_DenseOutputIndex*NS;
+				d_DenseOutputTimeInstances[GlobalMemoryID] = s_ActualTime;
+			}
+		}
+		
+	}
+	__syncthreads();
+	
+	if ( threadIdx.x == 0 )
+	{
+		if ( s_UpdateDenseOutput == 1 )
+		{
+			s_DenseOutputIndex++;
+			s_NumberOfSkippedStores = 0;
+			s_DenseOutputActualTime = MPGOS::FMIN(s_ActualTime+SolverOptions.DenseOutputMinimumTimeStep, s_TimeDomain[1]);
+		}
+		
+		if ( ( s_UpdateDenseOutput == 0 ) && ( s_UpdateStep == 1 ) )
+			s_NumberOfSkippedStores++;
+	}
+	__syncthreads();
+}
+
+
+template <int NDO, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_DenseOutputStorageCondition(\
+			int       s_EndTimeDomainReached, \
+			int       s_UserDefinedTermination, \
+			int       s_UpdateStep, \
+			int&      s_UpdateDenseOutput, \
+			int       s_DenseOutputIndex, \
+			int       s_NumberOfSkippedStores, \
+			Precision s_DenseOutputActualTime, \
+			Precision s_ActualTime, \
+			Struct_SolverOptions<Precision> SolverOptions)
+{
+	if ( threadIdx.x == 0 )
+	{
+		if ( s_UpdateStep == 1 )
+		{
+			if ( ( s_DenseOutputIndex < NDO ) && ( s_DenseOutputActualTime < s_ActualTime ) && ( s_NumberOfSkippedStores >= (SolverOptions.DenseOutputSaveFrequency-1) ) )
+				s_UpdateDenseOutput = 1;
+			else
+				s_UpdateDenseOutput = 0;
+			
+			if ( ( s_DenseOutputIndex < NDO ) && ( ( s_EndTimeDomainReached == 1 ) || ( s_UserDefinedTermination == 1 ) ) )
+				s_UpdateDenseOutput = 1;
+		} else
+			s_UpdateDenseOutput = 0;
 	}
 	__syncthreads();
 }

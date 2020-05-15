@@ -1294,8 +1294,8 @@ template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, i
 template <typename T>
 T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int SerialNumber)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1 );
-	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   0, UPS-1);
+	BoundCheck("GetHost", "SystemNumber", SystemNumber, 0, NS-1 );
+	BoundCheck("GetHost", "UnitNumber",   UnitNumber,   0, UPS-1);
 	
 	int BlockID       = SystemNumber / SPB;
 	int LocalSystemID = SystemNumber % SPB;
@@ -1306,23 +1306,23 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 	switch (Variable)
 	{
 		case ActualState:
-			BoundCheck("SetHost", "ActualState", SerialNumber, 0, UD-1);
+			BoundCheck("GetHost", "ActualState", SerialNumber, 0, UD-1);
 			return (T)h_ActualState[GlobalMemoryID];
 		
 		case UnitParameters:
-			BoundCheck("SetHost", "UnitParameters", SerialNumber, 0, NUP-1);
+			BoundCheck("GetHost", "UnitParameters", SerialNumber, 0, NUP-1);
 			return (T)h_UnitParameters[GlobalMemoryID];
 		
 		case UnitAccessories:
-			BoundCheck("SetHost", "UnitAccessories", SerialNumber, 0, NUA-1);
+			BoundCheck("GetHost", "UnitAccessories", SerialNumber, 0, NUA-1);
 			return (T)h_UnitAccessories[GlobalMemoryID];
 		
 		case IntegerUnitAccessories:
-			BoundCheck("SetHost", "IntegerUnitAccessories", SerialNumber, 0, NiUA-1);
+			BoundCheck("GetHost", "IntegerUnitAccessories", SerialNumber, 0, NiUA-1);
 			return (T)h_IntegerUnitAccessories[GlobalMemoryID];
 		
 		default:
-			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
 			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
@@ -1334,7 +1334,7 @@ template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, i
 template <typename T>
 T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, ListOfVariables Variable, int SerialNumber)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1);
+	BoundCheck("GetHost", "SystemNumber", SystemNumber, 0, NS-1);
 	
 	int GlobalSystemID = SystemNumber;
 	int GlobalMemoryID = GlobalSystemID + SerialNumber*NS;
@@ -1342,35 +1342,35 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 	switch (Variable)
 	{
 		case TimeDomain:
-			BoundCheck("SetHost", "TimeDomain", SerialNumber, 0, 1);
+			BoundCheck("GetHost", "TimeDomain", SerialNumber, 0, 1);
 			return (T)h_TimeDomain[GlobalMemoryID];
 		
 		case ActualTime:
-			BoundCheck("SetHost", "ActualTime", SerialNumber, 0, 0);
+			BoundCheck("GetHost", "ActualTime", SerialNumber, 0, 0);
 			return (T)h_ActualTime[GlobalMemoryID];
 		
 		case SystemParameters:
-			BoundCheck("SetHost", "SystemParameters", SerialNumber, 0, NSP-1);
+			BoundCheck("GetHost", "SystemParameters", SerialNumber, 0, NSP-1);
 			return (T)h_SystemParameters[GlobalMemoryID];
 		
 		case SystemAccessories:
-			BoundCheck("SetHost", "SystemAccessories", SerialNumber, 0, NSA-1);
+			BoundCheck("GetHost", "SystemAccessories", SerialNumber, 0, NSA-1);
 			return (T)h_SystemAccessories[GlobalMemoryID];
 		
 		case IntegerSystemAccessories:
-			BoundCheck("SetHost", "IntegerSystemAccessories", SerialNumber, 0, NiSA-1);
+			BoundCheck("GetHost", "IntegerSystemAccessories", SerialNumber, 0, NiSA-1);
 			return (T)h_IntegerSystemAccessories[GlobalMemoryID];
 		
 		case DenseTime:
-			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, NDO-1);
+			BoundCheck("GetHost", "DenseTime", SerialNumber, 0, NDO-1);
 			return (T)h_DenseOutputTimeInstances[GlobalMemoryID];
 		
 		case CouplingStrength:
-			BoundCheck("SetHost", "CouplingStrength", SerialNumber, 0, NC-1);
+			BoundCheck("GetHost", "CouplingStrength", SerialNumber, 0, NC-1);
 			return (T)h_CouplingStrength[GlobalMemoryID];
 		
 		default:
-			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
 			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
@@ -1387,19 +1387,19 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 	switch (Variable)
 	{
 		case GlobalParameters:
-			BoundCheck("SetHost", "GlobalParameters", SerialNumber, 0, NGP-1);
+			BoundCheck("GetHost", "GlobalParameters", SerialNumber, 0, NGP-1);
 			return (T)h_GlobalParameters[GlobalMemoryID];
 		
 		case IntegerGlobalParameters:
-			BoundCheck("SetHost", "IntegerGlobalParameters", SerialNumber, 0, NiGP-1);
+			BoundCheck("GetHost", "IntegerGlobalParameters", SerialNumber, 0, NiGP-1);
 			return (T)h_IntegerGlobalParameters[GlobalMemoryID];
 		
 		case CouplingIndex:
-			BoundCheck("SetHost", "CouplingIndex", SerialNumber, 0, NC-1);
+			BoundCheck("GetHost", "CouplingIndex", SerialNumber, 0, NC-1);
 			return (T)h_CouplingIndex[GlobalMemoryID];
 		
 		default:
-			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
 			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
@@ -1411,9 +1411,9 @@ template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, i
 template <typename T>
 T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int CouplingNumber, ListOfVariables Variable, int Row, int Col)
 {
-	BoundCheck("SetHost", "CouplingNumber", CouplingNumber, 0, NC-1);
-	BoundCheck("SetHost", "Row", Row, 0, UPS-1);
-	BoundCheck("SetHost", "Col", Col, 0, UPS-1);
+	BoundCheck("GetHost", "CouplingNumber", CouplingNumber, 0, NC-1);
+	BoundCheck("GetHost", "Row", Row, 0, UPS-1);
+	BoundCheck("GetHost", "Col", Col, 0, UPS-1);
 	
 	int GlobalMemoryID = Row + Col*UPS + CouplingNumber*UPS*UPS;
 	
@@ -1423,7 +1423,7 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 			return (T)h_CouplingMatrixOriginal[GlobalMemoryID];
 		
 		default:
-			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
 			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
@@ -1435,7 +1435,7 @@ template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, i
 template <typename T>
 T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, ListOfVariables Variable)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1);
+	BoundCheck("GetHost", "SystemNumber", SystemNumber, 0, NS-1);
 	
 	int GlobalMemoryID = SystemNumber;
 	
@@ -1445,7 +1445,7 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 			return (T)h_DenseOutputIndex[GlobalMemoryID];
 		
 		default:
-			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
 			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
@@ -1457,10 +1457,10 @@ template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, i
 template <typename T>
 T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, int UnitNumber, ListOfVariables Variable, int ComponentNumber, int SerialNumber)
 {
-	BoundCheck("SetHost", "SystemNumber", SystemNumber, 0, NS-1 );
-	BoundCheck("SetHost", "UnitNumber",   UnitNumber,   0, UPS-1);
+	BoundCheck("GetHost", "SystemNumber", SystemNumber, 0, NS-1 );
+	BoundCheck("GetHost", "UnitNumber",   UnitNumber,   0, UPS-1);
 	
-	BoundCheck("SetHost", "ComponentNumber in dense state", ComponentNumber, 0, UD-1);
+	BoundCheck("GetHost", "ComponentNumber in dense state", ComponentNumber, 0, UD-1);
 	
 	int BlockID       = SystemNumber / SPB;
 	int LocalSystemID = SystemNumber % SPB;
@@ -1471,11 +1471,11 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 	switch (Variable)
 	{
 		case DenseState:
-			BoundCheck("SetHost", "DenseState", SerialNumber, 0, NDO-1);
+			BoundCheck("GetHost", "DenseState", SerialNumber, 0, NDO-1);
 			return (T)h_DenseOutputStates[GlobalMemoryID];
 		
 		default:
-			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
 			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
@@ -1907,6 +1907,8 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 	gpuErrCHK( cudaSetDevice(Device) );
 	
 	CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision><<<ThreadConfiguration.GridSize, ThreadConfiguration.BlockSize, DynamicSharedMemoryRequired, Stream>>> (ThreadConfiguration, GlobalVariables, SharedMemoryUsage, SolverOptions);
+	
+	//CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision><<<ThreadConfiguration.GridSize, ThreadConfiguration.BlockSize, DynamicSharedMemoryRequired, Stream>>> (ThreadConfiguration, GlobalVariables, SharedMemoryUsage, SolverOptions);
 }
 
 // SYNCHRONISE DEVICE
