@@ -18,7 +18,7 @@ using namespace std;
 // Physical control parameters
 const int NumberOfInitialConditionsX = 5; // Control parameter
 const int NumberOfInitialConditionsY = 5; // Control parameter
-const int NumberOfUnitsPerSystem = 45; // Number coupled units
+const int NumberOfUnitsPerSystem = 14; // Number coupled units
 
 // Solver Configuration
 #define TIMESTEP   1.0e-2
@@ -30,8 +30,8 @@ const int NumberOfUnitsPerSystem = 45; // Number coupled units
 const int NS   = NumberOfInitialConditionsX * NumberOfInitialConditionsY; // NumberOfSystems
 const int UPS  = NumberOfUnitsPerSystem;                // UnitsPerSystem
 const int UD   = 2;     // UnitDimension
-const int TPB  = 32;    // ThreadsPerBlock (integer multiple of the warp size that is 32)
-const int SPB  = 1;     // SystemsPerBlock
+const int TPB  = 64;    // ThreadsPerBlock (integer multiple of the warp size that is 32)
+const int SPB  = 4;     // SystemsPerBlock
 const int NC   = 2;     // NumberOfCouplings
 const int CBW  = 1;     // CouplingBandwidthRadius (0: full coupling matrix)
 const int CCI  = 1;     // CouplingCircularity (0: non-circular matrix, 1: circular matrix)

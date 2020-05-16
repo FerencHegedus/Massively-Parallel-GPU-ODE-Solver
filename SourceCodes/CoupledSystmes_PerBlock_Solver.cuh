@@ -355,6 +355,14 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 			SolverOptions);
 	}
 	
+	if ( ( threadIdx.x == 0 ) && ( blockIdx.x == 0 ) )
+	{
+		printf("s_TerminateSystemScope[0]: %d \n", s_TerminateSystemScope[0]);
+		printf("s_TerminateSystemScope[1]: %d \n", s_TerminateSystemScope[1]);
+		printf("s_TerminateSystemScope[2]: %d \n", s_TerminateSystemScope[2]);
+		printf("s_TerminateSystemScope[3]: %d \n", s_TerminateSystemScope[3]);
+		printf("s_TerminatedSystemsPerBlock: %d \n", s_TerminatedSystemsPerBlock);
+	}
 	
 	// SOLVER MANAGEMENT ------------------------------------------------------
 	while ( s_TerminatedSystemsPerBlock < SPB )
@@ -665,13 +673,13 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 				SolverOptions);
 		}
 		
-		// Chect termination
+		// Check termination
 		Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 		for (int j=0; j<Launches; j++)
 		{
 			LocalSystemID = threadIdx.x + j*blockDim.x;
 			
-			if ( LocalSystemID < SPB )
+			if ( ( LocalSystemID < SPB ) && ( s_UpdateStep[LocalSystemID] == 1 ) )
 			{
 				if ( ( s_EndTimeDomainReached[LocalSystemID] == 1 ) || ( s_UserDefinedTermination[LocalSystemID] == 1 ) )
 				{
