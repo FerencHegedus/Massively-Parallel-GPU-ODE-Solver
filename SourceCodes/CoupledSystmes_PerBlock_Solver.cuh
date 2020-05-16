@@ -335,8 +335,9 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 					&s_IntegerSystemAccessories[LocalSystemID][0]);
 			}
 		}
+		__syncthreads();
 	}
-	__syncthreads();
+	
 	
 	if ( NDO > 0 ) // Eliminated at compile time if NDO=0
 	{
@@ -355,14 +356,6 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 			SolverOptions);
 	}
 	
-	if ( ( threadIdx.x == 0 ) && ( blockIdx.x == 0 ) )
-	{
-		printf("s_TerminateSystemScope[0]: %d \n", s_TerminateSystemScope[0]);
-		printf("s_TerminateSystemScope[1]: %d \n", s_TerminateSystemScope[1]);
-		printf("s_TerminateSystemScope[2]: %d \n", s_TerminateSystemScope[2]);
-		printf("s_TerminateSystemScope[3]: %d \n", s_TerminateSystemScope[3]);
-		printf("s_TerminatedSystemsPerBlock: %d \n", s_TerminatedSystemsPerBlock);
-	}
 	
 	// SOLVER MANAGEMENT ------------------------------------------------------
 	while ( s_TerminatedSystemsPerBlock < SPB )
@@ -465,37 +458,37 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		
 		
 		// NEW EVENT VALUE AND TIME STEP CONTROL-------------------------------
-		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
-		{
-			LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
-			LocalSystemID         = LocalThreadID_Logical / UPS;
-			UnitID                = LocalThreadID_Logical % UPS;
-			GlobalSystemID        = LocalSystemID + BlockID*SPB;
-			
-			if ( ( NE > 0 ) && ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) ) // Eliminated at compile time if NE=0
-			{
-				CoupledSystems_PerBlock_EventFunction<Precision>(\
-					GlobalSystemID, \
-					UnitID, \
-					&r_NextEventValue[BL][0], \
-					s_ActualTime[LocalSystemID]+s_TimeStep[LocalSystemID], \
-					s_NewTimeStep[LocalSystemID], \
-					&s_TimeDomain[LocalSystemID][0], \
-					&r_NextState[BL][0], \
-					&r_UnitParameters[BL][0], \
-					&s_SystemParameters[LocalSystemID][0], \
-					gs_GlobalParameters, \
-					gs_IntegerGlobalParameters, \
-					&r_UnitAccessories[BL][0], \
-					&r_IntegerUnitAccessories[BL][0], \
-					&s_SystemAccessories[LocalSystemID][0], \
-					&s_IntegerSystemAccessories[LocalSystemID][0]);
-			}
-		}
-		__syncthreads();
-		
 		if ( NE > 0 ) // Eliminated at compile time if NE=0
 		{
+			for (int BL=0; BL<NumberOfBlockLaunches; BL++)
+			{
+				LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
+				LocalSystemID         = LocalThreadID_Logical / UPS;
+				UnitID                = LocalThreadID_Logical % UPS;
+				GlobalSystemID        = LocalSystemID + BlockID*SPB;
+				
+				if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
+				{
+					CoupledSystems_PerBlock_EventFunction<Precision>(\
+						GlobalSystemID, \
+						UnitID, \
+						&r_NextEventValue[BL][0], \
+						s_ActualTime[LocalSystemID]+s_TimeStep[LocalSystemID], \
+						s_NewTimeStep[LocalSystemID], \
+						&s_TimeDomain[LocalSystemID][0], \
+						&r_NextState[BL][0], \
+						&r_UnitParameters[BL][0], \
+						&s_SystemParameters[LocalSystemID][0], \
+						gs_GlobalParameters, \
+						gs_IntegerGlobalParameters, \
+						&r_UnitAccessories[BL][0], \
+						&r_IntegerUnitAccessories[BL][0], \
+						&s_SystemAccessories[LocalSystemID][0], \
+						&s_IntegerSystemAccessories[LocalSystemID][0]);
+				}
+			}
+			__syncthreads();
+			
 			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_EventTimeStepControl<NumberOfBlockLaunches, UPS, SPB, NE, Precision>(\
 				s_TimeStep, \
 				s_NewTimeStep, \
@@ -1105,8 +1098,8 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 					&s_IntegerSystemAccessories[0]);
 			}
 		}
+		__syncthreads();
 	}
-	__syncthreads();
 	
 	if ( NDO > 0 ) // Eliminated at compile time if NDO=0
 	{
@@ -1221,34 +1214,34 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 		
 		
 		// NEW EVENT VALUE AND TIME STEP CONTROL-------------------------------
-		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
-		{
-			UnitID = LocalThreadID_GPU + BL*blockDim.x;
-			
-			if ( ( NE > 0 ) && ( UnitID < UPS ) && ( s_TerminateSystemScope == 0 ) ) // Eliminated at compile time if NE=0
-			{
-				CoupledSystems_PerBlock_EventFunction<Precision>(\
-					GlobalSystemID, \
-					UnitID, \
-					&r_NextEventValue[BL][0], \
-					s_ActualTime+s_TimeStep, \
-					s_NewTimeStep, \
-					&s_TimeDomain[0], \
-					&r_NextState[BL][0], \
-					&r_UnitParameters[BL][0], \
-					&s_SystemParameters[0], \
-					gs_GlobalParameters, \
-					gs_IntegerGlobalParameters, \
-					&r_UnitAccessories[BL][0], \
-					&r_IntegerUnitAccessories[BL][0], \
-					&s_SystemAccessories[0], \
-					&s_IntegerSystemAccessories[0]);
-			}
-		}
-		__syncthreads();
-		
 		if ( NE > 0 ) // Eliminated at compile time if NE=0
 		{
+			for (int BL=0; BL<NumberOfBlockLaunches; BL++)
+			{
+				UnitID = LocalThreadID_GPU + BL*blockDim.x;
+				
+				if ( ( UnitID < UPS ) && ( s_TerminateSystemScope == 0 ) )
+				{
+					CoupledSystems_PerBlock_EventFunction<Precision>(\
+						GlobalSystemID, \
+						UnitID, \
+						&r_NextEventValue[BL][0], \
+						s_ActualTime+s_TimeStep, \
+						s_NewTimeStep, \
+						&s_TimeDomain[0], \
+						&r_NextState[BL][0], \
+						&r_UnitParameters[BL][0], \
+						&s_SystemParameters[0], \
+						gs_GlobalParameters, \
+						gs_IntegerGlobalParameters, \
+						&r_UnitAccessories[BL][0], \
+						&r_IntegerUnitAccessories[BL][0], \
+						&s_SystemAccessories[0], \
+						&s_IntegerSystemAccessories[0]);
+				}
+			}
+			__syncthreads();
+			
 			CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_EventTimeStepControl<NumberOfBlockLaunches, UPS, NE, Precision>(\
 				s_TimeStep, \
 				s_NewTimeStep, \
