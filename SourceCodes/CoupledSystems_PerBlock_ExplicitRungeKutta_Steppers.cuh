@@ -2,7 +2,7 @@
 #define COUPLEDSYSTEM_PERBLOCK_EXPLICITRUNGEKUTTA_STEPPERS_H
 
 template <int UPS, int SPB, int NC, int NCp, int CBW, int CCI, class Precision>
-__forceinline__ __device__ Precision ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches(\
+__forceinline__ __device__ Precision ComputeCouplingValue_MultipleSystems(\
 			Precision* gs_CouplingMatrix, \
 			Precision  s_CouplingTerms[SPB][UPS][NCp], \
 			int        LocalSystemID, \
@@ -10,7 +10,7 @@ __forceinline__ __device__ Precision ComputeCouplingValue_MultipleSystems_Multip
 			int        CouplingSerialNumber);
 
 template <int UPS, int NC, int NCp, int CBW, int CCI, class Precision>
-__forceinline__ __device__ Precision ComputeCouplingValue_SingleSystem_MultipleBlockLaunches(\
+__forceinline__ __device__ Precision ComputeCouplingValue_SingleSystem(\
 			Precision* gs_CouplingMatrix, \
 			Precision  s_CouplingTerms[UPS][NCp], \
 			int        UnitID, \
@@ -97,7 +97,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_NextState[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -162,7 +162,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -227,7 +227,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -295,7 +295,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -411,7 +411,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -476,7 +476,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage2[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -542,7 +542,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage3[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -609,7 +609,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage4[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -677,7 +677,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage5[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -746,7 +746,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 				r_Stage6[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -857,7 +857,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_NextState[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -915,7 +915,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -973,7 +973,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -1034,7 +1034,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -1140,7 +1140,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_Stage1[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -1198,7 +1198,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_Stage2[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -1257,7 +1257,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_Stage3[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -1317,7 +1317,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_Stage4[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -1378,7 +1378,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_Stage5[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -1440,7 +1440,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<NC; i++)
 			{
-				Precision CouplingValue = ComputeCouplingValue_SingleSystem_MultipleBlockLaunches<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
+				Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, UnitID, i);
 				r_Stage6[BL][ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[BL][i]*CouplingValue;
 			}
 		}
@@ -1536,7 +1536,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_NextState[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -1579,7 +1579,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_Stage1[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -1622,7 +1622,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_Stage1[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -1668,7 +1668,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_Stage1[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -1755,7 +1755,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_Stage1[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -1798,7 +1798,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_Stage2[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -1842,7 +1842,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_Stage3[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -1887,7 +1887,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_Stage4[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -1933,7 +1933,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_Stage5[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -1980,7 +1980,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<NC; i++)
 		{
-			Precision CouplingValue = ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
+			Precision CouplingValue = ComputeCouplingValue_MultipleSystems<UPS,SPB,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalSystemID, UnitID, i);
 			r_Stage6[ s_CouplingIndex[i] ] += s_CouplingStrength[LocalSystemID][i]*r_CouplingFactor[i]*CouplingValue;
 		}
 	}
@@ -2017,7 +2017,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 
 // COMPUTE COUPLING VALUES
 template <int UPS, int SPB, int NC, int NCp, int CBW, int CCI, class Precision>
-__forceinline__ __device__ Precision ComputeCouplingValue_MultipleSystems_MultipleBlockLaunches( \
+__forceinline__ __device__ Precision ComputeCouplingValue_MultipleSystems( \
 			Precision* gs_CouplingMatrix, \
 			Precision  s_CouplingTerms[SPB][UPS][NCp], \
 			int        LocalSystemID, \
@@ -2100,7 +2100,7 @@ __forceinline__ __device__ Precision ComputeCouplingValue_MultipleSystems_Multip
 
 
 template <int UPS, int NC, int NCp, int CBW, int CCI, class Precision>
-__forceinline__ __device__ Precision ComputeCouplingValue_SingleSystem_MultipleBlockLaunches( \
+__forceinline__ __device__ Precision ComputeCouplingValue_SingleSystem( \
 			Precision* gs_CouplingMatrix, \
 			Precision  s_CouplingTerms[UPS][NCp], \
 			int        UnitID, \
