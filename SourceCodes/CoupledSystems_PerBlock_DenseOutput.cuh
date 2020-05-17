@@ -308,4 +308,90 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	__syncthreads();
 }
 
+
+// SSSBL ----------------------------------------------------------------------
+template <int NS, int UPS, int UD, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch_StoreDenseOutput(\
+			const int  LocalThreadID, \
+			const int  GlobalThreadID, \
+			const int  GlobalSystemID, \
+			int        s_UpdateStep, \
+			int        s_UpdateDenseOutput, \
+			int&       s_DenseOutputIndex, \
+			int&       s_NumberOfSkippedStores, \
+			Precision* d_DenseOutputTimeInstances, \
+			Precision* d_DenseOutputStates, \
+			Precision& s_DenseOutputActualTime, \
+			Precision  s_ActualTime, \
+			Precision  r_ActualState[UD], \
+			Precision  s_TimeDomain[2], \
+			Struct_ThreadConfiguration ThreadConfiguration, \
+			Struct_SolverOptions<Precision> SolverOptions)
+{
+	int GlobalMemoryID;
+	
+	int SizeOfActualState = ThreadConfiguration.TotalLogicalThreads*UD;
+	
+	if ( ( LocalThreadID < UPS ) && ( s_UpdateDenseOutput == 1 ) )
+	{
+		for (int i=0; i<UD; i++)
+		{
+			GlobalMemoryID = GlobalThreadID + i*ThreadConfiguration.TotalLogicalThreads + s_DenseOutputIndex*SizeOfActualState;
+			
+			d_DenseOutputStates[GlobalMemoryID] = r_ActualState[i];
+		}
+		
+		if ( LocalThreadID == 0 )
+		{
+			GlobalMemoryID = GlobalSystemID + s_DenseOutputIndex*NS;
+			d_DenseOutputTimeInstances[GlobalMemoryID] = s_ActualTime;
+		}
+	}
+	__syncthreads();
+	
+	if ( threadIdx.x == 0 )
+	{
+		if ( s_UpdateDenseOutput == 1 )
+		{
+			s_DenseOutputIndex++;
+			s_NumberOfSkippedStores = 0;
+			s_DenseOutputActualTime = MPGOS::FMIN(s_ActualTime+SolverOptions.DenseOutputMinimumTimeStep, s_TimeDomain[1]);
+		}
+		
+		if ( ( s_UpdateDenseOutput == 0 ) && ( s_UpdateStep == 1 ) )
+			s_NumberOfSkippedStores++;
+	}
+	__syncthreads();
+}
+
+
+template <int NDO, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch_DenseOutputStorageCondition(\
+			int       s_EndTimeDomainReached, \
+			int       s_UserDefinedTermination, \
+			int       s_UpdateStep, \
+			int&      s_UpdateDenseOutput, \
+			int       s_DenseOutputIndex, \
+			int       s_NumberOfSkippedStores, \
+			Precision s_DenseOutputActualTime, \
+			Precision s_ActualTime, \
+			Struct_SolverOptions<Precision> SolverOptions)
+{
+	if ( threadIdx.x == 0 )
+	{
+		if ( s_UpdateStep == 1 )
+		{
+			if ( ( s_DenseOutputIndex < NDO ) && ( s_DenseOutputActualTime < s_ActualTime ) && ( s_NumberOfSkippedStores >= (SolverOptions.DenseOutputSaveFrequency-1) ) )
+				s_UpdateDenseOutput = 1;
+			else
+				s_UpdateDenseOutput = 0;
+			
+			if ( ( s_DenseOutputIndex < NDO ) && ( ( s_EndTimeDomainReached == 1 ) || ( s_UserDefinedTermination == 1 ) ) )
+				s_UpdateDenseOutput = 1;
+		} else
+			s_UpdateDenseOutput = 0;
+	}
+	__syncthreads();
+}
+
 #endif

@@ -2012,6 +2012,538 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 }
 
 
+// SSSBL ----------------------------------------------------------------------
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCp, int CBW, int CCI, int NUP, int NSPp, int NGP, int NiGP, int NUA, int NiUA, int NSAp, int NiSAp, int NE, int NDO, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch_Stepper_RK4( \
+			const int  LocalThreadID, \
+			const int  GlobalSystemID, \
+			Precision  r_ActualState[UD], \
+			Precision  r_NextState[UD], \
+			Precision  s_ActualTime, \
+			Precision  s_TimeStep, \
+			int&       s_IsFinite, \
+			Precision  r_UnitParameters[(NUP==0?1:NUP)], \
+			Precision  s_SystemParameters[(NSPp==0?1:NSPp)], \
+			Precision* gs_GlobalParameters, \
+			int*       gs_IntegerGlobalParameters, \
+			Precision  r_UnitAccessories[(NUA==0?1:NUA)], \
+			int        r_IntegerUnitAccessories[(NiUA==0?1:NiUA)], \
+			Precision  s_SystemAccessories[(NSAp==0?1:NSAp)], \
+			int        s_IntegerSystemAccessories[(NiSAp==0?1:NiSAp)], \
+			Precision  s_CouplingTerms[UPS][NCp], \
+			Precision  r_CouplingFactor[NC], \
+			Precision* gs_CouplingMatrix, \
+			Precision  s_CouplingStrength[NCp], \
+			int        s_CouplingIndex[NCp])
+{
+	// MEMORY MANAGEMENT ------------------------------------------------------
+	__shared__ Precision s_Time;
+	
+	Precision r_State[UD];
+	Precision r_Stage1[UD];
+	
+	
+	// K1 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_NextState[0], \
+			&r_ActualState[0], \
+			s_ActualTime, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_NextState[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// K2 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+			r_State[i] = r_ActualState[i] + r_NextState[i] * 0.5*s_TimeStep;
+		
+		if ( LocalThreadID == 0 )
+			s_Time = s_ActualTime + 0.5*s_TimeStep;
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_Stage1[0], \
+			&r_State[0], \
+			s_Time, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_Stage1[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// K3 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+		{
+			r_NextState[i] += 2*r_Stage1[i];
+			r_State[i] = r_ActualState[i] + r_Stage1[i]*0.5*s_TimeStep;
+		}
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_Stage1[0], \
+			&r_State[0], \
+			s_Time, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_Stage1[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// K4 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+		{
+			r_NextState[i] += 2*r_Stage1[i];
+			r_State[i] = r_ActualState[i] + r_Stage1[i]*s_TimeStep;
+		}
+		
+		if ( LocalThreadID == 0 )
+			s_Time = s_ActualTime + s_TimeStep;
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_Stage1[0], \
+			&r_State[0], \
+			s_Time, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_Stage1[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// NEW STATE --------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+		{
+			r_NextState[i] = r_ActualState[i] + s_TimeStep*( r_NextState[i] + r_Stage1[i] )*(1.0/6.0);
+			
+			if ( isfinite( r_NextState[i] ) == 0 )
+				s_IsFinite = 0;
+		}
+	}
+	__syncthreads();
+}
+
+
+// ----------------------------------------------------------------------------
+template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int NCp, int CBW, int CCI, int NUP, int NSPp, int NGP, int NiGP, int NUA, int NiUA, int NSAp, int NiSAp, int NE, int NDO, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch_Stepper_RKCK45(\
+			const int  LocalThreadID, \
+			const int  GlobalSystemID, \
+			Precision  r_ActualState[UD], \
+			Precision  r_NextState[UD], \
+			Precision  s_ActualTime, \
+			Precision  s_TimeStep, \
+			int&       s_IsFinite, \
+			Precision  r_Error[UD], \
+			Precision  r_UnitParameters[(NUP==0?1:NUP)], \
+			Precision  s_SystemParameters[(NSPp==0?1:NSPp)], \
+			Precision* gs_GlobalParameters, \
+			int*       gs_IntegerGlobalParameters, \
+			Precision  r_UnitAccessories[(NUA==0?1:NUA)], \
+			int        r_IntegerUnitAccessories[(NiUA==0?1:NiUA)], \
+			Precision  s_SystemAccessories[(NSAp==0?1:NSAp)], \
+			int        s_IntegerSystemAccessories[(NiSAp==0?1:NiSAp)], \
+			Precision  s_CouplingTerms[UPS][NCp], \
+			Precision  r_CouplingFactor[NC], \
+			Precision* gs_CouplingMatrix, \
+			Precision  s_CouplingStrength[NCp], \
+			int        s_CouplingIndex[NCp])
+{
+	// MEMORY MANAGEMENT ------------------------------------------------------
+	__shared__ Precision s_Time;
+	
+	Precision r_State[UD];
+	
+	Precision r_Stage1[UD];
+	Precision r_Stage2[UD];
+	Precision r_Stage3[UD];
+	Precision r_Stage4[UD];
+	Precision r_Stage5[UD];
+	Precision r_Stage6[UD];
+	
+	
+	// K1 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_Stage1[0], \
+			&r_ActualState[0], \
+			s_ActualTime, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_Stage1[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// K2 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+			r_State[i] = r_ActualState[i] + ( r_Stage1[i] * static_cast<Precision>(1.0/5.0) ) * s_TimeStep;
+		
+		if ( LocalThreadID == 0 )
+			s_Time = s_ActualTime + static_cast<Precision>(1.0/5.0)*s_TimeStep;
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_Stage2[0], \
+			&r_State[0], \
+			s_Time, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_Stage2[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// K3 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+			r_State[i] = r_ActualState[i] + ( r_Stage1[i] * static_cast<Precision>(3.0/40.0) + \
+                                              r_Stage2[i] * static_cast<Precision>(9.0/40.0) ) * s_TimeStep;
+		
+		if ( LocalThreadID == 0 )
+			s_Time = s_ActualTime + static_cast<Precision>(3.0/10.0)*s_TimeStep;
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_Stage3[0], \
+			&r_State[0], \
+			s_Time, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_Stage3[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// K4 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+			r_State[i] = r_ActualState[i] + ( r_Stage1[i] * static_cast<Precision>(3.0/10.0) + \
+                                              r_Stage2[i] * static_cast<Precision>(-9.0/10.0) + \
+											  r_Stage3[i] * static_cast<Precision>(6.0/5.0) ) * s_TimeStep;
+		
+		if ( LocalThreadID == 0 )
+			s_Time = s_ActualTime + static_cast<Precision>(3.0/5.0)*s_TimeStep;
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_Stage4[0], \
+			&r_State[0], \
+			s_Time, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_Stage4[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// K5 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+			r_State[i] = r_ActualState[i] + ( r_Stage1[i] * static_cast<Precision>(-11.0/54.0) + \
+                                              r_Stage2[i] * static_cast<Precision>(5.0/2.0) + \
+											  r_Stage3[i] * static_cast<Precision>(-70.0/27.0) + \
+											  r_Stage4[i] * static_cast<Precision>(35.0/27.0) ) * s_TimeStep;
+		
+		if ( LocalThreadID == 0 )
+			s_Time = s_ActualTime + s_TimeStep;
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_Stage5[0], \
+			&r_State[0], \
+			s_Time, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_Stage5[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// K6 ---------------------------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+			r_State[i] = r_ActualState[i] + ( r_Stage1[i] * static_cast<Precision>(1631.0/55296.0) + \
+                                              r_Stage2[i] * static_cast<Precision>(175.0/512.0) + \
+											  r_Stage3[i] * static_cast<Precision>(575.0/13824.0) + \
+											  r_Stage4[i] * static_cast<Precision>(44275.0/110592.0) + \
+											  r_Stage5[i] * static_cast<Precision>(253.0/4096.0) ) * s_TimeStep;
+		
+		if ( LocalThreadID == 0 )
+			s_Time = s_ActualTime + static_cast<Precision>(7.0/8.0)*s_TimeStep;
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		CoupledSystems_PerBlock_OdeFunction<Precision>(\
+			GlobalSystemID, \
+			LocalThreadID, \
+			&r_Stage6[0], \
+			&r_State[0], \
+			s_Time, \
+			&r_UnitParameters[0], \
+			&s_SystemParameters[0], \
+			gs_GlobalParameters, \
+			gs_IntegerGlobalParameters, \
+			&r_UnitAccessories[0], \
+			&r_IntegerUnitAccessories[0], \
+			&s_SystemAccessories[0], \
+			&s_IntegerSystemAccessories[0], \
+			&s_CouplingTerms[LocalThreadID][0], \
+			&r_CouplingFactor[0]);
+	}
+	__syncthreads();
+	
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<NC; i++)
+		{
+			Precision CouplingValue = ComputeCouplingValue_SingleSystem<UPS,NC,NCp,CBW,CCI,Precision>(gs_CouplingMatrix, s_CouplingTerms, LocalThreadID, i);
+			r_Stage6[ s_CouplingIndex[i] ] += s_CouplingStrength[i]*r_CouplingFactor[i]*CouplingValue;
+		}
+	}
+	__syncthreads();
+	
+	
+	// NEW STATE AND ERROR ----------------------------------------------------
+	if ( LocalThreadID < UPS )
+	{
+		for (int i=0; i<UD; i++)
+		{
+			r_NextState[i] = r_ActualState[i] + ( r_Stage1[i] * static_cast<Precision>(37.0/378.0) + \
+                                                  r_Stage3[i] * static_cast<Precision>(250.0/621.0) + \
+											      r_Stage4[i] * static_cast<Precision>(125.0/594.0) + \
+											      r_Stage6[i] * static_cast<Precision>(512.0/1771.0) ) * s_TimeStep;
+			
+			r_Error[i] = r_Stage1[i] * ( static_cast<Precision>(  37.0/378.0  -  2825.0/27648.0 ) ) + \
+                         r_Stage3[i] * ( static_cast<Precision>( 250.0/621.0  - 18575.0/48384.0 ) ) + \
+						 r_Stage4[i] * ( static_cast<Precision>( 125.0/594.0  - 13525.0/55296.0 ) ) + \
+						 r_Stage5[i] * ( static_cast<Precision>(   0.0        -   277.0/14336.0 ) ) + \
+						 r_Stage6[i] * ( static_cast<Precision>( 512.0/1771.0 -     1.0/4.0 ) );
+			r_Error[i] = s_TimeStep*abs( r_Error[i] ) + 1e-18;
+			
+			if ( ( isfinite( r_NextState[i] ) == 0 ) || ( isfinite( r_Error[i] ) == 0 ) )
+				s_IsFinite = 0;
+		}
+	}
+	__syncthreads();
+}
+
+
 // --- AUXILIARY FUNCTIONS ---
 
 

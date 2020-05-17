@@ -212,6 +212,59 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 }
 
 
-
+template <int UPS, int NE, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch_EventTimeStepControl(\
+			const int  GlobalSystemID, \
+			const int  LocalThreadID, \
+			Precision  s_TimeStep, \
+			Precision& s_NewTimeStep, \
+			int        s_TerminateSystemScope, \
+			int&       s_UpdateStep, \
+			Precision  r_ActualEventValue[(NE==0?1:NE)], \
+			Precision  r_NextEventValue[(NE==0?1:NE)], \
+			Precision* s_EventTolerance, \
+			int*       s_EventDirection, \
+			Precision  MinimumTimeStep)
+{
+	__shared__ Precision s_EventTimeStep;
+	__shared__ int       s_IsCorrected;
+	
+	// Event time step initialisation
+	if ( threadIdx.x == 0 )
+	{
+		s_EventTimeStep = s_TimeStep;
+		s_IsCorrected   = 0;
+	}
+	__syncthreads();
+	
+	// Event time step correction
+	if ( ( LocalThreadID < UPS ) && ( s_UpdateStep == 1 ) && ( s_TerminateSystemScope == 0 ) )
+	{
+		for (int i=0; i<NE; i++)
+		{
+			if ( ( ( r_ActualEventValue[i] >  s_EventTolerance[i] ) && ( r_NextEventValue[i] < -s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
+			     ( ( r_ActualEventValue[i] < -s_EventTolerance[i] ) && ( r_NextEventValue[i] >  s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
+			{
+				MPGOS::atomicMIN(&s_EventTimeStep, -r_ActualEventValue[i] / (r_NextEventValue[i]-r_ActualEventValue[i]) * s_TimeStep);
+				atomicMax(&s_IsCorrected, 1);
+			}
+		}
+	}
+	__syncthreads();
+	
+	// Corrected time step and modified update
+	if ( ( threadIdx.x == 0 ) && ( s_IsCorrected == 1 ) )
+	{
+		if ( s_EventTimeStep < MinimumTimeStep )
+		{
+			printf("Warning: Event cannot be detected without reducing the step size below the minimum! Event detection omitted!, (global system id: %d)\n", GlobalSystemID);
+		} else
+		{
+			s_NewTimeStep = s_EventTimeStep;
+			s_UpdateStep  = 0;
+		}
+	}
+	__syncthreads();
+}
 
 #endif
