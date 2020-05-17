@@ -27,12 +27,12 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 	for (int j=0; j<Launches; j++)
 	{
-		LocalSystemID = threadIdx.x + j*blockDim.x;
+		int lsid = threadIdx.x + j*blockDim.x;
 		
-		if ( LocalSystemID < SPB )
+		if ( lsid < SPB )
 		{
-			s_EventTimeStep[LocalSystemID] = s_TimeStep[LocalSystemID];
-			s_IsCorrected[LocalSystemID]   = 0;
+			s_EventTimeStep[lsid] = s_TimeStep[lsid];
+			s_IsCorrected[lsid]   = 0;
 		}
 	}
 	__syncthreads();
@@ -61,18 +61,18 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 	// Corrected time step and modified update
 	for (int j=0; j<Launches; j++)
 	{
-		LocalSystemID  = threadIdx.x   + j*blockDim.x;
-		GlobalSystemID = LocalSystemID + BlockID*SPB;
+		int lsid = threadIdx.x + j*blockDim.x;
+		int gsid = lsid + blockIdx.x*SPB;
 		
-		if ( ( LocalSystemID < SPB ) && ( s_IsCorrected[LocalSystemID] == 1 ) )
+		if ( ( lsid < SPB ) && ( s_IsCorrected[lsid] == 1 ) )
 		{
-			if ( s_EventTimeStep[LocalSystemID] < MinimumTimeStep )
+			if ( s_EventTimeStep[lsid] < MinimumTimeStep )
 			{
-				printf("Warning: Event cannot be detected without reducing the step size below the minimum! Event detection omitted!, (global system id: %d)\n", GlobalSystemID);
+				printf("Warning: Event cannot be detected without reducing the step size below the minimum! Event detection omitted!, (global system id: %d)\n", gsid);
 			} else
 			{
-				s_NewTimeStep[LocalSystemID] = s_EventTimeStep[LocalSystemID];
-				s_UpdateStep[LocalSystemID]  = 0;
+				s_NewTimeStep[lsid] = s_EventTimeStep[lsid];
+				s_UpdateStep[lsid]  = 0;
 			}
 		}
 	}

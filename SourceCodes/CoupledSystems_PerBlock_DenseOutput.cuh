@@ -59,19 +59,19 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 	for (int j=0; j<Launches; j++)
 	{
-		LocalSystemID = threadIdx.x + j*blockDim.x;
+		int lsid = threadIdx.x + j*blockDim.x;
 		
-		if ( LocalSystemID < SPB )
+		if ( lsid < SPB )
 		{
-			if ( s_UpdateDenseOutput[LocalSystemID] == 1 )
+			if ( s_UpdateDenseOutput[lsid] == 1 )
 			{
-				s_DenseOutputIndex[LocalSystemID]++;
-				s_NumberOfSkippedStores[LocalSystemID] = 0;
-				s_DenseOutputActualTime[LocalSystemID] = MPGOS::FMIN(s_ActualTime[LocalSystemID]+SolverOptions.DenseOutputMinimumTimeStep, s_TimeDomain[LocalSystemID][1]);
+				s_DenseOutputIndex[lsid]++;
+				s_NumberOfSkippedStores[lsid] = 0;
+				s_DenseOutputActualTime[lsid] = MPGOS::FMIN(s_ActualTime[lsid]+SolverOptions.DenseOutputMinimumTimeStep, s_TimeDomain[lsid][1]);
 			}
 			
-			if ( ( s_UpdateDenseOutput[LocalSystemID] == 0 ) && ( s_UpdateStep[LocalSystemID] == 1 ) )
-				s_NumberOfSkippedStores[LocalSystemID]++;
+			if ( ( s_UpdateDenseOutput[lsid] == 0 ) && ( s_UpdateStep[lsid] == 1 ) )
+				s_NumberOfSkippedStores[lsid]++;
 		}
 	}
 	__syncthreads();
@@ -90,26 +90,24 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			Precision* s_ActualTime, \
 			Struct_SolverOptions<Precision> SolverOptions)
 {
-	int LocalSystemID;
-	
 	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 	for (int j=0; j<Launches; j++)
 	{
-		LocalSystemID  = threadIdx.x + j*blockDim.x;
+		int lsid = threadIdx.x + j*blockDim.x;
 		
-		if ( LocalSystemID < SPB )
+		if ( lsid < SPB )
 		{
-			if ( s_UpdateStep[LocalSystemID] == 1 )
+			if ( s_UpdateStep[lsid] == 1 )
 			{
-				if ( ( s_DenseOutputIndex[LocalSystemID] < NDO ) && ( s_DenseOutputActualTime[LocalSystemID] < s_ActualTime[LocalSystemID] ) && ( s_NumberOfSkippedStores[LocalSystemID] >= (SolverOptions.DenseOutputSaveFrequency-1) ) )
-					s_UpdateDenseOutput[LocalSystemID] = 1;
+				if ( ( s_DenseOutputIndex[lsid] < NDO ) && ( s_DenseOutputActualTime[lsid] < s_ActualTime[lsid] ) && ( s_NumberOfSkippedStores[lsid] >= (SolverOptions.DenseOutputSaveFrequency-1) ) )
+					s_UpdateDenseOutput[lsid] = 1;
 				else
-					s_UpdateDenseOutput[LocalSystemID] = 0;
+					s_UpdateDenseOutput[lsid] = 0;
 				
-				if ( ( s_DenseOutputIndex[LocalSystemID] < NDO ) && ( ( s_EndTimeDomainReached[LocalSystemID] == 1 ) || ( s_UserDefinedTermination[LocalSystemID] == 1 ) ) )
-					s_UpdateDenseOutput[LocalSystemID] = 1;
+				if ( ( s_DenseOutputIndex[lsid] < NDO ) && ( ( s_EndTimeDomainReached[lsid] == 1 ) || ( s_UserDefinedTermination[lsid] == 1 ) ) )
+					s_UpdateDenseOutput[lsid] = 1;
 			} else
-				s_UpdateDenseOutput[LocalSystemID] = 0;
+				s_UpdateDenseOutput[lsid] = 0;
 		}
 	}
 	__syncthreads();

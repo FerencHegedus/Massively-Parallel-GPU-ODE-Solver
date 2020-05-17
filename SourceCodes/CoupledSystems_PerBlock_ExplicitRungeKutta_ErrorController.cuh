@@ -11,28 +11,25 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			int&       s_TerminatedSystemsPerBlock, \
 			int*       s_UpdateStep)
 {
-	int LocalSystemID;
-	int GlobalSystemID;
-	
 	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 	for (int j=0; j<Launches; j++)
 	{
-		LocalSystemID = threadIdx.x + j*blockDim.x;
-		GlobalSystemID = LocalSystemID + blockIdx.x*SPB;
+		int lsid = threadIdx.x + j*blockDim.x;
+		int gsid = lsid + blockIdx.x*SPB;
 		
-		if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
+		if ( ( lsid < SPB ) && ( s_TerminateSystemScope[lsid] == 0 ) )
 		{
-			if ( s_IsFinite[LocalSystemID] == 0 )
+			if ( s_IsFinite[lsid] == 0 )
 			{
-				printf("Error: State is not a finite number. Try to use smaller step size. (global system id: %d)\n", GlobalSystemID);
+				printf("Error: State is not a finite number. Try to use smaller step size. (global system id: %d)\n", gsid);
 				
-				s_TerminateSystemScope[LocalSystemID] = 1;
+				s_TerminateSystemScope[lsid] = 1;
 				atomicAdd(&s_TerminatedSystemsPerBlock, 1);
 				
-				s_UpdateStep[LocalSystemID]           = 0;
+				s_UpdateStep[lsid]           = 0;
 			}
 			
-			s_NewTimeStep[LocalSystemID] = InitialTimeStep;
+			s_NewTimeStep[lsid] = InitialTimeStep;
 		}
 	}
 	__syncthreads();
@@ -71,10 +68,10 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 	for (int j=0; j<Launches; j++)
 	{
-		LocalSystemID = threadIdx.x + j*blockDim.x;
+		int lsid = threadIdx.x + j*blockDim.x;
 		
-		if ( LocalSystemID < SPB )
-			s_RelativeError[LocalSystemID] = 1e30;
+		if ( lsid < SPB )
+			s_RelativeError[lsid] = 1e30;
 	}
 	__syncthreads();
 	
@@ -107,49 +104,49 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 	Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 	for (int j=0; j<Launches; j++)
 	{
-		LocalSystemID  = threadIdx.x + j*blockDim.x;
-		GlobalSystemID = LocalSystemID  + BlockID*SPB;
+		int lsid = threadIdx.x + j*blockDim.x;
+		int gsid = lsid + blockIdx.x*SPB;
 		
-		if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
+		if ( ( lsid < SPB ) && ( s_TerminateSystemScope[lsid] == 0 ) )
 		{
 			// Base time step multiplicator
-			if ( s_UpdateStep[LocalSystemID] == 1 )
-				s_TimeStepMultiplicator[LocalSystemID] = 0.8 * pow(s_RelativeError[LocalSystemID], (1.0/5.0) ); // 1.0/5.0
+			if ( s_UpdateStep[lsid] == 1 )
+				s_TimeStepMultiplicator[lsid] = 0.8 * pow(s_RelativeError[lsid], (1.0/5.0) ); // 1.0/5.0
 			else
-				s_TimeStepMultiplicator[LocalSystemID] = 0.8 * pow(s_RelativeError[LocalSystemID], (1.0/4.0) ); // 1.0/4.0
+				s_TimeStepMultiplicator[lsid] = 0.8 * pow(s_RelativeError[lsid], (1.0/4.0) ); // 1.0/4.0
 			
-			if ( isfinite(s_TimeStepMultiplicator[LocalSystemID]) == 0 )
-				s_IsFinite[LocalSystemID] = 0;
+			if ( isfinite(s_TimeStepMultiplicator[lsid]) == 0 )
+				s_IsFinite[lsid] = 0;
 			
 			// Check finiteness
-			if ( s_IsFinite[LocalSystemID] == 0 )
+			if ( s_IsFinite[lsid] == 0 )
 			{
-				s_TimeStepMultiplicator[LocalSystemID] = SolverOptions.TimeStepShrinkLimit;
-				s_UpdateStep[LocalSystemID] = 0;
+				s_TimeStepMultiplicator[lsid] = SolverOptions.TimeStepShrinkLimit;
+				s_UpdateStep[lsid] = 0;
 				
-				if ( s_TimeStep[LocalSystemID] < (SolverOptions.MinimumTimeStep*1.01) )
+				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*1.01) )
 				{
-					printf("Error: State is not a finite number, minimum step size reached. Try to use less stringent tolerances. (global system id: %d)\n", GlobalSystemID);
-					s_TerminateSystemScope[LocalSystemID] = 1;
+					printf("Error: State is not a finite number, minimum step size reached. Try to use less stringent tolerances. (global system id: %d)\n", gsid);
+					s_TerminateSystemScope[lsid] = 1;
 					atomicAdd(&s_TerminatedSystemsPerBlock, 1);
 				}
 			} else
 			{
-				if ( s_TimeStep[LocalSystemID] < (SolverOptions.MinimumTimeStep*1.01) )
+				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*1.01) )
 				{
-					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed! (global system id: %d, time step: %+6.5e, TSM: %+6.3e \n", GlobalSystemID, SolverOptions.MinimumTimeStep, s_TimeStepMultiplicator[LocalSystemID]);
-					s_UpdateStep[LocalSystemID] = 1;
+					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed! (global system id: %d, time step: %+6.5e, TSM: %+6.3e \n", gsid, SolverOptions.MinimumTimeStep, s_TimeStepMultiplicator[lsid]);
+					s_UpdateStep[lsid] = 1;
 				}
 			}
 			
 			// Time step and its growth limits
-			s_TimeStepMultiplicator[LocalSystemID] = MPGOS::FMIN(s_TimeStepMultiplicator[LocalSystemID], SolverOptions.TimeStepGrowLimit);
-			s_TimeStepMultiplicator[LocalSystemID] = MPGOS::FMAX(s_TimeStepMultiplicator[LocalSystemID], SolverOptions.TimeStepShrinkLimit);
+			s_TimeStepMultiplicator[lsid] = MPGOS::FMIN(s_TimeStepMultiplicator[lsid], SolverOptions.TimeStepGrowLimit);
+			s_TimeStepMultiplicator[lsid] = MPGOS::FMAX(s_TimeStepMultiplicator[lsid], SolverOptions.TimeStepShrinkLimit);
 			
-			s_NewTimeStep[LocalSystemID] = s_TimeStep[LocalSystemID] * s_TimeStepMultiplicator[LocalSystemID];
+			s_NewTimeStep[lsid] = s_TimeStep[lsid] * s_TimeStepMultiplicator[lsid];
 			
-			s_NewTimeStep[LocalSystemID] = MPGOS::FMIN(s_NewTimeStep[LocalSystemID], SolverOptions.MaximumTimeStep);
-			s_NewTimeStep[LocalSystemID] = MPGOS::FMAX(s_NewTimeStep[LocalSystemID], SolverOptions.MinimumTimeStep);
+			s_NewTimeStep[lsid] = MPGOS::FMIN(s_NewTimeStep[lsid], SolverOptions.MaximumTimeStep);
+			s_NewTimeStep[lsid] = MPGOS::FMAX(s_NewTimeStep[lsid], SolverOptions.MinimumTimeStep);
 		}
 	}
 	__syncthreads();

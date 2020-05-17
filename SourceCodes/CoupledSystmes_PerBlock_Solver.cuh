@@ -87,66 +87,66 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 	for (int j=0; j<Launches; j++)
 	{
-		LocalSystemID  = threadIdx.x   + j*blockDim.x;
-		GlobalSystemID = LocalSystemID + BlockID*SPB;
+		int lsid = threadIdx.x + j*blockDim.x;
+		int gsid = lsid + blockIdx.x*SPB;
 		
-		if ( ( LocalSystemID < SPB ) && ( GlobalSystemID < SolverOptions.ActiveSystems ) && ( GlobalSystemID < NS ) )
+		if ( ( lsid < SPB ) && ( gsid < SolverOptions.ActiveSystems ) && ( gsid < NS ) )
 		{
 			for (int i=0; i<2; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				s_TimeDomain[LocalSystemID][i] = GlobalVariables.d_TimeDomain[GlobalMemoryID];
+				GlobalMemoryID = gsid + i*NS;
+				s_TimeDomain[lsid][i] = GlobalVariables.d_TimeDomain[GlobalMemoryID];
 				
 				if ( i==0 )
 				{
-					s_ActualTime[LocalSystemID]  = s_TimeDomain[LocalSystemID][i];
-					s_TimeStep[LocalSystemID]    = SolverOptions.InitialTimeStep;
-					s_NewTimeStep[LocalSystemID] = SolverOptions.InitialTimeStep;
+					s_ActualTime[lsid]  = s_TimeDomain[lsid][i];
+					s_TimeStep[lsid]    = SolverOptions.InitialTimeStep;
+					s_NewTimeStep[lsid] = SolverOptions.InitialTimeStep;
 				}
 			}
 			
 			for (int i=0; i<NSP; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				s_SystemParameters[LocalSystemID][i] = GlobalVariables.d_SystemParameters[GlobalMemoryID];
+				GlobalMemoryID = gsid + i*NS;
+				s_SystemParameters[lsid][i] = GlobalVariables.d_SystemParameters[GlobalMemoryID];
 			}
 			
 			for (int i=0; i<NSA; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				s_SystemAccessories[LocalSystemID][i] = GlobalVariables.d_SystemAccessories[GlobalMemoryID];
+				GlobalMemoryID = gsid + i*NS;
+				s_SystemAccessories[lsid][i] = GlobalVariables.d_SystemAccessories[GlobalMemoryID];
 			}
 			
 			for (int i=0; i<NiSA; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				s_IntegerSystemAccessories[LocalSystemID][i] = GlobalVariables.d_IntegerSystemAccessories[GlobalMemoryID];
+				GlobalMemoryID = gsid + i*NS;
+				s_IntegerSystemAccessories[lsid][i] = GlobalVariables.d_IntegerSystemAccessories[GlobalMemoryID];
 			}
 			
 			for (int i=0; i<NC; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				s_CouplingStrength[LocalSystemID][i] = GlobalVariables.d_CouplingStrength[GlobalMemoryID];
+				GlobalMemoryID = gsid + i*NS;
+				s_CouplingStrength[lsid][i] = GlobalVariables.d_CouplingStrength[GlobalMemoryID];
 			}
 			
 			for (int i=0; i<1; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				s_DenseOutputIndex[LocalSystemID]       = GlobalVariables.d_DenseOutputIndex[GlobalMemoryID];
-				s_DenseOutputActualTime[LocalSystemID]  = s_TimeDomain[LocalSystemID][0];
-				s_UpdateDenseOutput[LocalSystemID]      = 1;
-				s_NumberOfSkippedStores[LocalSystemID]  = 0;
-				s_TerminateSystemScope[LocalSystemID]   = 0;
-				s_UserDefinedTermination[LocalSystemID] = 0;
+				GlobalMemoryID = gsid + i*NS;
+				s_DenseOutputIndex[lsid]       = GlobalVariables.d_DenseOutputIndex[GlobalMemoryID];
+				s_DenseOutputActualTime[lsid]  = s_TimeDomain[lsid][0];
+				s_UpdateDenseOutput[lsid]      = 1;
+				s_NumberOfSkippedStores[lsid]  = 0;
+				s_TerminateSystemScope[lsid]   = 0;
+				s_UserDefinedTermination[lsid] = 0;
 			}
 		}
 		
-		if ( ( LocalSystemID < SPB ) && ( ( GlobalSystemID >= SolverOptions.ActiveSystems ) || ( GlobalSystemID >= NS ) ) )
+		if ( ( lsid < SPB ) && ( ( gsid >= SolverOptions.ActiveSystems ) || ( gsid >= NS ) ) )
 		{
 			atomicAdd(&s_TerminatedSystemsPerBlock, 1);
-			s_TerminateSystemScope[LocalSystemID] = 1;
-			s_UpdateStep[LocalSystemID]           = 0;
-			s_UpdateDenseOutput[LocalSystemID]    = 0;
+			s_TerminateSystemScope[lsid] = 1;
+			s_UpdateStep[lsid]           = 0;
+			s_UpdateDenseOutput[lsid]    = 0;
 		}
 	}
 	
@@ -364,22 +364,22 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 		for (int j=0; j<Launches; j++)
 		{
-			LocalSystemID = threadIdx.x + j*blockDim.x;
+			int lsid = threadIdx.x + j*blockDim.x;
 			
-			if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
+			if ( ( lsid < SPB ) && ( s_TerminateSystemScope[lsid] == 0 ) )
 			{
-				s_UpdateStep[LocalSystemID]           = 1;
-				s_IsFinite[LocalSystemID]             = 1;
-				s_EndTimeDomainReached[LocalSystemID] = 0;
+				s_UpdateStep[lsid]           = 1;
+				s_IsFinite[lsid]             = 1;
+				s_EndTimeDomainReached[lsid] = 0;
 				
-				s_TimeStep[LocalSystemID] = s_NewTimeStep[LocalSystemID];
+				s_TimeStep[lsid] = s_NewTimeStep[lsid];
 				
-				if ( s_TimeStep[LocalSystemID] > ( s_TimeDomain[LocalSystemID][1] - s_ActualTime[LocalSystemID] ) )
+				if ( s_TimeStep[lsid] > ( s_TimeDomain[lsid][1] - s_ActualTime[lsid] ) )
 				{
-					s_TimeStep[LocalSystemID] = s_TimeDomain[LocalSystemID][1] - s_ActualTime[LocalSystemID];
-					s_TimeStep[LocalSystemID] = MPGOS::FMAX(s_TimeStep[LocalSystemID], SolverOptions.MinimumTimeStep);
+					s_TimeStep[lsid] = s_TimeDomain[lsid][1] - s_ActualTime[lsid];
+					s_TimeStep[lsid] = MPGOS::FMAX(s_TimeStep[lsid], SolverOptions.MinimumTimeStep);
 					
-					s_EndTimeDomainReached[LocalSystemID] = 1;
+					s_EndTimeDomainReached[lsid] = 1;
 				}
 			}
 		}
@@ -670,16 +670,16 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 		for (int j=0; j<Launches; j++)
 		{
-			LocalSystemID = threadIdx.x + j*blockDim.x;
+			int lsid = threadIdx.x + j*blockDim.x;
 			
-			if ( ( LocalSystemID < SPB ) && ( s_UpdateStep[LocalSystemID] == 1 ) )
+			if ( ( lsid < SPB ) && ( s_UpdateStep[lsid] == 1 ) )
 			{
-				if ( ( s_EndTimeDomainReached[LocalSystemID] == 1 ) || ( s_UserDefinedTermination[LocalSystemID] == 1 ) )
+				if ( ( s_EndTimeDomainReached[lsid] == 1 ) || ( s_UserDefinedTermination[lsid] == 1 ) )
 				{
-					s_TerminateSystemScope[LocalSystemID] = 1;
+					s_TerminateSystemScope[lsid] = 1;
 					atomicAdd(&s_TerminatedSystemsPerBlock, 1);
 					
-					s_UpdateStep[LocalSystemID] = 0;
+					s_UpdateStep[lsid] = 0;
 				}
 			}
 		}
@@ -750,35 +750,35 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 	for (int j=0; j<Launches; j++)
 	{
-		LocalSystemID  = threadIdx.x   + j*blockDim.x;
-		GlobalSystemID = LocalSystemID + BlockID*SPB;
+		int lsid = threadIdx.x + j*blockDim.x;
+		int gsid = lsid + blockIdx.x*SPB;
 		
-		if ( ( LocalSystemID < SPB ) && ( GlobalSystemID < SolverOptions.ActiveSystems ) && ( GlobalSystemID < NS ) )
+		if ( ( lsid < SPB ) && ( gsid < SolverOptions.ActiveSystems ) && ( gsid < NS ) )
 		{
-			GlobalVariables.d_ActualTime[GlobalSystemID] = s_ActualTime[LocalSystemID];
+			GlobalVariables.d_ActualTime[gsid] = s_ActualTime[lsid];
 			
 			for (int i=0; i<2; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				GlobalVariables.d_TimeDomain[GlobalMemoryID] = s_TimeDomain[LocalSystemID][i];
+				GlobalMemoryID = gsid + i*NS;
+				GlobalVariables.d_TimeDomain[GlobalMemoryID] = s_TimeDomain[lsid][i];
 			}
 			
 			for (int i=0; i<NSA; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				GlobalVariables.d_SystemAccessories[GlobalMemoryID] = s_SystemAccessories[LocalSystemID][i];
+				GlobalMemoryID = gsid + i*NS;
+				GlobalVariables.d_SystemAccessories[GlobalMemoryID] = s_SystemAccessories[lsid][i];
 			}
 			
 			for (int i=0; i<NiSA; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				GlobalVariables.d_IntegerSystemAccessories[GlobalMemoryID] = s_IntegerSystemAccessories[LocalSystemID][i];
+				GlobalMemoryID = gsid + i*NS;
+				GlobalVariables.d_IntegerSystemAccessories[GlobalMemoryID] = s_IntegerSystemAccessories[lsid][i];
 			}
 			
 			for (int i=0; i<1; i++)
 			{
-				GlobalMemoryID = GlobalSystemID + i*NS;
-				GlobalVariables.d_DenseOutputIndex[GlobalMemoryID] = s_DenseOutputIndex[LocalSystemID];
+				GlobalMemoryID = gsid + i*NS;
+				GlobalVariables.d_DenseOutputIndex[GlobalMemoryID] = s_DenseOutputIndex[lsid];
 			}
 		}
 	}
@@ -1510,7 +1510,6 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 	
 	__syncthreads();
 }
-
 
 
 template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
