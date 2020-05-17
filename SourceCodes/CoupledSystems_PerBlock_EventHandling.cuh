@@ -144,4 +144,74 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 	__syncthreads();
 }
 
+
+template <int UPS, int SPB, int NE, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch_EventTimeStepControl(\
+			const int  LocalSystemID, \
+			Precision* s_TimeStep, \
+			Precision* s_NewTimeStep, \
+			int*       s_TerminateSystemScope, \
+			int*       s_UpdateStep, \
+			Precision  r_ActualEventValue[(NE==0?1:NE)], \
+			Precision  r_NextEventValue[(NE==0?1:NE)], \
+			Precision* s_EventTolerance, \
+			int*       s_EventDirection, \
+			Precision  MinimumTimeStep)
+{
+	__shared__ Precision s_EventTimeStep[SPB];
+	__shared__ int       s_IsCorrected[SPB];
+	
+	// Event time step initialisation
+	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
+	for (int j=0; j<Launches; j++)
+	{
+		int lsid = threadIdx.x + j*blockDim.x;
+		
+		if ( lsid < SPB )
+		{
+			s_EventTimeStep[lsid] = s_TimeStep[lsid];
+			s_IsCorrected[lsid]   = 0;
+		}
+	}
+	__syncthreads();
+	
+	// Event time step correction
+	if ( ( LocalSystemID < SPB ) && ( s_UpdateStep[LocalSystemID] == 1 ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
+	{
+		for (int i=0; i<NE; i++)
+		{
+			if ( ( ( r_ActualEventValue[i] >  s_EventTolerance[i] ) && ( r_NextEventValue[i] < -s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
+			     ( ( r_ActualEventValue[i] < -s_EventTolerance[i] ) && ( r_NextEventValue[i] >  s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
+			{
+				MPGOS::atomicMIN(&(s_EventTimeStep[LocalSystemID]), -r_ActualEventValue[i] / (r_NextEventValue[i]-r_ActualEventValue[i]) * s_TimeStep[LocalSystemID]);
+				atomicMax(&(s_IsCorrected[LocalSystemID]), 1);
+			}
+		}
+	}
+	__syncthreads();
+	
+	// Corrected time step and modified update
+	for (int j=0; j<Launches; j++)
+	{
+		int lsid = threadIdx.x + j*blockDim.x;
+		int gsid = lsid + blockIdx.x*SPB;
+		
+		if ( ( lsid < SPB ) && ( s_IsCorrected[lsid] == 1 ) )
+		{
+			if ( s_EventTimeStep[lsid] < MinimumTimeStep )
+			{
+				printf("Warning: Event cannot be detected without reducing the step size below the minimum! Event detection omitted!, (global system id: %d)\n", gsid);
+			} else
+			{
+				s_NewTimeStep[lsid] = s_EventTimeStep[lsid];
+				s_UpdateStep[lsid]  = 0;
+			}
+		}
+	}
+	__syncthreads();
+}
+
+
+
+
 #endif

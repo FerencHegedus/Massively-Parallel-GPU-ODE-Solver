@@ -89,15 +89,21 @@ int main()
 	FillCouplingMatrix(ScanSystem);
 	
 	
-	clock_t SimulationStart = clock();
 	
 	ScanSystem.SynchroniseFromHostToDevice(All);
+	ScanSystem.InsertSynchronisationPoint();
+	ScanSystem.SynchroniseSolver();
+	
+	clock_t SimulationStart = clock();
 	ScanSystem.Solve();
+	ScanSystem.InsertSynchronisationPoint();
+	ScanSystem.SynchroniseSolver();
+	clock_t SimulationEnd = clock();
+	
 	ScanSystem.SynchroniseFromDeviceToHost(All);
 	ScanSystem.InsertSynchronisationPoint();
 	ScanSystem.SynchroniseSolver();
 	
-	clock_t SimulationEnd = clock();
 	
 	
 	ofstream DataFile;

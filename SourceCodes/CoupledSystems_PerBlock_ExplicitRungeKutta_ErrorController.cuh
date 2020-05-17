@@ -3,7 +3,7 @@
 
 
 template <int NBL, int UPS, int SPB, class Precision>
-__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_ErrorController_RK4( \
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_ErrorController_RK4(\
 			int*       s_IsFinite, \
 			Precision* s_NewTimeStep, \
 			Precision  InitialTimeStep, \
@@ -11,21 +11,16 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			int&       s_TerminatedSystemsPerBlock, \
 			int*       s_UpdateStep)
 {
-	int LocalThreadID_GPU = threadIdx.x;
-	int BlockID           = blockIdx.x;
-	int LocalThreadID_Logical;
 	int LocalSystemID;
-	int UnitID;
 	int GlobalSystemID;
 	
-	for (int BL=0; BL<NBL; BL++)
+	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
+	for (int j=0; j<Launches; j++)
 	{
-		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
-		LocalSystemID         = LocalThreadID_Logical / UPS;
-		UnitID                = LocalThreadID_Logical % UPS;
-		GlobalSystemID        = LocalSystemID + BlockID*SPB;
+		LocalSystemID = threadIdx.x + j*blockDim.x;
+		GlobalSystemID = LocalSystemID + blockIdx.x*SPB;
 		
-		if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) && ( UnitID == 0 ) )
+		if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
 		{
 			if ( s_IsFinite[LocalSystemID] == 0 )
 			{
@@ -45,7 +40,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 
 
 template <int NBL, int UPS, int UD, int SPB, class Precision>
-__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_ErrorController_RKCK45( \
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_ErrorController_RKCK45(\
 			int*       s_IsFinite, \
 			Precision* s_TimeStep, \
 			Precision* s_NewTimeStep, \
@@ -162,7 +157,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 
 
 template <class Precision>
-__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_ErrorController_RK4( \
+__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_ErrorController_RK4(\
 			int        s_IsFinite, \
 			Precision& s_NewTimeStep, \
 			Precision  InitialTimeStep, \
@@ -191,7 +186,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 
 
 template <int NBL, int UPS, int UD, class Precision>
-__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_ErrorController_RKCK45( \
+__forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_ErrorController_RKCK45(\
 			int&       s_IsFinite, \
 			Precision  s_TimeStep, \
 			Precision& s_NewTimeStep, \
@@ -286,6 +281,145 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		
 		s_NewTimeStep = MPGOS::FMIN(s_NewTimeStep, SolverOptions.MaximumTimeStep);
 		s_NewTimeStep = MPGOS::FMAX(s_NewTimeStep, SolverOptions.MinimumTimeStep);
+	}
+	__syncthreads();
+}
+
+
+template <int UPS, int SPB, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch_ErrorController_RK4(\
+			int*       s_IsFinite, \
+			Precision* s_NewTimeStep, \
+			Precision  InitialTimeStep, \
+			int*       s_TerminateSystemScope, \
+			int&       s_TerminatedSystemsPerBlock, \
+			int*       s_UpdateStep)
+{
+	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
+	for (int j=0; j<Launches; j++)
+	{
+		int lsid = threadIdx.x + j*blockDim.x;
+		int gsid = lsid + blockIdx.x*SPB;
+		
+		if ( ( lsid < SPB ) && ( s_TerminateSystemScope[lsid] == 0 ) )
+		{
+			if ( s_IsFinite[lsid] == 0 )
+			{
+				printf("Error: State is not a finite number. Try to use smaller step size. (global system id: %d)\n", gsid);
+				
+				s_TerminateSystemScope[lsid] = 1;
+				atomicAdd(&s_TerminatedSystemsPerBlock, 1);
+				
+				s_UpdateStep[lsid]           = 0;
+			}
+			
+			s_NewTimeStep[lsid] = InitialTimeStep;
+		}
+	}
+	__syncthreads();
+}
+
+
+template <int UPS, int UD, int SPB, class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch_ErrorController_RKCK45(\
+			const int  LocalSystemID, \
+			int*       s_IsFinite, \
+			Precision* s_TimeStep, \
+			Precision* s_NewTimeStep, \
+			Precision  r_ActualState[UD], \
+			Precision  r_NextState[UD], \
+			Precision  r_Error[UD], \
+			Precision* s_RelativeTolerance, \
+			Precision* s_AbsoluteTolerance, \
+			int*       s_TerminateSystemScope, \
+			int&       s_TerminatedSystemsPerBlock, \
+			int*       s_UpdateStep, \
+			Struct_SolverOptions<Precision> SolverOptions)
+{
+	__shared__ Precision s_RelativeError[SPB];
+	__shared__ Precision s_TimeStepMultiplicator[SPB];
+	
+	Precision r_ErrorTolerance;
+	Precision r_RelativeError;
+	int       r_UpdateStep;
+	
+	// Relative error initialisation
+	int Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
+	for (int j=0; j<Launches; j++)
+	{
+		int lsid = threadIdx.x + j*blockDim.x;
+		
+		if ( lsid < SPB )
+			s_RelativeError[lsid] = 1e30;
+	}
+	__syncthreads();
+	
+	// Acceptance and calculation of relative error (reduction tasks)
+	if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
+	{
+		r_RelativeError = 1e30;
+		r_UpdateStep    = 1;
+		
+		for (int i=0; i<UD; i++)
+		{
+			r_ErrorTolerance = s_RelativeTolerance[i] * MPGOS::FMAX( abs(r_NextState[i]), abs(r_ActualState[i]) ) + s_AbsoluteTolerance[i];
+			r_UpdateStep     = r_UpdateStep & ( r_Error[i] < r_ErrorTolerance );
+			r_RelativeError  = MPGOS::FMIN( r_RelativeError, r_ErrorTolerance / r_Error[i] );
+		}
+		
+		atomicAnd(&(s_UpdateStep[LocalSystemID]), r_UpdateStep);
+		MPGOS::atomicMIN(&(s_RelativeError[LocalSystemID]), r_RelativeError);
+	}
+	__syncthreads();
+	
+	// New time step (with bound checks)
+	Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
+	for (int j=0; j<Launches; j++)
+	{
+		int lsid = threadIdx.x + j*blockDim.x;
+		int gsid = lsid + blockIdx.x*SPB;
+		
+		if ( ( lsid < SPB ) && ( s_TerminateSystemScope[lsid] == 0 ) )
+		{
+			// Base time step multiplicator
+			if ( s_UpdateStep[lsid] == 1 )
+				s_TimeStepMultiplicator[lsid] = 0.8 * pow(s_RelativeError[lsid], (1.0/5.0) ); // 1.0/5.0
+			else
+				s_TimeStepMultiplicator[lsid] = 0.8 * pow(s_RelativeError[lsid], (1.0/4.0) ); // 1.0/4.0
+			
+			if ( isfinite(s_TimeStepMultiplicator[lsid]) == 0 )
+				s_IsFinite[lsid] = 0;
+			
+			// Check finiteness
+			if ( s_IsFinite[lsid] == 0 )
+			{
+				s_TimeStepMultiplicator[lsid] = SolverOptions.TimeStepShrinkLimit;
+				s_UpdateStep[lsid] = 0;
+				
+				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*1.01) )
+				{
+					printf("Error: State is not a finite number, minimum step size reached. Try to use less stringent tolerances. (global system id: %d)\n", gsid);
+					s_TerminateSystemScope[lsid] = 1;
+					atomicAdd(&s_TerminatedSystemsPerBlock, 1);
+				}
+			} else
+			{
+				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*1.01) )
+				{
+					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed! (global system id: %d, time step: %+6.5e, TSM: %+6.3e \n", gsid, SolverOptions.MinimumTimeStep, s_TimeStepMultiplicator[lsid]);
+					s_UpdateStep[lsid] = 1;
+				}
+			}
+			
+			// Time step and its growth limits
+			s_TimeStepMultiplicator[lsid] = MPGOS::FMIN(s_TimeStepMultiplicator[lsid], SolverOptions.TimeStepGrowLimit);
+			s_TimeStepMultiplicator[lsid] = MPGOS::FMAX(s_TimeStepMultiplicator[lsid], SolverOptions.TimeStepShrinkLimit);
+			
+			s_NewTimeStep[lsid] = s_TimeStep[lsid] * s_TimeStepMultiplicator[lsid];
+			
+			s_NewTimeStep[lsid] = MPGOS::FMIN(s_NewTimeStep[lsid], SolverOptions.MaximumTimeStep);
+			s_NewTimeStep[lsid] = MPGOS::FMAX(s_NewTimeStep[lsid], SolverOptions.MinimumTimeStep);
+		}
 	}
 	__syncthreads();
 }
