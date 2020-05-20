@@ -18,7 +18,7 @@ using namespace std;
 // Physical control parameters
 const int NumberOfInitialConditionsX = 5; // Control parameter
 const int NumberOfInitialConditionsY = 5; // Control parameter
-const int NumberOfUnitsPerSystem = 14; // Number coupled units
+const int NumberOfUnitsPerSystem = 32; // Number coupled units
 
 // Solver Configuration
 #define TIMESTEP   1.0e-2
@@ -84,6 +84,7 @@ int main()
 	ScanSystem.SolverOption(EventDirection, 0, -1); // Detect local maxima
 	ScanSystem.SolverOption(DenseOutputMinimumTimeStep, 1e-6);
 	ScanSystem.SolverOption(DenseOutputSaveFrequency, 1);
+	ScanSystem.SolverOption(SharedGlobalVariables, 0);
 	
 	FillSolverObject(ScanSystem, ICX12, ICY12);
 	FillCouplingMatrix(ScanSystem);
@@ -107,7 +108,7 @@ int main()
 	
 	
 	ofstream DataFile;
-	DataFile.open ( "Results.txt" );
+	DataFile.open ( "Results_SSSSBL.txt" );
 	
 	for (int sid=0; sid<NS; sid++)
 	{

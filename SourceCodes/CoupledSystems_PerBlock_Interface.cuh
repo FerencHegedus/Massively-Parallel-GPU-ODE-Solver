@@ -114,6 +114,7 @@ struct Struct_SharedMemoryUsage
 	bool GlobalVariables;  // Default: ON
 	bool CouplingMatrices; // Default: OFF
 	int  SingleCouplingMatrixSize;
+	int  IsAdaptive;
 };
 
 template <class Precision>
@@ -508,14 +509,13 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 		std::cout << "   Coupling matrix is circular: its shared memory usage is automatically ON!" << std::endl << std::endl;
 	}
 	
-	bool IsAdaptive;
 	switch (Algorithm)
 	{
 		case RK4:
-			IsAdaptive = 0;
+			SharedMemoryUsage.IsAdaptive = 0;
 			break;
 		default:
-			IsAdaptive = 1;
+			SharedMemoryUsage.IsAdaptive = 1;
 			break;
 	}
 	
@@ -525,18 +525,42 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	DynamicSharedMemoryRequired = SharedMemoryUsage.GlobalVariables  * SharedMemoryRequiredGlobalVariables + \
 						          SharedMemoryUsage.CouplingMatrices * SharedMemoryRequiredCouplingMatrices;
 	
-	StaticSharedMemoryRequired  = sizeof(Precision)*( SPB*UPS*NC ) + \
-	                              sizeof(Precision)*( SPB*NC ) + \
-								  sizeof(Precision)*( SPB*2 ) + \
-								  sizeof(Precision)*( (NSP==0 ? 1 : SPB) * (NSP==0 ? 1 : NSP) ) + \
-								  sizeof(Precision)*( (NSA==0 ? 1 : SPB) * (NSA==0 ? 1 : NSA) ) + \
-								  sizeof(Precision)*( (IsAdaptive==0 ? 1 : UD) ) + \
-								  sizeof(Precision)*( (IsAdaptive==0 ? 1 : UD) ) + \
-								  sizeof(Precision)*( (NE==0 ? 1 : NE) ) + \
-								  sizeof(int)*( SPB ) + \
-								  sizeof(int)*( (NiSA==0 ? 1 : SPB) * (NiSA==0 ? 1 : NiSA) ) + \
-								  sizeof(int)*( (NE==0 ? 1 : NE) ) + \
-								  sizeof(int)*( (NE==0 ? 1 : NE) );
+	// Bank conflict if NCmod = 0, 2, 4, 8 or 16
+	int NCp   = ( NC==0 ? NC+1 : ( NC==2 ? NC+1 : ( NC==4 ? NC+1 : ( NC==8 ? NC+1 : ( NC==16 ? NC+1 : NC ) ) ) ) );
+	// Bank conflicts if NSP, NSA and NiSA = 4, 8 or 16
+	int NSPp  = (  NSP==4 ?  NSP+1 : (  NSP==8 ?  NSP+1 : (  NSP==16 ?  NSP+1 : NSP  ) ) );
+	int NSAp  = (  NSA==4 ?  NSA+1 : (  NSA==8 ?  NSA+1 : (  NSA==16 ?  NSA+1 : NSA  ) ) );
+	int NiSAp = ( NiSA==4 ? NiSA+1 : ( NiSA==8 ? NiSA+1 : ( NiSA==16 ? NiSA+1 : NiSA ) ) );
+	
+	StaticSharedMemoryRequired  = sizeof(Precision)*( SPB*UPS*NCp ) + \										// Solver
+	                              sizeof(Precision)*( SPB*NCp ) + \											// Solver
+								  sizeof(Precision)*( SPB*2 ) + \											// Solver
+								  sizeof(Precision)*( SPB ) + \												// Solver
+								  sizeof(Precision)*( SPB ) + \												// Solver
+								  sizeof(Precision)*( SPB ) + \												// Solver
+								  sizeof(Precision)*( (NSPp==0 ? 1 : SPB) * (NSPp==0 ? 1 : NSPp) ) + \		// Solver
+								  sizeof(Precision)*( (NSAp==0 ? 1 : SPB) * (NSAp==0 ? 1 : NSAp) ) + \		// Solver
+								  sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \		// Solver
+								  sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \		// Solver
+								  sizeof(Precision)*( (NE==0 ? 1 : NE) ) + \								// Solver
+								  sizeof(Precision)*( SPB ) + \												// Solver
+								  sizeof(Precision)*( SPB ) + \												// Stepper
+								  sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \		// ErrorController
+								  sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \		// ErrorController
+								  sizeof(Precision)*( (NE==0 ? 0 : SPB) ) + \								// EventHandling
+								  sizeof(int)*( NC ) + \													// Solver
+								  sizeof(int)*( SPB ) + \													// Solver
+								  sizeof(int)*( SPB ) + \													// Solver
+								  sizeof(int)*( SPB ) + \													// Solver
+								  sizeof(int)*( (NiSAp==0 ? 1 : SPB) * (NiSAp==0 ? 1 : NiSAp) ) + \			// Solver
+								  sizeof(int)*( (NE==0 ? 1 : NE) ) + \										// Solver
+								  sizeof(int)*( 1 ) + \														// Solver
+								  sizeof(int)*( SPB ) + \													// Solver
+								  sizeof(int)*( SPB ) + \													// Solver
+								  sizeof(int)*( SPB ) + \													// Solver
+								  sizeof(int)*( SPB ) + \													// Solver
+								  sizeof(int)*( SPB ) + \													// Solver
+								  sizeof(int)*( (NE==0 ? 0 : SPB) );										// EventHandling
 	
 	SharedMemoryRequired = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
 	
@@ -547,11 +571,11 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	SharedMemoryAvailable = SelectedDeviceProperties.sharedMemPerBlock;
 	
 	std::cout << "   Required shared memory per block for managable variables:" << std::endl;
-	std::cout << "    Shared memory required by global variables:     " << std::setw(6) << SharedMemoryRequiredGlobalVariables << " b (" << ( (SharedMemoryUsage.GlobalVariables     == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
-	std::cout << "    Shared memory required by coupling matrices:    " << std::setw(6) << SharedMemoryRequiredCouplingMatrices << " b (" << ( (SharedMemoryUsage.CouplingMatrices    == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
-	std::cout << "   Total possible shared memory usage per block:    " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + All is ON)" << std::endl;
-	std::cout << "   Actual shared memory required per block:         " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
-	std::cout << "   Available shared memory per block:               " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
+	std::cout << "    Shared memory required by global variables:           " << std::setw(6) << SharedMemoryRequiredGlobalVariables << " b (" << ( (SharedMemoryUsage.GlobalVariables     == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
+	std::cout << "    Shared memory required by coupling matrices:          " << std::setw(6) << SharedMemoryRequiredCouplingMatrices << " b (" << ( (SharedMemoryUsage.CouplingMatrices    == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
+	std::cout << "   Upper limit of possible shared memory usage per block: " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + All is ON)" << std::endl;
+	std::cout << "   Actual shared memory required per block (estimated):   " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
+	std::cout << "   Available shared memory per block:                     " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
 	
 	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired << std::endl;
 	
@@ -592,18 +616,18 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+i,   &DefaultEventDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
 	}
 	
-	std::cout << "   Initial time step:              " << SolverOptions.InitialTimeStep << std::endl;
-	std::cout << "   Active systems:                 " << SolverOptions.ActiveSystems << std::endl;
-	std::cout << "   Maximum time step:              " << SolverOptions.MaximumTimeStep << std::endl;
-	std::cout << "   Minimum time step:              " << SolverOptions.MinimumTimeStep << std::endl;
-	std::cout << "   Time step grow limit:           " << SolverOptions.TimeStepGrowLimit << std::endl;
-	std::cout << "   Time step shrink limit:         " << SolverOptions.TimeStepShrinkLimit << std::endl;
-	std::cout << "   Dense output minimum time step: " << SolverOptions.DenseOutputMinimumTimeStep << std::endl;
-	std::cout << "   Dense output save frequency:    " << SolverOptions.DenseOutputSaveFrequency << std::endl;
-	std::cout << "   Algorithm absolute tolerance:   " << 1e-8 << std::endl;
-	std::cout << "   Algorithm relative tolerance:   " << 1e-8 << std::endl;
-	std::cout << "   Event absolute tolerance:       " << 1e-6 << std::endl;
-	std::cout << "   Event direction of detection:   " << 0 << std::endl;
+	std::cout << "   Initial time step:                        " << SolverOptions.InitialTimeStep << std::endl;
+	std::cout << "   Active systems:                           " << SolverOptions.ActiveSystems << std::endl;
+	std::cout << "   Maximum time step:                        " << SolverOptions.MaximumTimeStep << std::endl;
+	std::cout << "   Minimum time step:                        " << SolverOptions.MinimumTimeStep << std::endl;
+	std::cout << "   Time step grow limit:                     " << SolverOptions.TimeStepGrowLimit << std::endl;
+	std::cout << "   Time step shrink limit:                   " << SolverOptions.TimeStepShrinkLimit << std::endl;
+	std::cout << "   Dense output minimum time step:           " << SolverOptions.DenseOutputMinimumTimeStep << std::endl;
+	std::cout << "   Dense output save frequency:              " << SolverOptions.DenseOutputSaveFrequency << std::endl;
+	std::cout << "   Algorithm absolute tolerance (all comp.): " << 1e-8 << std::endl;
+	std::cout << "   Algorithm relative tolerance (all comp.): " << 1e-8 << std::endl;
+	std::cout << "   Event absolute tolerance:                 " << 1e-6 << std::endl;
+	std::cout << "   Event direction of detection:             " << 0 << std::endl;
 	
 	
 	std::cout << std::endl;
@@ -705,11 +729,11 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 	SharedMemoryRequired = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
 	
 	std::cout << "   Required shared memory per block for managable variables:" << std::endl;
-	std::cout << "    Shared memory required by global variables:     " << std::setw(6) << SharedMemoryRequiredGlobalVariables << " b (" << ( (SharedMemoryUsage.GlobalVariables     == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
-	std::cout << "    Shared memory required by coupling matrices:    " << std::setw(6) << SharedMemoryRequiredCouplingMatrices << " b (" << ( (SharedMemoryUsage.CouplingMatrices    == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
-	std::cout << "   Total possible shared memory usage per block:    " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + All is ON)" << std::endl;
-	std::cout << "   Actual shared memory required per block:         " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
-	std::cout << "   Available shared memory per block:               " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
+	std::cout << "    Shared memory required by global variables:           " << std::setw(6) << SharedMemoryRequiredGlobalVariables << " b (" << ( (SharedMemoryUsage.GlobalVariables     == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
+	std::cout << "    Shared memory required by coupling matrices:          " << std::setw(6) << SharedMemoryRequiredCouplingMatrices << " b (" << ( (SharedMemoryUsage.CouplingMatrices    == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
+	std::cout << "   Upper limit of possible shared memory usage per block: " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + All is ON)" << std::endl;
+	std::cout << "   Actual shared memory required per block (estimated):   " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
+	std::cout << "   Available shared memory per block:                     " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
 	
 	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired << std::endl;
 	

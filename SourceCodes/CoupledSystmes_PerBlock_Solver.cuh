@@ -45,9 +45,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	const bool IsAdaptive  = ( Algorithm==RK4 ? 0 : 1 );
 	
 	// Bank conflict if NCmod = 0, 2, 4, 8 or 16
-	const int NCmod        = NC % 32;
-	const int IsPowerOfTwo = !( NCmod & (NCmod-1) ); // Including 0!
-	const int NCp          = NC + ( NCmod==1 ? 0 : ( IsPowerOfTwo==1 ? 1 : 0 ) );
+	const int NCp   = ( NC==0 ? NC+1 : ( NC==2 ? NC+1 : ( NC==4 ? NC+1 : ( NC==8 ? NC+1 : ( NC==16 ? NC+1 : NC ) ) ) ) );
 	// Bank conflicts if NSP, NSA and NiSA = 4, 8 or 16
 	const int NSPp  = (  NSP==4 ?  NSP+1 : (  NSP==8 ?  NSP+1 : (  NSP==16 ?  NSP+1 : NSP  ) ) );
 	const int NSAp  = (  NSA==4 ?  NSA+1 : (  NSA==8 ?  NSA+1 : (  NSA==16 ?  NSA+1 : NSA  ) ) );
@@ -821,9 +819,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 	const bool IsAdaptive  = ( Algorithm==RK4 ? 0 : 1 );
 	
 	// Bank conflict if NCmod = 0, 2, 4, 8 or 16
-	const int NCmod        = NC % 32;
-	const int IsPowerOfTwo = !( NCmod & (NCmod-1) ); // Including 0!
-	const int NCp          = NC + ( NCmod==1 ? 0 : ( IsPowerOfTwo==1 ? 1 : 0 ) );
+	const int NCp   = ( NC==0 ? NC+1 : ( NC==2 ? NC+1 : ( NC==4 ? NC+1 : ( NC==8 ? NC+1 : ( NC==16 ? NC+1 : NC ) ) ) ) );
 	// Bank conflicts if NSP, NSA and NiSA = 4, 8 or 16
 	const int NSPp  = (  NSP==4 ?  NSP+1 : (  NSP==8 ?  NSP+1 : (  NSP==16 ?  NSP+1 : NSP  ) ) );
 	const int NSAp  = (  NSA==4 ?  NSA+1 : (  NSA==8 ?  NSA+1 : (  NSA==16 ?  NSA+1 : NSA  ) ) );
@@ -1549,9 +1545,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 	const bool IsAdaptive  = ( Algorithm==RK4 ? 0 : 1 );
 	
 	// Bank conflict if NCmod = 0, 2, 4, 8 or 16
-	const int NCmod        = NC % 32;
-	const int IsPowerOfTwo = !( NCmod & (NCmod-1) ); // Including 0!
-	const int NCp          = NC + ( NCmod==1 ? 0 : ( IsPowerOfTwo==1 ? 1 : 0 ) );
+	const int NCp   = ( NC==0 ? NC+1 : ( NC==2 ? NC+1 : ( NC==4 ? NC+1 : ( NC==8 ? NC+1 : ( NC==16 ? NC+1 : NC ) ) ) ) );
 	// Bank conflicts if NSP, NSA and NiSA = 4, 8 or 16
 	const int NSPp  = (  NSP==4 ?  NSP+1 : (  NSP==8 ?  NSP+1 : (  NSP==16 ?  NSP+1 : NSP  ) ) );
 	const int NSAp  = (  NSA==4 ?  NSA+1 : (  NSA==8 ?  NSA+1 : (  NSA==16 ?  NSA+1 : NSA  ) ) );
@@ -2258,9 +2252,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 	const bool IsAdaptive  = ( Algorithm==RK4 ? 0 : 1 );
 	
 	// Bank conflict if NCmod = 0, 2, 4, 8 or 16
-	const int NCmod        = NC % 32;
-	const int IsPowerOfTwo = !( NCmod & (NCmod-1) ); // Including 0!
-	const int NCp          = NC + ( NCmod==1 ? 0 : ( IsPowerOfTwo==1 ? 1 : 0 ) );
+	const int NCp   = ( NC==0 ? NC+1 : ( NC==2 ? NC+1 : ( NC==4 ? NC+1 : ( NC==8 ? NC+1 : ( NC==16 ? NC+1 : NC ) ) ) ) );
 	// Bank conflicts if NSP, NSA and NiSA = 4, 8 or 16
 	const int NSPp  = (  NSP==4 ?  NSP+1 : (  NSP==8 ?  NSP+1 : (  NSP==16 ?  NSP+1 : NSP  ) ) );
 	const int NSAp  = (  NSA==4 ?  NSA+1 : (  NSA==8 ?  NSA+1 : (  NSA==16 ?  NSA+1 : NSA  ) ) );
