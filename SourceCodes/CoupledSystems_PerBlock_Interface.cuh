@@ -820,7 +820,7 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 		default:
 			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
 			std::cerr << "       Option: " << SolverOptionsToString(Option) << std::endl;
-			std::cerr << "       This option needs 2 input arguments!" << std::endl;
+			std::cerr << "       This option needs 2 input arguments or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
 	}
 }
@@ -832,6 +832,7 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 {
 	Precision PValue = (Precision)Value;
 	int       IValue = (int)Value;
+	
 	switch (Option)
 	{
 		case RelativeTolerance:
@@ -857,7 +858,7 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 		default:
 			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
 			std::cerr << "       Option: " << SolverOptionsToString(Option) << std::endl;
-			std::cerr << "       This option needs 1 input arguments!" << std::endl;
+			std::cerr << "       This option needs 1 input arguments or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
 	}
 }

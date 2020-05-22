@@ -609,6 +609,105 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Shared
 	std::cout << std::endl;
 }
 
+// OPTION, single input argument
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+template <typename T>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, T Value)
+{
+	switch (Option)
+	{
+		case ThreadsPerBlock:
+			ThreadConfiguration.BlockSize = (int)Value;
+			ThreadConfiguration.GridSize  = NT/ThreadConfiguration.BlockSize + (NT % ThreadConfiguration.BlockSize == 0 ? 0:1);
+			break;
+		
+		case InitialTimeStep:
+			SolverOptions.InitialTimeStep = (int)Value;
+			break;
+		
+		case ActiveNumberOfThreads:
+			ThreadConfiguration.NumberOfActiveThreads = (int)Value;
+			break;
+		
+		case MaximumTimeStep:
+			SolverOptions.MaximumTimeStep = (double)Value;
+			break;
+		
+		case MinimumTimeStep:
+			SolverOptions.MinimumTimeStep = (double)Value;
+			break;
+		
+		case TimeStepGrowLimit:
+			SolverOptions.TimeStepGrowLimit = (double)Value;
+			break;
+		
+		case TimeStepShrinkLimit:
+			SolverOptions.TimeStepShrinkLimit = (double)Value;
+			break;
+		
+		case DenseOutputMinimumTimeStep:
+			SolverOptions.DenseOutputMinimumTimeStep = (double)Value;
+			break;
+		
+		case DenseOutputSaveFrequency:
+			SolverOptions.DenseOutputSaveFrequency = (int)Value;
+			break;
+		
+		case PreferSharedMemory:
+			SharedMemoryUsage.PreferSharedMemory = (int)Value;
+			SharedMemoryCheck();
+			break;
+		
+		default:
+			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
+			std::cerr << "       Option: " << SolverOptionsToString(Option) << std::endl;
+			std::cerr << "       This option needs 2 input arguments or not applicable!" << std::endl;
+			exit(EXIT_FAILURE);
+	}
+}
+
+// OPTION, double input argument
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+template <typename T>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, int Index, T Value)
+{
+	Precision PValue = (Precision)Value;
+	int       IValue = (int)Value;
+	
+	switch (Option)
+	{
+		case RelativeTolerance:
+			BoundCheck("SolverOption", "RelativeTolerance", Index, 0, SD-1);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case AbsoluteTolerance:
+			BoundCheck("SolverOption", "AbsoluteTolerance", Index, 0, SD-1);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case EventTolerance:
+			BoundCheck("SolverOption", "EventTolerance", Index, 0, NE-1);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case EventDirection:
+			BoundCheck("SolverOption", "EventDirection", Index, 0, NE-1);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		default:
+			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
+			std::cerr << "       Option: " << SolverOptionsToString(Option) << std::endl;
+			std::cerr << "       This option needs 1 input arguments or not applicable!" << std::endl;
+			exit(EXIT_FAILURE);
+	}
+}
+
+
+
+
+
 
 
 
@@ -1242,124 +1341,6 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 	}
 	
 	DataFile.close();
-}
-
-// OPTION, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, int Value)
-{
-	switch (Option)
-	{
-		case ThreadsPerBlock:
-			BlockSize = Value;
-			GridSize = KernelParameters.NumberOfThreads/BlockSize + (KernelParameters.NumberOfThreads % BlockSize == 0 ? 0:1);
-			break;
-		
-		case ActiveNumberOfThreads:
-			KernelParameters.ActiveThreads = Value;
-			break;
-		
-		case MaxStepInsideEvent:
-			KernelParameters.MaxStepInsideEvent = Value;
-			break;
-		
-		case MaximumNumberOfTimeSteps:
-			KernelParameters.MaximumNumberOfTimeSteps = Value;
-			break;
-			
-		default:
-			std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
-					  << "Invalid option for variable selection or wrong type of input value (expected data type is int)!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
-}
-
-// OPTION, double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, double Value)
-{
-	switch (Option)
-	{
-		case InitialTimeStep:
-			KernelParameters.InitialTimeStep = Value;
-			break;
-		
-		case MaximumTimeStep:
-			KernelParameters.MaximumTimeStep = Value;
-			break;
-		
-		case MinimumTimeStep:
-			KernelParameters.MinimumTimeStep = Value;
-			break;
-		
-		case TimeStepGrowLimit:
-			KernelParameters.TimeStepGrowLimit = Value;
-			break;
-		
-		case TimeStepShrinkLimit:
-			KernelParameters.TimeStepShrinkLimit = Value;
-			break;
-		
-		case DenseOutputTimeStep:
-			KernelParameters.DenseOutputTimeStep = Value;
-			break;
-			
-		default:
-			std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
-			          << "Invalid option for variable selection or wrong type of input value (expected data type is double)!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
-}
-
-// OPTION, array of int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, int SerialNumber, int Value)
-{
-	switch (Option)
-	{
-		case EventDirection:
-			ErrorHandlingSetGetHost("SolverOption", "EventDirection", SerialNumber, KernelParameters.NumberOfEvents);
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventDirection+SerialNumber, &Value, sizeof(int), cudaMemcpyHostToDevice, Stream) );
-			break;
-			
-		case EventStopCounter:
-			ErrorHandlingSetGetHost("SolverOption", "EventStopCounter", SerialNumber, KernelParameters.NumberOfEvents);
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventStopCounter+SerialNumber, &Value, sizeof(int), cudaMemcpyHostToDevice, Stream) );
-			break;
-			
-		default:
-			std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
-			          << "Invalid option for variable selection or wrong type of input value (expected data type is int)!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
-}
-
-// OPTION, array of double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, int SerialNumber, double Value)
-{
-	switch (Option)
-	{
-		case RelativeTolerance:
-			ErrorHandlingSetGetHost("SolverOption", "RelativeTolerance", SerialNumber, KernelParameters.SystemDimension);
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_RelativeTolerance+SerialNumber, &Value, sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			break;
-			
-		case AbsoluteTolerance:
-			ErrorHandlingSetGetHost("SolverOption", "AbsoluteTolerance", SerialNumber, KernelParameters.SystemDimension);
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_AbsoluteTolerance+SerialNumber, &Value, sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			break;
-			
-		case EventTolerance:
-			ErrorHandlingSetGetHost("SolverOption", "EventTolerance", SerialNumber, KernelParameters.NumberOfEvents);
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventTolerance+SerialNumber, &Value, sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			break;
-			
-		default :
-			std::cerr << "ERROR in solver member function SolverOption:" << std::endl << "    "\
-			          << "Invalid option for variable selection or wrong type of input value (expected data type is double)!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
 }
 
 // SOLVE

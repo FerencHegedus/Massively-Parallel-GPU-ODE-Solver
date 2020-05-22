@@ -16,7 +16,7 @@ using namespace std;
 const int NT   = 23040; // NumberOfThreads
 const int SD   = 2;     // SystemDimension
 const int NCP  = 1;     // NumberOfControlParameters
-const int NSP  = 1;     // NumberOfSharedParameters
+const int NSP  = 100*100;     // NumberOfSharedParameters
 const int NISP = 0;     // NumberOfIntegerSharedParameters
 const int NE   = 2;     // NumberOfEvents
 const int NA   = 3;     // NumberOfAccessories
@@ -56,18 +56,18 @@ int main()
 	
 	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanDuffing(SelectedDevice);
 	
-	/*ScanDuffing.SolverOption(ThreadsPerBlock, BlockSize);
+	ScanDuffing.SolverOption(PreferSharedMemory, 0);
+	ScanDuffing.SolverOption(ThreadsPerBlock, BlockSize);
 	ScanDuffing.SolverOption(InitialTimeStep, 1e-2);
 	ScanDuffing.SolverOption(ActiveNumberOfThreads, NT);
 	
-	//ScanDuffing.SolverOption(DenseOutputTimeStep, -1e-2);
+	ScanDuffing.SolverOption(DenseOutputMinimumTimeStep, 0.0);
+	ScanDuffing.SolverOption(DenseOutputSaveFrequency, 1);
 	
 	ScanDuffing.SolverOption(MaximumTimeStep, 1e3);
 	ScanDuffing.SolverOption(MinimumTimeStep, 1e-14);
 	ScanDuffing.SolverOption(TimeStepGrowLimit, 10.0);
 	ScanDuffing.SolverOption(TimeStepShrinkLimit, 0.2);
-	//ScanDuffing.SolverOption(MaxStepInsideEvent, 50);
-	//ScanDuffing.SolverOption(MaximumNumberOfTimeSteps, 0);
 	
 	ScanDuffing.SolverOption(RelativeTolerance, 0, 1e-9);
 	ScanDuffing.SolverOption(RelativeTolerance, 1, 1e-9);
@@ -78,8 +78,6 @@ int main()
 	ScanDuffing.SolverOption(EventTolerance, 1, 1e-6);
 	ScanDuffing.SolverOption(EventDirection,   0, -1);
 	ScanDuffing.SolverOption(EventDirection,   1,  0);
-	//ScanDuffing.SolverOption(EventStopCounter, 0,  0);
-	//ScanDuffing.SolverOption(EventStopCounter, 1,  0);*/
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
 	
