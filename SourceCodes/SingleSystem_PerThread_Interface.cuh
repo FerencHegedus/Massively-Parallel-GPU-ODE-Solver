@@ -562,22 +562,28 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::~ProblemSol
 	std::cout << "Coo man coo!!!" << std::endl;
 	std::cout << "--------------------------------------" << std::endl << std::endl;
 }
-/*
-// ERROR HANDLING, set/get host, options
+
+// BOUND CHECK, set/get host, options
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ErrorHandlingSetGetHost(std::string Function, std::string Variable, int Value, int Limit)
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::BoundCheck(std::string Function, std::string Variable, int Value, int LowerLimit, int UpperLimit)
 {
-	if ( Value >= Limit )
+	if ( ( Value < LowerLimit ) || ( Value > UpperLimit ) )
 	{
-        std::cerr << "ERROR in solver member function " << Function << ":"  << std::endl << "    "\
-		          << "The index of " << Variable << " cannot be larger than " << Limit-1   << "! "\
-			      << "(The indexing starts from zero)" << std::endl;
+        std::cerr << "ERROR: In solver member function " << Function << "!" << std::endl;
+		std::cerr << "       Option: " << Variable << std::endl;
+		
+		if ( LowerLimit>UpperLimit )
+			std::cerr << "       Acceptable index: none" << std::endl;
+		else
+			std::cerr << "       Acceptable index: " << LowerLimit << "-" << UpperLimit << std::endl;
+		
+		std::cerr << "       Current index:    " << Value << std::endl;
         exit(EXIT_FAILURE);
     }
 }
 
 // SETHOST, Problem scope, double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+/*template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, double Value)
 {
 	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
