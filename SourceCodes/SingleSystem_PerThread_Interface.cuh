@@ -29,16 +29,38 @@ DataType* AllocateHostPinnedMemory(int);
 template <class DataType>
 DataType* AllocateDeviceMemory(int);
 
-enum Algorithms{ RK4=2, RKCK45=6 };
+enum Algorithms{ RK4, RKCK45 };
 
-enum VariableSelection{	All, TimeDomain, ActualState, ControlParameters, SharedParameters, Accessories, DenseOutput, DenseTime, DenseState };
-enum IntegerVariableSelection{	IntegerSharedParameters, IntegerAccessories };
-enum ListOfSolverOptions{ ThreadsPerBlock, InitialTimeStep, ActiveNumberOfThreads, \
-                          MaximumTimeStep, MinimumTimeStep, TimeStepGrowLimit, TimeStepShrinkLimit, MaxStepInsideEvent, MaximumNumberOfTimeSteps, \
-						  RelativeTolerance, AbsoluteTolerance, \
-						  EventTolerance, EventDirection, EventStopCounter, \
-						  DenseOutputTimeStep };
+enum ListOfVariables{ All, \
+                      TimeDomain, \
+					  ActualState, \
+					  ActualTime, \
+					  ControlParameters, \
+					  SharedParameters, \
+					  IntegerSharedParameters, \
+					  Accessories, \
+					  IntegerAccessories, \
+					  DenseOutput, \
+					  DenseIndex, \
+					  DenseTime, \
+					  DenseState};
 
+enum ListOfSolverOptions{ ThreadsPerBlock, \
+						  InitialTimeStep, \
+						  ActiveNumberOfThreads, \
+                          MaximumTimeStep, \
+						  MinimumTimeStep, \
+						  TimeStepGrowLimit, \
+						  TimeStepShrinkLimit, \
+						  RelativeTolerance, \
+						  AbsoluteTolerance, \
+						  EventTolerance, \
+						  EventDirection, \
+						  DenseOutputMinimumTimeStep, \
+						  DenseOutputSaveFrequency};
+
+std::string SolverOptionsToString(ListOfSolverOptions);
+std::string VariablesToString(ListOfVariables);
 
 void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
@@ -153,26 +175,26 @@ class ProblemSolver
 		ProblemSolver(int);
 		~ProblemSolver();
 		
-		void SetHost(int, VariableSelection, int, double);      // Problem scope, double
+		void SetHost(int, ListOfVariables, int, double);      // Problem scope, double
 		void SetHost(int, IntegerVariableSelection, int, int);  // Problem scope, int
-		void SetHost(int, VariableSelection, int, int, double); // Dense state
-		void SetHost(VariableSelection, int, double);           // Global scope, double
+		void SetHost(int, ListOfVariables, int, int, double); // Dense state
+		void SetHost(ListOfVariables, int, double);           // Global scope, double
 		void SetHost(IntegerVariableSelection, int, int);       // Global scope, int
 		
-		void SynchroniseFromHostToDevice(VariableSelection);
+		void SynchroniseFromHostToDevice(ListOfVariables);
 		void SynchroniseFromHostToDevice(IntegerVariableSelection);
-		void SynchroniseFromDeviceToHost(VariableSelection);
+		void SynchroniseFromDeviceToHost(ListOfVariables);
 		void SynchroniseFromDeviceToHost(IntegerVariableSelection);
 		
-		double GetHost(int, VariableSelection, int);            // Problem scope, double
+		double GetHost(int, ListOfVariables, int);            // Problem scope, double
 		int    GetHost(int, IntegerVariableSelection, int);     // Problem scope, int
-		double GetHost(int, VariableSelection, int, int);       // Dense state
-		double GetHost(VariableSelection, int);                 // Global scope, double
+		double GetHost(int, ListOfVariables, int, int);       // Dense state
+		double GetHost(ListOfVariables, int);                 // Global scope, double
 		int    GetHost(IntegerVariableSelection, int);          // Global scope, int
 		
-		void Print(VariableSelection);
+		void Print(ListOfVariables);
 		void Print(IntegerVariableSelection);
-		void Print(VariableSelection, int);
+		void Print(ListOfVariables, int);
 		
 		void SolverOption(ListOfSolverOptions, int);            // int
 		void SolverOption(ListOfSolverOptions, double);         // double
@@ -558,7 +580,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ErrorH
 
 // SETHOST, Problem scope, double
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, double Value)
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, double Value)
 {
 	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -622,7 +644,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 
 // SETHOST, Dense state
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep, double Value)
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStep, double Value)
 {
 	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -645,7 +667,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 
 // SETHOST, Global scope, double
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(VariableSelection Variable, int SerialNumber, double Value)
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(ListOfVariables Variable, int SerialNumber, double Value)
 {
 	switch (Variable)
 	{
@@ -681,7 +703,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 
 // SYNCHRONISE, H->D, default
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromHostToDevice(VariableSelection Variable)
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromHostToDevice(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -758,7 +780,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Synchr
 
 // SYNCHRONISE, D->H, default
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromDeviceToHost(VariableSelection Variable)
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromDeviceToHost(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
@@ -835,7 +857,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Synchr
 
 // GETHOST, Problem scope, double
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber)
+double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber)
 {
 	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -905,7 +927,7 @@ int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost
 
 // GETHOST, Dense state
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, VariableSelection Variable, int SerialNumber, int TimeStep)
+double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStep)
 {
 	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
 	
@@ -931,7 +953,7 @@ double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetH
 
 // GETHOST, Global scope, double
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(VariableSelection Variable, int SerialNumber)
+double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(ListOfVariables Variable, int SerialNumber)
 {
 	double Value;
 	switch (Variable)
@@ -973,7 +995,7 @@ int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost
 
 // PRINT, default
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(VariableSelection Variable)
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(ListOfVariables Variable)
 {
 	std::ofstream DataFile;
 	int NumberOfRows;
@@ -1096,7 +1118,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 
 // PRINT, Dense state
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(VariableSelection Variable, int ThreadID)
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(ListOfVariables Variable, int ThreadID)
 {
 	ErrorHandlingSetGetHost("Print", "Thread", ThreadID, KernelParameters.NumberOfThreads);
 	
@@ -1310,7 +1332,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solve(
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	SingleSystem_PerThread_RungeKutta<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
+	//SingleSystem_PerThread_RungeKutta<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
 }
 
 // SYNCHRONISE DEVICE
@@ -1386,6 +1408,76 @@ DataType* AllocateHostMemory(int N)
         exit(EXIT_FAILURE);
     }
     return HostMemory;
+}
+
+std::string SolverOptionsToString(ListOfSolverOptions Option)
+{
+	switch(Option)
+	{
+		case ThreadsPerBlock:
+			return "ThreadsPerBlock";
+		case InitialTimeStep:
+			return "InitialTimeStep";
+		case ActiveNumberOfThreads:
+			return "ActiveNumberOfThreads";
+		case MaximumTimeStep:
+			return "MaximumTimeStep";
+		case MinimumTimeStep:
+			return "MinimumTimeStep";
+		case TimeStepGrowLimit:
+			return "TimeStepGrowLimit";
+		case TimeStepShrinkLimit:
+			return "TimeStepShrinkLimit";
+		case RelativeTolerance:
+			return "RelativeTolerance";
+		case AbsoluteTolerance:
+			return "AbsoluteTolerance";
+		case EventTolerance:
+			return "EventTolerance";
+		case EventDirection:
+			return "EventDirection";
+		case DenseOutputMinimumTimeStep:
+			return "DenseOutputMinimumTimeStep";
+		case DenseOutputSaveFrequency:
+			return "DenseOutputSaveFrequency";
+		default:
+			return "Non-existent solver option!";
+	}
+}
+
+std::string VariablesToString(ListOfVariables Option)
+{
+	switch(Option)
+	{
+		case All:
+			return "All";
+		case TimeDomain:
+			return "TimeDomain";
+		case ActualState:
+			return "ActualState";
+		case ActualTime:
+			return "ActualTime";
+		case ControlParameters:
+			return "ControlParameters";
+		case SharedParameters:
+			return "SharedParameters";
+		case IntegerSharedParameters:
+			return "IntegerSharedParameters";
+		case Accessories:
+			return "Accessories";
+		case IntegerAccessories:
+			return "IntegerAccessories";
+		case DenseOutput:
+			return "DenseOutput";
+		case DenseIndex:
+			return "DenseIndex";
+		case DenseTime:
+			return "DenseTime";
+		case DenseState:
+			return "DenseState";
+		default:
+			return "Non-existent variable!";
+	}
 }
 
 #endif

@@ -2100,5 +2100,4 @@ std::string VariablesToString(ListOfVariables Option)
 	}
 }
 
-
 #endif
