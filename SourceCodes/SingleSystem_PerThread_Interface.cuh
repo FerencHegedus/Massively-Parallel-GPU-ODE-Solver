@@ -186,10 +186,10 @@ class ProblemSolver
 		template <typename T> void SolverOption(ListOfSolverOptions, T);
 		template <typename T> void SolverOption(ListOfSolverOptions, int, T);
 		
-		template <typename T> void SetHost(int, ListOfVariables, int, T);      // Problem scope and dense time
+		template <typename T> void SetHost(int, ListOfVariables, int, T);      // Unit scope and DenseTime
+		template <typename T> void SetHost(int, ListOfVariables, T);           // System scope
 		template <typename T> void SetHost(ListOfVariables, int, T);           // Global scope
-		template <typename T> void SetHost(int, ListOfVariables, int, int, T); // Dense state
-		template <typename T> void SetHost(int, ListOfVariables, T);           // Dense index
+		template <typename T> void SetHost(int, ListOfVariables, int, int, T); // DenseState
 		
 		void SynchroniseFromHostToDevice(ListOfVariables);
 		void SynchroniseFromDeviceToHost(ListOfVariables);
@@ -197,7 +197,7 @@ class ProblemSolver
 		template <typename T> T GetHost(int, ListOfVariables, int);            // Problem scope and dense time
 		template <typename T> T GetHost(ListOfVariables, int);                 // Global scope
 		template <typename T> T GetHost(int, ListOfVariables, int, int);       // Dense state
-		template <typename T> T GetHost(int, ListOfVariables);                 // Dense index
+		template <typename T> T GetHost(int, ListOfVariables);                 // Dense index and actual time
 		
 		void Print(ListOfVariables);      // Problem and global scope
 		void Print(ListOfVariables, int); // Dense output
@@ -704,140 +704,141 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solver
 	}
 }
 
-
-
-
-
-
-
-
-
-
-// SETHOST, Problem scope, double
-/*template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, double Value)
+// SETHOST, Unit scope and DenseTime
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+template <typename T>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, T Value)
 {
-	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
 	
-	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads;
+	int idx = ProblemNumber + SerialNumber*NT;
 	
 	switch (Variable)
 	{
 		case TimeDomain:
-			ErrorHandlingSetGetHost("SetHost", "TimeDomain", SerialNumber, 2);
-			h_TimeDomain[idx] = Value;
+			BoundCheck("SetHost", "TimeDomain", SerialNumber, 0, 1 );
+			h_TimeDomain[idx] = (Precision)Value;
 			break;
 		
 		case ActualState:
-			ErrorHandlingSetGetHost("SetHost", "ActualState", SerialNumber, KernelParameters.SystemDimension);
-			h_ActualState[idx] = Value;
+			BoundCheck("SetHost", "ActualState", SerialNumber, 0, SD-1 );
+			h_ActualState[idx] = (Precision)Value;
 			break;
 		
 		case ControlParameters:
-			ErrorHandlingSetGetHost("SetHost", "ControlParameters", SerialNumber, KernelParameters.NumberOfControlParameters);
-			h_ControlParameters[idx] = Value;
+			BoundCheck("SetHost", "ControlParameters", SerialNumber, 0, NCP-1 );
+			h_ControlParameters[idx] = (Precision)Value;
 			break;
 		
 		case Accessories:
-			ErrorHandlingSetGetHost("SetHost", "Accessories", SerialNumber, KernelParameters.NumberOfAccessories);
-			h_Accessories[idx] = Value;
+			BoundCheck("SetHost", "Accessories", SerialNumber, 0, NA-1 );
+			h_Accessories[idx] = (Precision)Value;
+			break;
+		
+		case IntegerAccessories:
+			BoundCheck("SetHost", "IntegerAccessories", SerialNumber, 0, NIA-1 );
+			h_IntegerAccessories[idx] = (int)Value;
 			break;
 		
 		case DenseTime:
-			ErrorHandlingSetGetHost("SetHost", "DenseTime", SerialNumber, KernelParameters.DenseOutputNumberOfPoints);
-			h_DenseOutputTimeInstances[idx] = Value;
+			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, NDO-1 );
+			h_DenseOutputTimeInstances[idx] = (Precision)Value;
 			break;
 		
 		default:
-			std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection or wrong type of input value (double instead of int)!" << std::endl;
+			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
 	}
 }
 
-// SETHOST, Problem scope, int
+// SETHOST, System scope
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber, int Value)
+template <typename T>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, T Value)
 {
-	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
 	
-	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads;
+	int idx = ProblemNumber;
 	
 	switch (Variable)
 	{
-		case IntegerAccessories:
-			ErrorHandlingSetGetHost("SetHost", "IntegerAccessories", SerialNumber, KernelParameters.NumberOfIntegerAccessories);
-			h_IntegerAccessories[idx] = Value;
+		case ActualTime:
+			h_ActualState[idx] = (Precision)Value;
+			break;
+		
+		case DenseIndex:
+			h_DenseOutputIndex[idx] = (int)Value;
 			break;
 		
 		default:
-			std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection or wrong type of input value (int instead of double)!" << std::endl;
+			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
 	}
 }
 
-// SETHOST, Dense state
+// SETHOST, Global scope
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStep, double Value)
-{
-	ErrorHandlingSetGetHost("SetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
-	
-	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads + TimeStep*KernelParameters.NumberOfThreads*KernelParameters.SystemDimension;
-	
-	switch (Variable)
-	{
-		case DenseState:
-			ErrorHandlingSetGetHost("SetHost", "DenseState", SerialNumber, KernelParameters.SystemDimension);
-			ErrorHandlingSetGetHost("SetHost", "DenseState/TimeStep", TimeStep, KernelParameters.DenseOutputNumberOfPoints);
-			h_DenseOutputStates[idx] = Value;
-			break;
-		
-		default:
-			std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
-}
-
-// SETHOST, Global scope, double
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(ListOfVariables Variable, int SerialNumber, double Value)
+template <typename T>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(ListOfVariables Variable, int SerialNumber, T Value)
 {
 	switch (Variable)
 	{
 		case SharedParameters:
-			ErrorHandlingSetGetHost("SetHost", "SharedParameters", SerialNumber, KernelParameters.NumberOfSharedParameters);
-			h_SharedParameters[SerialNumber] = Value;
+			BoundCheck("SetHost", "SharedParameters", SerialNumber, 0, NSP-1 );
+			h_SharedParameters[SerialNumber] = (Precision)Value;
+			break;
+		
+		case IntegerSharedParameters:
+			BoundCheck("SetHost", "IntegerSharedParameters", SerialNumber, 0, NISP-1 );
+			h_SharedParameters[SerialNumber] = (int)Value;
 			break;
 		
 		default:
-			std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection or wrong type of input value (int instead of double)!" << std::endl;
+			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
 	}
 }
 
-// SETHOST, Global scope, int
+// SETHOST, DenseState
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(IntegerVariableSelection Variable, int SerialNumber, int Value)
+template <typename T>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber, T Value)
 {
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
+	
+	int idx = ProblemNumber + SerialNumber*NT + TimeStepNumber*NT*SD;
+	
 	switch (Variable)
 	{
-		case IntegerSharedParameters:
-			ErrorHandlingSetGetHost("SetHost", "IntegerSharedParameters", SerialNumber, KernelParameters.NumberOfIntegerSharedParameters);
-			h_IntegerSharedParameters[SerialNumber] = Value;
+		case DenseState:
+			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, SD-1 );
+			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, NDO-1 );
+			h_DenseOutputStates[idx] = (Precision)Value;
 			break;
 		
 		default:
-			std::cerr << "ERROR in solver member function SetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection or wrong type of input value (double instead of int)!" << std::endl;
+			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
+			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
 	}
 }
 
+
+
+
+
+
+
+
 // SYNCHRONISE, H->D, default
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+/*template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromHostToDevice(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
