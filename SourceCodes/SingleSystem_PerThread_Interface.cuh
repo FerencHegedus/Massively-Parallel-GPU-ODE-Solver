@@ -466,7 +466,7 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
         std::cout << std::endl;
 		std::cout << "   WARNING: The required amount of shared memory is larger than the available!" << std::endl;
 		std::cout << "            The solver kernel function cannot be run on the selected GPU!" << std::endl;
-		std::cout << "            Turn OFF some variables using shared memory!" << std::endl;
+		std::cout << "            Turn OFF PreferSharedMemory!" << std::endl;
     }
 	std::cout << std::endl;
 	
@@ -581,6 +581,38 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::BoundC
         exit(EXIT_FAILURE);
     }
 }
+
+// SHARED MEMORY CHECK
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SharedMemoryCheck()
+{
+	std::cout << "SHARED MEMORY MANAGEMENT CHANGED BY SOLVER OPTION:" << std::endl;
+	
+	DynamicSharedMemoryRequired = SharedMemoryUsage.PreferSharedMemory * SharedMemoryRequiredSharedVariables;
+	SharedMemoryRequired        = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
+	
+	std::cout << "   Required shared memory per block for managable variables:" << std::endl;
+	std::cout << "    Shared memory required by shared variables:           " << std::setw(6) << SharedMemoryRequiredSharedVariables << " b (" << ( (SharedMemoryUsage.PreferSharedMemory == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
+	std::cout << "   Upper limit of possible shared memory usage per block: " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + PreferSharedMemory is ON)" << std::endl;
+	std::cout << "   Actual shared memory required per block (estimated):   " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
+	std::cout << "   Available shared memory per block:                     " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
+	
+	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired << std::endl;
+	
+	if ( SharedMemoryRequired >= SharedMemoryAvailable )
+	{
+        std::cout << std::endl;
+		std::cout << "   WARNING: The required amount of shared memory is larger than the available!" << std::endl;
+		std::cout << "            The solver kernel function cannot be run on the selected GPU!" << std::endl;
+		std::cout << "            Turn OFF PreferSharedMemory!" << std::endl;
+    }
+	std::cout << std::endl;
+}
+
+
+
+
+
 
 // SETHOST, Problem scope, double
 /*template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
