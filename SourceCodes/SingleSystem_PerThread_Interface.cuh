@@ -57,7 +57,8 @@ enum ListOfSolverOptions{ ThreadsPerBlock, \
 						  EventTolerance, \
 						  EventDirection, \
 						  DenseOutputMinimumTimeStep, \
-						  DenseOutputSaveFrequency};
+						  DenseOutputSaveFrequency, \
+						  PreferSharedMemory};
 
 std::string SolverOptionsToString(ListOfSolverOptions);
 std::string VariablesToString(ListOfVariables);
@@ -66,60 +67,46 @@ void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
 
-
-struct IntegratorInternalVariables
+struct Struct_ThreadConfiguration
 {
-	int NumberOfThreads;
-	int SystemDimension;
-	int NumberOfControlParameters;
-	int NumberOfSharedParameters;
-	int NumberOfEvents;
-	int NumberOfAccessories;
-	int NumberOfIntegerSharedParameters;
-	int NumberOfIntegerAccessories;
-	
-	double* d_TimeDomain;
-	double* d_ActualState;
-	double* d_ControlParameters;
-	double* d_SharedParameters;
-	double* d_Accessories;
-	int*    d_IntegerSharedParameters;
-	int*    d_IntegerAccessories;
-	
-	double* d_RelativeTolerance;
-	double* d_AbsoluteTolerance;
-	double  MaximumTimeStep;
-	double  MinimumTimeStep;
-	double  TimeStepGrowLimit;
-	double  TimeStepShrinkLimit;
-	double* d_EventTolerance;
-	int*    d_EventDirection;
-	int*    d_EventStopCounter;
-	int     MaxStepInsideEvent;
-	
-	double* d_State;
-	double* d_Stages;
-	
-	double* d_NextState;
-	
-	double* d_Error;
-	
-	double* d_ActualEventValue;
-	double* d_NextEventValue;
-	int*    d_EventCounter;
-	int*    d_EventEquilibriumCounter;
-	
-	double InitialTimeStep;
-	int ActiveThreads;
-	
-	int    DenseOutputNumberOfPoints;
-	double DenseOutputTimeStep;
-	
-	int*    d_DenseOutputIndex;
-	double* d_DenseOutputTimeInstances;
-	double* d_DenseOutputStates;
-	
-	int    MaximumNumberOfTimeSteps;
+	int NumberOfActiveThreads;
+};
+
+template <class Precision>
+struct Struct_GlobalVariables
+{
+	Precision* d_TimeDomain;
+	Precision* d_ActualState;
+	Precision* d_ActualTime;
+	Precision* d_ControlParameters;
+	Precision* d_SharedParameters;
+	int*       d_IntegerSharedParameters;
+	Precision* d_Accessories;
+	int*       d_IntegerAccessories;
+	Precision* d_RelativeTolerance;
+	Precision* d_AbsoluteTolerance;
+	Precision* d_EventTolerance;
+	int*       d_EventDirection;
+	int*       d_DenseOutputIndex;
+	Precision* d_DenseOutputTimeInstances;
+	Precision* d_DenseOutputStates;
+};
+
+struct Struct_SharedMemoryUsage
+{
+	bool PreferSharedMemory;  // Default: ON
+};
+
+template <class Precision>
+struct Struct_SolverOptions
+{
+	Precision InitialTimeStep;
+	Precision MaximumTimeStep;
+	Precision MinimumTimeStep;
+	Precision TimeStepGrowLimit;
+	Precision TimeStepShrinkLimit;
+	int       DenseOutputSaveFrequency;
+	Precision DenseOutputMinimumTimeStep;
 };
 
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
@@ -1440,6 +1427,8 @@ std::string SolverOptionsToString(ListOfSolverOptions Option)
 			return "DenseOutputMinimumTimeStep";
 		case DenseOutputSaveFrequency:
 			return "DenseOutputSaveFrequency";
+		case PreferSharedMemory:
+			return "PreferSharedMemory";
 		default:
 			return "Non-existent solver option!";
 	}
