@@ -705,8 +705,11 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	gpuErrCHK( cudaFree(GlobalVariables.d_EventTolerance) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_EventDirection) );
 	
+	std::cout << "--------------------------------------" << std::endl;
 	std::cout << "Object for Parameters scan is deleted!" << std::endl;
-	std::cout << "Every memory have been deallocated!" << std::endl << std::endl;
+	std::cout << "Every memory have been deallocated!" << std::endl;
+	std::cout << "Coo man coo!!!" << std::endl;
+	std::cout << "--------------------------------------" << std::endl << std::endl;
 }
 
 // BOUND CHECK, set/get host, options

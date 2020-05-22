@@ -523,53 +523,44 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::~ProblemSolver()
 {
-    /*gpuErrCHK( cudaSetDevice(Device) );
+    gpuErrCHK( cudaSetDevice(Device) );
 	
 	gpuErrCHK( cudaStreamDestroy(Stream) );
 	gpuErrCHK( cudaEventDestroy(Event) );
 	
 	gpuErrCHK( cudaFreeHost(h_TimeDomain) );
 	gpuErrCHK( cudaFreeHost(h_ActualState) );
+	gpuErrCHK( cudaFreeHost(h_ActualTime) );
 	gpuErrCHK( cudaFreeHost(h_ControlParameters) );
 	gpuErrCHK( cudaFreeHost(h_SharedParameters) );
-	gpuErrCHK( cudaFreeHost(h_Accessories) );
 	gpuErrCHK( cudaFreeHost(h_IntegerSharedParameters) );
+	gpuErrCHK( cudaFreeHost(h_Accessories) );
 	gpuErrCHK( cudaFreeHost(h_IntegerAccessories) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputIndex) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputTimeInstances) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputStates) );
 	
-	gpuErrCHK( cudaFree(KernelParameters.d_TimeDomain) );
-	gpuErrCHK( cudaFree(KernelParameters.d_ActualState) );
-	gpuErrCHK( cudaFree(KernelParameters.d_ControlParameters) );
-	gpuErrCHK( cudaFree(KernelParameters.d_SharedParameters) );
-	gpuErrCHK( cudaFree(KernelParameters.d_Accessories) );
-	gpuErrCHK( cudaFree(KernelParameters.d_IntegerSharedParameters) );
-	gpuErrCHK( cudaFree(KernelParameters.d_IntegerAccessories) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_TimeDomain) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_ActualState) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_ActualTime) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_ControlParameters) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_SharedParameters) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_IntegerSharedParameters) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_Accessories) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_IntegerAccessories) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_RelativeTolerance) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_AbsoluteTolerance) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_EventTolerance) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_EventDirection) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputIndex) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputTimeInstances) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputStates) );
 	
-	gpuErrCHK( cudaFree(KernelParameters.d_State) );
-	gpuErrCHK( cudaFree(KernelParameters.d_Stages) );
-	
-	gpuErrCHK( cudaFree(KernelParameters.d_NextState) );
-	
-	gpuErrCHK( cudaFree(KernelParameters.d_Error) );
-	
-	gpuErrCHK( cudaFree(KernelParameters.d_ActualEventValue) );
-	gpuErrCHK( cudaFree(KernelParameters.d_NextEventValue) );
-	gpuErrCHK( cudaFree(KernelParameters.d_EventCounter) );
-	gpuErrCHK( cudaFree(KernelParameters.d_EventEquilibriumCounter) );
-	
-	gpuErrCHK( cudaFree(KernelParameters.d_RelativeTolerance) );
-	gpuErrCHK( cudaFree(KernelParameters.d_AbsoluteTolerance) );
-	gpuErrCHK( cudaFree(KernelParameters.d_EventTolerance) );
-	gpuErrCHK( cudaFree(KernelParameters.d_EventDirection) );
-	gpuErrCHK( cudaFree(KernelParameters.d_EventStopCounter) );
-	
-	gpuErrCHK( cudaFree(KernelParameters.d_DenseOutputIndex) );
-	gpuErrCHK( cudaFree(KernelParameters.d_DenseOutputTimeInstances) );
-	gpuErrCHK( cudaFree(KernelParameters.d_DenseOutputStates) );*/
-	
-	std::cout << "Object for Parameters scan is deleted! Every memory have been deallocated!" << std::endl << std::endl;
+	std::cout << "--------------------------------------" << std::endl;
+	std::cout << "Object for Parameters scan is deleted!" << std::endl;
+	std::cout << "Every memory have been deallocated!" << std::endl;
+	std::cout << "Coo man coo!!!" << std::endl;
+	std::cout << "--------------------------------------" << std::endl << std::endl;
 }
 /*
 // ERROR HANDLING, set/get host, options
