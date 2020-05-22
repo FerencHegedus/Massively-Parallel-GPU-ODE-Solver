@@ -389,16 +389,16 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	ThreadConfiguration.GridSize               = NS/SPB + (NS % SPB == 0 ? 0 : 1);
 	ThreadConfiguration.TotalLogicalThreads    = (ThreadConfiguration.LogicalThreadsPerBlock + ThreadConfiguration.ThreadPaddingPerBlock) * ThreadConfiguration.GridSize;
 	
-	std::cout << "   Total number of systems:            " << NS << std::endl;
-	std::cout << "   Systems per block:                  " << SPB << std::endl;
-	std::cout << "   Logical threads per block required: " << ThreadConfiguration.LogicalThreadsPerBlock << std::endl;
-	std::cout << "   GPU threads per block:              " << ThreadConfiguration.BlockSize << std::endl;
-	std::cout << "   Number of block launches:           " << ThreadConfiguration.NumberOfBlockLaunches << std::endl;
-	std::cout << "   Thread padding:                     " << ThreadConfiguration.ThreadPaddingPerBlock << std::endl;
-	std::cout << "   GridSize (total number of blocks):  " << ThreadConfiguration.GridSize << std::endl;
-	std::cout << "   Total logical threads required:     " << ThreadConfiguration.TotalLogicalThreads << std::endl;
-	std::cout << "   Thread efficinecy:                  " << (double)(NS*UPS)/ThreadConfiguration.TotalLogicalThreads << std::endl;
-	std::cout << "   Number of idle logical threads:     " << ThreadConfiguration.TotalLogicalThreads - (NS*UPS) << std::endl << std::endl;
+	std::cout << "   Total number of systems:            " << std::setw(6) << NS << std::endl;
+	std::cout << "   Systems per block:                  " << std::setw(6) << SPB << std::endl;
+	std::cout << "   Logical threads per block required: " << std::setw(6) << ThreadConfiguration.LogicalThreadsPerBlock << std::endl;
+	std::cout << "   GPU threads per block:              " << std::setw(6) << ThreadConfiguration.BlockSize << std::endl;
+	std::cout << "   Number of block launches:           " << std::setw(6) << ThreadConfiguration.NumberOfBlockLaunches << std::endl;
+	std::cout << "   Thread padding:                     " << std::setw(6) << ThreadConfiguration.ThreadPaddingPerBlock << std::endl;
+	std::cout << "   GridSize (total number of blocks):  " << std::setw(6) << ThreadConfiguration.GridSize << std::endl;
+	std::cout << "   Total logical threads required:     " << std::setw(6) << ThreadConfiguration.TotalLogicalThreads << std::endl;
+	std::cout << "   Thread efficinecy:                  " << std::setw(6) << (double)(NS*UPS)/ThreadConfiguration.TotalLogicalThreads << std::endl;
+	std::cout << "   Number of idle logical threads:     " << std::setw(6) << ThreadConfiguration.TotalLogicalThreads - (NS*UPS) << std::endl << std::endl;
 	
 	
 	// GLOBAL MEMORY MANAGEMENT
@@ -436,8 +436,22 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	if ( ( CCI == 1 ) && ( CBW == 0 ) ) // Full circular
 		SizeOfCouplingMatrix = (long) NC * UPS;
 	
-	GlobalMemoryRequired = sizeof(Precision) * ( SizeOfTimeDomain + SizeOfActualState + SizeOfUnitParameters + SizeOfSystemParameters + SizeOfGlobalParameters + SizeOfUnitAccessories + SizeOfSystemAccessories + SizeOfCouplingMatrix + SizeOfDenseOutputTimeInstances + SizeOfDenseOutputStates + 2*UD + NE) + \
-						   sizeof(int) * ( SizeOfIntegerGlobalParameters + SizeOfIntegerUnitAccessories + SizeOfIntegerSystemAccessories + SizeOfDenseOutputIndex + 2*NE);
+	GlobalMemoryRequired = sizeof(Precision) * ( SizeOfTimeDomain + \
+												 SizeOfActualState + \
+												 SizeOfUnitParameters + \
+												 SizeOfSystemParameters + \
+												 SizeOfGlobalParameters + \
+												 SizeOfUnitAccessories + \
+												 SizeOfSystemAccessories + \
+												 SizeOfCouplingMatrix + \
+												 SizeOfDenseOutputTimeInstances + \
+												 SizeOfDenseOutputStates + \
+												 2*UD + NE) + \
+						   sizeof(int) * ( SizeOfIntegerGlobalParameters + \
+										   SizeOfIntegerUnitAccessories + \
+										   SizeOfIntegerSystemAccessories + \
+										   SizeOfDenseOutputIndex + \
+										   NE);
 	
 	cudaMemGetInfo( &GlobalMemoryFree, &GlobalMemoryTotal );
 	std::cout << "   Required global memory:       " << GlobalMemoryRequired/1024/1024 << " Mb" << std::endl;
@@ -535,35 +549,35 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	int NSAp  = (  NSA==4 ?  NSA+1 : (  NSA==8 ?  NSA+1 : (  NSA==16 ?  NSA+1 : NSA  ) ) );
 	int NiSAp = ( NiSA==4 ? NiSA+1 : ( NiSA==8 ? NiSA+1 : ( NiSA==16 ? NiSA+1 : NiSA ) ) );
 	
-	StaticSharedMemoryRequired  = sizeof(Precision)*( SPB*UPS*NCp ) + \										// Solver
-	                              sizeof(Precision)*( SPB*NCp ) + \											// Solver
-								  sizeof(Precision)*( SPB*2 ) + \											// Solver
-								  sizeof(Precision)*( SPB ) + \												// Solver
-								  sizeof(Precision)*( SPB ) + \												// Solver
-								  sizeof(Precision)*( SPB ) + \												// Solver
-								  sizeof(Precision)*( (NSPp==0 ? 1 : SPB) * (NSPp==0 ? 1 : NSPp) ) + \		// Solver
-								  sizeof(Precision)*( (NSAp==0 ? 1 : SPB) * (NSAp==0 ? 1 : NSAp) ) + \		// Solver
-								  sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \		// Solver
-								  sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \		// Solver
-								  sizeof(Precision)*( (NE==0 ? 1 : NE) ) + \								// Solver
-								  sizeof(Precision)*( SPB ) + \												// Solver
-								  sizeof(Precision)*( SPB ) + \												// Stepper
-								  sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \		// ErrorController
-								  sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \		// ErrorController
-								  sizeof(Precision)*( (NE==0 ? 0 : SPB) ) + \								// EventHandling
-								  sizeof(int)*( NC ) + \													// Solver
-								  sizeof(int)*( SPB ) + \													// Solver
-								  sizeof(int)*( SPB ) + \													// Solver
-								  sizeof(int)*( SPB ) + \													// Solver
-								  sizeof(int)*( (NiSAp==0 ? 1 : SPB) * (NiSAp==0 ? 1 : NiSAp) ) + \			// Solver
-								  sizeof(int)*( (NE==0 ? 1 : NE) ) + \										// Solver
-								  sizeof(int)*( 1 ) + \														// Solver
-								  sizeof(int)*( SPB ) + \													// Solver
-								  sizeof(int)*( SPB ) + \													// Solver
-								  sizeof(int)*( SPB ) + \													// Solver
-								  sizeof(int)*( SPB ) + \													// Solver
-								  sizeof(int)*( SPB ) + \													// Solver
-								  sizeof(int)*( (NE==0 ? 0 : SPB) );										// EventHandling
+	StaticSharedMemoryRequired = sizeof(Precision)*( SPB*UPS*NCp ) + \									// Solver
+	                             sizeof(Precision)*( SPB*NCp ) + \										// Solver
+								 sizeof(Precision)*( SPB*2 ) + \										// Solver
+								 sizeof(Precision)*( SPB ) + \											// Solver
+								 sizeof(Precision)*( SPB ) + \											// Solver
+								 sizeof(Precision)*( SPB ) + \											// Solver
+								 sizeof(Precision)*( (NSPp==0 ? 1 : SPB) * (NSPp==0 ? 1 : NSPp) ) + \	// Solver
+								 sizeof(Precision)*( (NSAp==0 ? 1 : SPB) * (NSAp==0 ? 1 : NSAp) ) + \	// Solver
+								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \	// Solver
+								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \	// Solver
+								 sizeof(Precision)*( (NE==0 ? 1 : NE) ) + \								// Solver
+								 sizeof(Precision)*( SPB ) + \											// Solver
+								 sizeof(Precision)*( SPB ) + \											// Stepper
+								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \	// ErrorController
+								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \	// ErrorController
+								 sizeof(Precision)*( (NE==0 ? 0 : SPB) ) + \							// EventHandling
+								 sizeof(int)*( NC ) + \													// Solver
+								 sizeof(int)*( SPB ) + \												// Solver
+								 sizeof(int)*( SPB ) + \												// Solver
+								 sizeof(int)*( SPB ) + \												// Solver
+								 sizeof(int)*( (NiSAp==0 ? 1 : SPB) * (NiSAp==0 ? 1 : NiSAp) ) + \		// Solver
+								 sizeof(int)*( (NE==0 ? 1 : NE) ) + \									// Solver
+								 sizeof(int)*( 1 ) + \													// Solver
+								 sizeof(int)*( SPB ) + \												// Solver
+								 sizeof(int)*( SPB ) + \												// Solver
+								 sizeof(int)*( SPB ) + \												// Solver
+								 sizeof(int)*( SPB ) + \												// Solver
+								 sizeof(int)*( SPB ) + \												// Solver
+								 sizeof(int)*( (NE==0 ? 0 : SPB) );										// EventHandling
 	
 	SharedMemoryRequired = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
 	
@@ -619,18 +633,18 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+i,   &DefaultEventDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
 	}
 	
-	std::cout << "   Initial time step:                        " << SolverOptions.InitialTimeStep << std::endl;
-	std::cout << "   Active systems:                           " << SolverOptions.ActiveSystems << std::endl;
-	std::cout << "   Maximum time step:                        " << SolverOptions.MaximumTimeStep << std::endl;
-	std::cout << "   Minimum time step:                        " << SolverOptions.MinimumTimeStep << std::endl;
-	std::cout << "   Time step grow limit:                     " << SolverOptions.TimeStepGrowLimit << std::endl;
-	std::cout << "   Time step shrink limit:                   " << SolverOptions.TimeStepShrinkLimit << std::endl;
-	std::cout << "   Dense output minimum time step:           " << SolverOptions.DenseOutputMinimumTimeStep << std::endl;
-	std::cout << "   Dense output save frequency:              " << SolverOptions.DenseOutputSaveFrequency << std::endl;
-	std::cout << "   Algorithm absolute tolerance (all comp.): " << 1e-8 << std::endl;
-	std::cout << "   Algorithm relative tolerance (all comp.): " << 1e-8 << std::endl;
-	std::cout << "   Event absolute tolerance:                 " << 1e-6 << std::endl;
-	std::cout << "   Event direction of detection:             " << 0 << std::endl;
+	std::cout << "   Initial time step:                        " << std::setw(6) << SolverOptions.InitialTimeStep << std::endl;
+	std::cout << "   Active systems:                           " << std::setw(6) << SolverOptions.ActiveSystems << std::endl;
+	std::cout << "   Maximum time step:                        " << std::setw(6) << SolverOptions.MaximumTimeStep << std::endl;
+	std::cout << "   Minimum time step:                        " << std::setw(6) << SolverOptions.MinimumTimeStep << std::endl;
+	std::cout << "   Time step grow limit:                     " << std::setw(6) << SolverOptions.TimeStepGrowLimit << std::endl;
+	std::cout << "   Time step shrink limit:                   " << std::setw(6) << SolverOptions.TimeStepShrinkLimit << std::endl;
+	std::cout << "   Dense output minimum time step:           " << std::setw(6) << SolverOptions.DenseOutputMinimumTimeStep << std::endl;
+	std::cout << "   Dense output save frequency:              " << std::setw(6) << SolverOptions.DenseOutputSaveFrequency << std::endl;
+	std::cout << "   Algorithm absolute tolerance (all comp.): " << std::setw(6) << 1e-8 << std::endl;
+	std::cout << "   Algorithm relative tolerance (all comp.): " << std::setw(6) << 1e-8 << std::endl;
+	std::cout << "   Event absolute tolerance:                 " << std::setw(6) << 1e-6 << std::endl;
+	std::cout << "   Event direction of detection:             " << std::setw(6) << 0 << std::endl;
 	
 	
 	std::cout << std::endl;

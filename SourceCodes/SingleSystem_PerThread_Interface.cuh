@@ -97,7 +97,8 @@ struct Struct_GlobalVariables
 
 struct Struct_SharedMemoryUsage
 {
-	bool PreferSharedMemory;  // Default: ON
+	int PreferSharedMemory;  // Default: ON
+	int IsAdaptive;
 };
 
 template <class Precision>
@@ -310,207 +311,212 @@ void PrintPropertiesOfSpecificDevice(int SelectedDevice)
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolver(int AssociatedDevice)
 {
-    std::cout << "Creating a SolverObject ..." << std::endl;
+    std::cout << "---------------------------" << std::endl;
+	std::cout << "Creating a SolverObject ..." << std::endl;
+	std::cout << "---------------------------" << std::endl << std::endl;
 	
-	// Setup CUDA
-	/*Device = AssociatedDevice;
+	
+	// ARCHITECTURE SPECIFIC SETUP
+	std::cout << "ARCHITECTURE SPECIFIC SETUP:" << std::endl;
+	
+	Device = AssociatedDevice;
 	gpuErrCHK( cudaSetDevice(Device) );
-	
-	gpuErrCHK( cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) );
-	gpuErrCHK( cudaDeviceSetCacheConfig(cudaFuncCachePreferL1) );
-	
 	gpuErrCHK( cudaStreamCreate(&Stream) );
 	gpuErrCHK( cudaEventCreate(&Event) );
 	
 	cudaDeviceProp SelectedDeviceProperties;
-	cudaGetDeviceProperties(&SelectedDeviceProperties, AssociatedDevice);
+	cudaGetDeviceProperties(&SelectedDeviceProperties, Device);
+	
+	Revision = SelectedDeviceProperties.major*10 + SelectedDeviceProperties.minor;
+	std::cout << "   Compute capability of the selected device is: " << SelectedDeviceProperties.major << "." << SelectedDeviceProperties.minor << std::endl;
+	std::cout << "   It is advised to set a compiler option falg:  " << "--gpu-architecture=sm_" << Revision << std::endl << std::endl;
+	
+	if ( typeid(Precision) == typeid(double) )
+		gpuErrCHK( cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) );
+	
+	if ( typeid(Precision) == typeid(float) )
+		gpuErrCHK( cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeFourByte) );
 	
 	
-	// Size related user-given variables
-	KernelParameters.NumberOfThreads                 = NT;
-	KernelParameters.SystemDimension                 = SD;
-	KernelParameters.NumberOfControlParameters       = NCP;
-	KernelParameters.NumberOfSharedParameters        = NSP;
-	KernelParameters.NumberOfEvents                  = NE;
-	KernelParameters.NumberOfAccessories             = NA;
-	KernelParameters.NumberOfIntegerSharedParameters = NISP;
-	KernelParameters.NumberOfIntegerAccessories      = NIA;
-	KernelParameters.DenseOutputNumberOfPoints       = NDO;
+	// THREAD MANAGEMENT
+	std::cout << "THREAD MANAGEMENT:" << std::endl;
+	
+	ThreadConfiguration.NumberOfActiveThreads = NT;
+	ThreadConfiguration.BlockSize             = SelectedDeviceProperties.warpSize; // Default option ThreadsPerBlock is the warp size
+	ThreadConfiguration.GridSize              = NT/ThreadConfiguration.BlockSize + (NT % ThreadConfiguration.BlockSize == 0 ? 0:1);
+	
+	std::cout << "   Total number of threads:            " << std::setw(6) << NT << std::endl;
+	std::cout << "   Active threads:                     " << std::setw(6) << NT                            << " (default: total number of threads) -> SolverOption: ActiveNumberOfThreads" << std::endl;
+	std::cout << "   BlockSize (threads per block):      " << std::setw(6) << ThreadConfiguration.BlockSize << " (default: warp size)               -> SolverOption: ThreadsPerBlock" << std::endl;
+	std::cout << "   GridSize (total number of blocks):  " << std::setw(6) << ThreadConfiguration.GridSize << std::endl << std::endl;
 	
 	
-	// Global memory management
-	SizeOfTimeDomain              = KernelParameters.NumberOfThreads * 2;
-	SizeOfActualState             = KernelParameters.NumberOfThreads * KernelParameters.SystemDimension;
-	SizeOfControlParameters       = KernelParameters.NumberOfThreads * KernelParameters.NumberOfControlParameters;
-	SizeOfSharedParameters        = KernelParameters.NumberOfSharedParameters;
-	SizeOfAccessories             = KernelParameters.NumberOfThreads * KernelParameters.NumberOfAccessories;
-	SizeOfEvents                  = KernelParameters.NumberOfThreads * KernelParameters.NumberOfEvents;
-	SizeOfIntegerSharedParameters = KernelParameters.NumberOfThreads * KernelParameters.NumberOfIntegerSharedParameters;
-	SizeOfIntegerAccessories      = KernelParameters.NumberOfThreads * KernelParameters.NumberOfIntegerAccessories;
+	// GLOBAL MEMORY MANAGEMENT
+	std::cout << "GLOBAL MEMORY MANAGEMENT:" << std::endl;
 	
+	SizeOfTimeDomain               = NT * 2;
+	SizeOfActualState              = NT * SD;
+	SizeOfActualTime               = NT;
+	SizeOfControlParameters        = NT * NCP;
+	SizeOfSharedParameters         = NSP;
+	SizeOfIntegerSharedParameters  = NT * NISP;
+	SizeOfAccessories              = NT * NA;
+	SizeOfIntegerAccessories       = NT * NIA;
+	SizeOfEvents                   = NT * NE;
+	SizeOfDenseOutputIndex         = NT;
+	SizeOfDenseOutputTimeInstances = NT * NDO;
+	SizeOfDenseOutputStates        = NT * SD * NDO;
 	
-	SizeOfDenseOutputIndex         = KernelParameters.NumberOfThreads;
-	SizeOfDenseOutputTimeInstances = KernelParameters.NumberOfThreads * KernelParameters.DenseOutputNumberOfPoints;
-	SizeOfDenseOutputStates        = KernelParameters.NumberOfThreads * KernelParameters.SystemDimension * KernelParameters.DenseOutputNumberOfPoints;
-	
-	GlobalMemoryRequired = sizeof(double) * ( SizeOfTimeDomain + 10*SizeOfActualState + SizeOfControlParameters + SizeOfSharedParameters + SizeOfAccessories + \
-                                              2*SizeOfEvents + 2*KernelParameters.SystemDimension + KernelParameters.NumberOfEvents + \
-											  SizeOfDenseOutputTimeInstances + SizeOfDenseOutputStates ) + \
-						   sizeof(int) * ( 2*SizeOfEvents + 2*KernelParameters.NumberOfEvents + SizeOfDenseOutputIndex + SizeOfIntegerSharedParameters + SizeOfIntegerAccessories);
+	GlobalMemoryRequired = sizeof(Precision) * ( SizeOfTimeDomain + \
+												 SizeOfActualState + \
+												 SizeOfActualTime + \
+												 SizeOfControlParameters + \
+												 SizeOfSharedParameters + \
+												 SizeOfAccessories + \
+												 SizeOfDenseOutputTimeInstances + \
+												 SizeOfDenseOutputStates + \
+												 2*SD + NE) + \
+						   sizeof(int) * ( SizeOfIntegerSharedParameters + \
+										   SizeOfIntegerAccessories + \
+										   SizeOfDenseOutputIndex + \
+										   NE);
 	
 	cudaMemGetInfo( &GlobalMemoryFree, &GlobalMemoryTotal );
 	std::cout << "   Required global memory:       " << GlobalMemoryRequired/1024/1024 << " Mb" << std::endl;
 	std::cout << "   Available free global memory: " << GlobalMemoryFree/1024/1024     << " Mb" << std::endl;
 	std::cout << "   Total global memory:          " << GlobalMemoryTotal/1024/1024    << " Mb" << std::endl;
+	std::cout << "   Keep in mind that the real global memory usage can be higher according to the amount of register spilling!" << std::endl;
 	
 	if ( GlobalMemoryRequired >= GlobalMemoryFree )
 	{
-        std::cerr << "   ERROR: the required amount of global memory is larger than the free!" << std::endl;
-		std::cerr << "          Try to reduce the number of points of the DenseOutput or reduce the NumberOfThreads!" << std::endl;
+        std::cout << std::endl;
+		std::cerr << "   ERROR: The required amount of global memory is larger than the free!" << std::endl;
+		std::cerr << "          Try to reduce the number of points of the DenseOutput or reduce the NumberOfSystems!" << std::endl;
+		std::cerr << "          Keep in mind that launch of multiple SolverObjects can also cause overuse of global memory!" << std::endl;
+		std::cerr << "          (For instance, using 2 identically setup SolverObjects, the available global memory is halved!)" << std::endl;
         exit(EXIT_FAILURE);
     }
 	std::cout << std::endl;
 	
+	h_TimeDomain               = AllocateHostPinnedMemory<Precision>( SizeOfTimeDomain );
+	h_ActualState              = AllocateHostPinnedMemory<Precision>( SizeOfActualState );
+	h_ActualTime               = AllocateHostPinnedMemory<Precision>( SizeOfActualTime );
+	h_ControlParameters        = AllocateHostPinnedMemory<Precision>( SizeOfControlParameters );
+	h_SharedParameters         = AllocateHostPinnedMemory<Precision>( SizeOfSharedParameters );
+	h_IntegerSharedParameters  = AllocateHostPinnedMemory<int>( SizeOfIntegerSharedParameters );
+	h_Accessories              = AllocateHostPinnedMemory<Precision>( SizeOfAccessories );
+	h_IntegerAccessories       = AllocateHostPinnedMemory<int>( SizeOfIntegerAccessories );
+	h_DenseOutputIndex         = AllocateHostPinnedMemory<int>( SizeOfDenseOutputIndex );
+	h_DenseOutputTimeInstances = AllocateHostPinnedMemory<Precision>( SizeOfDenseOutputTimeInstances );
+	h_DenseOutputStates        = AllocateHostPinnedMemory<Precision>( SizeOfDenseOutputStates );
 	
-	// Shared memory management
-	DynamicSharedMemory =  KernelParameters.NumberOfSharedParameters*sizeof(double) + KernelParameters.NumberOfIntegerSharedParameters*sizeof(int);
-	DynamicSharedMemory += KernelParameters.NumberOfEvents*( sizeof(int) + sizeof(double) + sizeof(int) );
+	GlobalVariables.d_TimeDomain               = AllocateDeviceMemory<Precision>( SizeOfTimeDomain );
+	GlobalVariables.d_ActualState              = AllocateDeviceMemory<Precision>( SizeOfActualState );
+	GlobalVariables.d_ActualTime               = AllocateDeviceMemory<Precision>( SizeOfActualTime );
+	GlobalVariables.d_ControlParameters        = AllocateDeviceMemory<Precision>( SizeOfControlParameters );
+	GlobalVariables.d_SharedParameters         = AllocateDeviceMemory<Precision>( SizeOfSharedParameters );
+	GlobalVariables.d_IntegerSharedParameters  = AllocateDeviceMemory<int>( SizeOfIntegerSharedParameters );
+	GlobalVariables.d_Accessories              = AllocateDeviceMemory<Precision>( SizeOfAccessories );
+	GlobalVariables.d_IntegerAccessories       = AllocateDeviceMemory<int>( SizeOfIntegerAccessories );
+	GlobalVariables.d_RelativeTolerance        = AllocateDeviceMemory<Precision>( SD );
+	GlobalVariables.d_AbsoluteTolerance        = AllocateDeviceMemory<Precision>( SD );
+	GlobalVariables.d_EventTolerance           = AllocateDeviceMemory<Precision>( NE );
+	GlobalVariables.d_EventDirection           = AllocateDeviceMemory<int>( NE );
+	GlobalVariables.d_DenseOutputIndex         = AllocateDeviceMemory<int>( SizeOfDenseOutputIndex );
+	GlobalVariables.d_DenseOutputTimeInstances = AllocateDeviceMemory<Precision>( SizeOfDenseOutputTimeInstances );
+	GlobalVariables.d_DenseOutputStates        = AllocateDeviceMemory<Precision>( SizeOfDenseOutputStates );
+	
+	
+	// SHARED MEMORY MANAGEMENT
+	std::cout << "SHARED MEMORY MANAGEMENT:" << std::endl;
 	
 	switch (Algorithm)
 	{
-		case RKCK45:
-			DynamicSharedMemory += 2*KernelParameters.SystemDimension*sizeof(double);
+		case RK4:
+			SharedMemoryUsage.IsAdaptive = 0;
+			break;
+		default:
+			SharedMemoryUsage.IsAdaptive = 1;
 			break;
 	}
 	
-	std::cout << "   Total shared memory required:  " << DynamicSharedMemory                        << " b" << std::endl;
-	std::cout << "   Total shared memory available: " << SelectedDeviceProperties.sharedMemPerBlock << " b" << std::endl;
-	if ( DynamicSharedMemory >= SelectedDeviceProperties.sharedMemPerBlock )
+	SharedMemoryUsage.PreferSharedMemory = 1; // Default: ON
+	SharedMemoryRequiredSharedVariables  = sizeof(Precision)*(NSP) + sizeof(int)*(NISP);
+	DynamicSharedMemoryRequired          = SharedMemoryUsage.PreferSharedMemory * SharedMemoryRequiredSharedVariables;
+	
+	StaticSharedMemoryRequired           = sizeof(Precision)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : SD ) + \	// AbsoluteTolerance
+										   sizeof(Precision)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : SD ) + \	// RelativeTolerance
+										   sizeof(Precision)*( NE==0 ? 1 : NE ) + \								// EventTolerance
+										   sizeof(int)*( NE==0 ? 1 : NE );										// EventDirection
+	
+	SharedMemoryRequiredUpperLimit       = StaticSharedMemoryRequired + SharedMemoryRequiredSharedVariables;
+	SharedMemoryRequired                 = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
+	SharedMemoryAvailable                = SelectedDeviceProperties.sharedMemPerBlock;
+	
+	std::cout << "   Required shared memory per block for managable variables:" << std::endl;
+	std::cout << "    Shared memory required by shared variables:           " << std::setw(6) << SharedMemoryRequiredSharedVariables << " b (" << ( (SharedMemoryUsage.PreferSharedMemory == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
+	std::cout << "   Upper limit of possible shared memory usage per block: " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + PreferSharedMemory is ON)" << std::endl;
+	std::cout << "   Actual shared memory required per block (estimated):   " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
+	std::cout << "   Available shared memory per block:                     " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
+	
+	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired << std::endl;
+	
+	if ( SharedMemoryRequired >= SharedMemoryAvailable )
 	{
-        std::cerr << "   ERROR: the required amount of shared memory is larger than the free!" << std::endl;
-		std::cerr << "          Try to reduce the number the SharedParameters!" << std::endl;
-        exit(EXIT_FAILURE);
+        std::cout << std::endl;
+		std::cout << "   WARNING: The required amount of shared memory is larger than the available!" << std::endl;
+		std::cout << "            The solver kernel function cannot be run on the selected GPU!" << std::endl;
+		std::cout << "            Turn OFF some variables using shared memory!" << std::endl;
     }
+	std::cout << std::endl;
 	
 	
-	// Constant memory management		
-	h_BT_RK4[0] = 1.0/6.0;
+	// DEFAULT VALUES OF SOLVER OPTIONS
+	std::cout << "DEFAULT SOLVER OPTIONS:" << std::endl;
 	
-	h_BT_RKCK45[0]  =     1.0/5.0;
-	h_BT_RKCK45[1]  =     3.0/10.0;
-	h_BT_RKCK45[2]	=     3.0/40.0;
-	h_BT_RKCK45[3]  =     9.0/40.0;
-	h_BT_RKCK45[4]  =     3.0/5.0;
-	h_BT_RKCK45[5]  =    -9.0/10.0;
-	h_BT_RKCK45[6]  =     6.0/5.0;
-	h_BT_RKCK45[7]  =   -11.0/54.0;
-	h_BT_RKCK45[8]  =     5.0/2.0;
-	h_BT_RKCK45[9]  =   -70.0/27.0;
-	h_BT_RKCK45[10] =    35.0/27.0;
-	h_BT_RKCK45[11] =     7.0/8.0;
-	h_BT_RKCK45[12] =  1631.0/55296.0;
-	h_BT_RKCK45[13] =   175.0/512.0;
-	h_BT_RKCK45[14] =   575.0/13824.0;
-	h_BT_RKCK45[15] = 44275.0/110592.0;
-	h_BT_RKCK45[16] =   253.0/4096.0;
-	h_BT_RKCK45[17] =    37.0/378.0;
-	h_BT_RKCK45[18] =   250.0/621.0;
-	h_BT_RKCK45[19] =   125.0/594.0;
-	h_BT_RKCK45[20] =   512.0/1771.0;
-	h_BT_RKCK45[21] =  2825.0/27648.0;
-	h_BT_RKCK45[22] = 18575.0/48384.0;
-	h_BT_RKCK45[23] = 13525.0/55296.0;
-	h_BT_RKCK45[24] =   277.0/14336.0;
-	h_BT_RKCK45[25] =     1.0/4.0;
+	SolverOptions.InitialTimeStep            = 1e-2;
+	SolverOptions.MaximumTimeStep            = 1.0e6;
+	SolverOptions.MinimumTimeStep            = 1.0e-12;
+	SolverOptions.TimeStepGrowLimit          = 5.0;
+	SolverOptions.TimeStepShrinkLimit        = 0.1;
+	SolverOptions.DenseOutputMinimumTimeStep = 0.0;
+	SolverOptions.DenseOutputSaveFrequency   = 1;
 	
-	gpuErrCHK( cudaMemcpyToSymbol(d_BT_RK4,    h_BT_RK4,     1*sizeof(double)) );
-	gpuErrCHK( cudaMemcpyToSymbol(d_BT_RKCK45, h_BT_RKCK45, 26*sizeof(double)) );
-	
-	
-	// Host internal variables
-	h_TimeDomain               = AllocateHostPinnedMemory<double>( SizeOfTimeDomain );
-	h_ActualState              = AllocateHostPinnedMemory<double>( SizeOfActualState );
-	h_ControlParameters        = AllocateHostPinnedMemory<double>( SizeOfControlParameters );
-	h_SharedParameters         = AllocateHostPinnedMemory<double>( SizeOfSharedParameters );
-	h_Accessories              = AllocateHostPinnedMemory<double>( SizeOfAccessories );
-	h_IntegerSharedParameters  = AllocateHostPinnedMemory<int>( SizeOfIntegerSharedParameters );
-	h_IntegerAccessories       = AllocateHostPinnedMemory<int>( SizeOfIntegerAccessories );
-	h_DenseOutputIndex         = AllocateHostPinnedMemory<int>( SizeOfDenseOutputIndex );
-	h_DenseOutputTimeInstances = AllocateHostPinnedMemory<double>( SizeOfDenseOutputTimeInstances );
-	h_DenseOutputStates        = AllocateHostPinnedMemory<double>( SizeOfDenseOutputStates );
-	
-	
-	// Device internal variables
-	KernelParameters.d_TimeDomain              = AllocateDeviceMemory<double>( SizeOfTimeDomain );
-	KernelParameters.d_ActualState             = AllocateDeviceMemory<double>( SizeOfActualState );
-	KernelParameters.d_ControlParameters       = AllocateDeviceMemory<double>( SizeOfControlParameters );
-	KernelParameters.d_SharedParameters        = AllocateDeviceMemory<double>( SizeOfSharedParameters );
-	KernelParameters.d_Accessories             = AllocateDeviceMemory<double>( SizeOfAccessories );
-	KernelParameters.d_IntegerSharedParameters = AllocateDeviceMemory<int>( SizeOfIntegerSharedParameters );
-	KernelParameters.d_IntegerAccessories      = AllocateDeviceMemory<int>( SizeOfIntegerAccessories );
-	
-	KernelParameters.d_State    = AllocateDeviceMemory<double>( SizeOfActualState );
-	KernelParameters.d_Stages   = AllocateDeviceMemory<double>( SizeOfActualState * 6 );
-	
-	KernelParameters.d_NextState = AllocateDeviceMemory<double>( SizeOfActualState );
-	
-	KernelParameters.d_Error           = AllocateDeviceMemory<double>( SizeOfActualState );
-	
-	KernelParameters.d_ActualEventValue        = AllocateDeviceMemory<double>( SizeOfEvents );
-	KernelParameters.d_NextEventValue          = AllocateDeviceMemory<double>( SizeOfEvents );
-	KernelParameters.d_EventCounter            = AllocateDeviceMemory<int>( SizeOfEvents );
-	KernelParameters.d_EventEquilibriumCounter = AllocateDeviceMemory<int>( SizeOfEvents );
-	
-	KernelParameters.d_RelativeTolerance       = AllocateDeviceMemory<double>( KernelParameters.SystemDimension );
-	KernelParameters.d_AbsoluteTolerance       = AllocateDeviceMemory<double>( KernelParameters.SystemDimension );
-	KernelParameters.d_EventTolerance          = AllocateDeviceMemory<double>( KernelParameters.NumberOfEvents );
-	KernelParameters.d_EventDirection          = AllocateDeviceMemory<int>( KernelParameters.NumberOfEvents );
-	KernelParameters.d_EventStopCounter        = AllocateDeviceMemory<int>( KernelParameters.NumberOfEvents );
-	
-	KernelParameters.d_DenseOutputIndex         = AllocateDeviceMemory<int>( SizeOfDenseOutputIndex );
-	KernelParameters.d_DenseOutputTimeInstances = AllocateDeviceMemory<double>( SizeOfDenseOutputTimeInstances );
-	KernelParameters.d_DenseOutputStates        = AllocateDeviceMemory<double>( SizeOfDenseOutputStates );
-	
-	KernelParameters.InitialTimeStep = 1e-2;
-	KernelParameters.ActiveThreads   = KernelParameters.NumberOfThreads;
-	
-	KernelParameters.MaximumTimeStep     = 1.0e6;
-	KernelParameters.MinimumTimeStep     = 1.0e-12;
-	KernelParameters.TimeStepGrowLimit   = 5.0;
-	KernelParameters.TimeStepShrinkLimit = 0.1;
-	
-	KernelParameters.MaxStepInsideEvent  = 50;
-	
-	KernelParameters.DenseOutputTimeStep = -1e-2;
-	
-	KernelParameters.MaximumNumberOfTimeSteps = 0;
-	
-	
-	// Kernel configuration
-	BlockSize  = SelectedDeviceProperties.warpSize;
-	GridSize   = KernelParameters.NumberOfThreads/BlockSize + (KernelParameters.NumberOfThreads % BlockSize == 0 ? 0:1);
-	
-	
-	// Default integration tolerances
-	double DefaultTolerances = 1e-8;
-	for (int i=0; i<KernelParameters.SystemDimension; i++)
+	Precision DefaultAlgorithmTolerances = 1e-8;
+	for (int i=0; i<SD; i++)
 	{
-		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_RelativeTolerance + i, &DefaultTolerances, sizeof(double), cudaMemcpyHostToDevice, Stream) );
-		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_AbsoluteTolerance + i, &DefaultTolerances, sizeof(double), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance + i, &DefaultAlgorithmTolerances, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance + i, &DefaultAlgorithmTolerances, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 	}
 	
-	DefaultTolerances = 1e-6;
-	int EventStopCounterAndDirection = 0;
-	for (int i=0; i<KernelParameters.NumberOfEvents; i++)
+	Precision DefaultEventTolerance = 1e-6;
+	int       DefaultEventDirection = 0;
+	for (int i=0; i<NE; i++)
 	{
-		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventDirection   + i, &EventStopCounterAndDirection, sizeof(int), cudaMemcpyHostToDevice, Stream) );
-		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventStopCounter + i, &EventStopCounterAndDirection, sizeof(int), cudaMemcpyHostToDevice, Stream) );
-		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventTolerance   + i, &DefaultTolerances,         sizeof(double), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance   + i, &DefaultEventTolerance, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection   + i, &DefaultEventDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
 	}
 	
-	std::cout << std::endl << std::endl;*/
+	std::cout << "   Active threads:                           " << std::setw(6) << NT << " (default: total number of threads) -> SolverOption: ActiveNumberOfThreads" << std::endl;
+	std::cout << "   BlockSize (threads per block):            " << std::setw(6) << ThreadConfiguration.BlockSize << " (default: warp size)               -> SolverOption: ThreadsPerBlock" << std::endl;
+	std::cout << "   Initial time step:                        " << std::setw(6) << SolverOptions.InitialTimeStep << std::endl;
+	std::cout << "   Maximum time step:                        " << std::setw(6) << SolverOptions.MaximumTimeStep << std::endl;
+	std::cout << "   Minimum time step:                        " << std::setw(6) << SolverOptions.MinimumTimeStep << std::endl;
+	std::cout << "   Time step grow limit:                     " << std::setw(6) << SolverOptions.TimeStepGrowLimit << std::endl;
+	std::cout << "   Time step shrink limit:                   " << std::setw(6) << SolverOptions.TimeStepShrinkLimit << std::endl;
+	std::cout << "   Dense output minimum time step:           " << std::setw(6) << SolverOptions.DenseOutputMinimumTimeStep << std::endl;
+	std::cout << "   Dense output save frequency:              " << std::setw(6) << SolverOptions.DenseOutputSaveFrequency << std::endl;
+	std::cout << "   Algorithm absolute tolerance (all comp.): " << std::setw(6) << 1e-8 << std::endl;
+	std::cout << "   Algorithm relative tolerance (all comp.): " << std::setw(6) << 1e-8 << std::endl;
+	std::cout << "   Event absolute tolerance:                 " << std::setw(6) << 1e-6 << std::endl;
+	std::cout << "   Event direction of detection:             " << std::setw(6) << 0 << std::endl;
 	
-	std::cout << "Object for Parameters scan is successfully created! Required memory allocations have been done" << std::endl << std::endl;
+	std::cout << std::endl;
+	std::cout << "---------------------------------------------------" << std::endl;
+	std::cout << "Object for Parameters scan is successfully created!" << std::endl;
+	std::cout << "Required memory allocations have been done" << std::endl;
+	std::cout << "Coo man coo!!!" << std::endl;
+	std::cout << "---------------------------------------------------" << std::endl << std::endl;
 }
 
 // DESTRUCTOR
