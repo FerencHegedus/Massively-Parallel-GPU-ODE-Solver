@@ -56,18 +56,18 @@ int main()
 	
 	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanDuffing(SelectedDevice);
 	
-	ScanDuffing.SolverOption(ThreadsPerBlock, BlockSize);
+	/*ScanDuffing.SolverOption(ThreadsPerBlock, BlockSize);
 	ScanDuffing.SolverOption(InitialTimeStep, 1e-2);
 	ScanDuffing.SolverOption(ActiveNumberOfThreads, NT);
 	
-	ScanDuffing.SolverOption(DenseOutputTimeStep, -1e-2);
+	//ScanDuffing.SolverOption(DenseOutputTimeStep, -1e-2);
 	
 	ScanDuffing.SolverOption(MaximumTimeStep, 1e3);
 	ScanDuffing.SolverOption(MinimumTimeStep, 1e-14);
 	ScanDuffing.SolverOption(TimeStepGrowLimit, 10.0);
 	ScanDuffing.SolverOption(TimeStepShrinkLimit, 0.2);
-	ScanDuffing.SolverOption(MaxStepInsideEvent, 50);
-	ScanDuffing.SolverOption(MaximumNumberOfTimeSteps, 0);
+	//ScanDuffing.SolverOption(MaxStepInsideEvent, 50);
+	//ScanDuffing.SolverOption(MaximumNumberOfTimeSteps, 0);
 	
 	ScanDuffing.SolverOption(RelativeTolerance, 0, 1e-9);
 	ScanDuffing.SolverOption(RelativeTolerance, 1, 1e-9);
@@ -78,12 +78,12 @@ int main()
 	ScanDuffing.SolverOption(EventTolerance, 1, 1e-6);
 	ScanDuffing.SolverOption(EventDirection,   0, -1);
 	ScanDuffing.SolverOption(EventDirection,   1,  0);
-	ScanDuffing.SolverOption(EventStopCounter, 0,  0);
-	ScanDuffing.SolverOption(EventStopCounter, 1,  0);
+	//ScanDuffing.SolverOption(EventStopCounter, 0,  0);
+	//ScanDuffing.SolverOption(EventStopCounter, 1,  0);*/
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
 	
-	int NumberOfSimulationLaunches = NumberOfProblems / NT + (NumberOfProblems % NT == 0 ? 0:1);
+	/*int NumberOfSimulationLaunches = NumberOfProblems / NT + (NumberOfProblems % NT == 0 ? 0:1);
 	
 	ofstream DataFile;
 	DataFile.open ( "Duffing.txt" );
@@ -130,7 +130,7 @@ int main()
 	ScanDuffing.Print(DenseOutput, 4789);
 	ScanDuffing.Print(DenseOutput, 15479);
 	
-	cout << "Test finished!" << endl;
+	cout << "Test finished!" << endl;*/
 }
 
 // AUXILIARY FUNCTION -----------------------------------------------------------------------------
@@ -153,7 +153,7 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
+/*void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
 {
 	int k_begin = FirstProblemNumber;
 	int k_end   = FirstProblemNumber + NumberOfThreads;
@@ -196,4 +196,4 @@ void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Sol
 		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 2);
 		DataFile << '\n';
 	}
-}
+}*/

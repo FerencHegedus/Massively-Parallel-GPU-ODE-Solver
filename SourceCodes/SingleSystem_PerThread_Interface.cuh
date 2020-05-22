@@ -67,8 +67,11 @@ void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
 
+// Interface with the kernel
 struct Struct_ThreadConfiguration
 {
+	int GridSize;
+	int BlockSize;
 	int NumberOfActiveThreads;
 };
 
@@ -113,82 +116,93 @@ template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, i
 class ProblemSolver
 {
     private:
+		// Setup CUDA
 		int Device;
+		int Revision;
 		cudaStream_t Stream;
 		cudaEvent_t Event;
 		
+		// Thread management
+		Struct_ThreadConfiguration ThreadConfiguration;
+		
+		// Global memory management
 		size_t GlobalMemoryRequired;
 		size_t GlobalMemoryFree;
 		size_t GlobalMemoryTotal;
 		
-		int SizeOfTimeDomain;
-		int SizeOfActualState;
-		int SizeOfControlParameters;
-		int SizeOfSharedParameters;
-		int SizeOfAccessories;
-		int SizeOfEvents;
-		int SizeOfIntegerSharedParameters;
-		int SizeOfIntegerAccessories;
+		long SizeOfTimeDomain;
+		long SizeOfActualState;
+		long SizeOfActualTime;
+		long SizeOfControlParameters;
+		long SizeOfSharedParameters;
+		long SizeOfIntegerSharedParameters;
+		long SizeOfAccessories;
+		long SizeOfIntegerAccessories;
+		long SizeOfEvents;
+		long SizeOfDenseOutputIndex;
+		long SizeOfDenseOutputTimeInstances;
+		long SizeOfDenseOutputStates;
 		
-		int SizeOfDenseOutputIndex;
-		int SizeOfDenseOutputTimeInstances;
-		int SizeOfDenseOutputStates;
+		Precision* h_TimeDomain;
+		Precision* h_ActualState;
+		Precision* h_ActualTime;
+		Precision* h_ControlParameters;
+		Precision* h_SharedParameters;
+		int*       h_IntegerSharedParameters;
+		Precision* h_Accessories;
+		int*       h_IntegerAccessories;
+		int*       h_DenseOutputIndex;
+		Precision* h_DenseOutputTimeInstances;
+		Precision* h_DenseOutputStates;
 		
-		size_t DynamicSharedMemory;
+		Struct_GlobalVariables<Precision> GlobalVariables;
 		
-		double  h_BT_RK4[1];
-		double  h_BT_RKCK45[26];
+		// Shared memory management
+		Struct_SharedMemoryUsage SharedMemoryUsage;
 		
-		double* h_TimeDomain;
-		double* h_ActualState;
-		double* h_ControlParameters;
-		double* h_SharedParameters;
-		double* h_Accessories;
-		int*    h_IntegerSharedParameters;
-		int*    h_IntegerAccessories;
+		size_t SharedMemoryRequiredSharedVariables;
+		size_t SharedMemoryRequiredUpperLimit;
+		size_t SharedMemoryRequired;
+		size_t SharedMemoryAvailable;
+		size_t DynamicSharedMemoryRequired;
+		size_t StaticSharedMemoryRequired;
 		
-		int*    h_DenseOutputIndex;
-		double* h_DenseOutputTimeInstances;
-		double* h_DenseOutputStates;
+		// Default solver options
+		Struct_SolverOptions<Precision> SolverOptions;
 		
-		int GridSize;
-		int BlockSize;
+		// Private member functions
+		void BoundCheck(std::string, std::string, int, int, int);
+		void SharedMemoryCheck();
 		
-		IntegratorInternalVariables KernelParameters;
-		
-		void ErrorHandlingSetGetHost(std::string, std::string, int, int);
+		template <typename T> void WriteToFileUniteScope(std::string, int, int, T*);
+		template <typename T> void WriteToFileSystemAndGlobalScope(std::string, int, int, T*);
+		template <typename T> void WriteToFileDenseOutput(std::string, int, int, T*, T*);
 		
 	public:
 		ProblemSolver(int);
 		~ProblemSolver();
 		
-		void SetHost(int, ListOfVariables, int, double);      // Problem scope, double
-		void SetHost(int, IntegerVariableSelection, int, int);  // Problem scope, int
-		void SetHost(int, ListOfVariables, int, int, double); // Dense state
-		void SetHost(ListOfVariables, int, double);           // Global scope, double
-		void SetHost(IntegerVariableSelection, int, int);       // Global scope, int
+		template <typename T> void SolverOption(ListOfSolverOptions, T);
+		template <typename T> void SolverOption(ListOfSolverOptions, int, T);
+		
+		template <typename T> void SetHost(int, ListOfVariables, int, T);      // Problem scope and dense time
+		template <typename T> void SetHost(ListOfVariables, int, T);           // Global scope
+		template <typename T> void SetHost(int, ListOfVariables, int, int, T); // Dense state
+		template <typename T> void SetHost(int, ListOfVariables, T);           // Dense index
 		
 		void SynchroniseFromHostToDevice(ListOfVariables);
-		void SynchroniseFromHostToDevice(IntegerVariableSelection);
 		void SynchroniseFromDeviceToHost(ListOfVariables);
-		void SynchroniseFromDeviceToHost(IntegerVariableSelection);
 		
-		double GetHost(int, ListOfVariables, int);            // Problem scope, double
-		int    GetHost(int, IntegerVariableSelection, int);     // Problem scope, int
-		double GetHost(int, ListOfVariables, int, int);       // Dense state
-		double GetHost(ListOfVariables, int);                 // Global scope, double
-		int    GetHost(IntegerVariableSelection, int);          // Global scope, int
+		template <typename T> T GetHost(int, ListOfVariables, int);            // Problem scope and dense time
+		template <typename T> T GetHost(ListOfVariables, int);                 // Global scope
+		template <typename T> T GetHost(int, ListOfVariables, int, int);       // Dense state
+		template <typename T> T GetHost(int, ListOfVariables);                 // Dense index
 		
-		void Print(ListOfVariables);
-		void Print(IntegerVariableSelection);
-		void Print(ListOfVariables, int);
-		
-		void SolverOption(ListOfSolverOptions, int);            // int
-		void SolverOption(ListOfSolverOptions, double);         // double
-		void SolverOption(ListOfSolverOptions, int, int);       // Array of int
-		void SolverOption(ListOfSolverOptions, int, double);    // Array of double
+		void Print(ListOfVariables);      // Problem and global scope
+		void Print(ListOfVariables, int); // Dense output
 		
 		void Solve();
+		
 		void SynchroniseDevice();
 		void InsertSynchronisationPoint();
 		void SynchroniseSolver();
@@ -197,7 +211,7 @@ class ProblemSolver
 
 // --- INCLUDE SOLVERS ---
 
-#include "SingleSystem_PerThread_RungeKutta.cuh"
+//#include "SingleSystem_PerThread_RungeKutta.cuh"
 
 
 // --- CUDA DEVICE FUNCTIONS ---
@@ -299,7 +313,7 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
     std::cout << "Creating a SolverObject ..." << std::endl;
 	
 	// Setup CUDA
-	Device = AssociatedDevice;
+	/*Device = AssociatedDevice;
 	gpuErrCHK( cudaSetDevice(Device) );
 	
 	gpuErrCHK( cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) );
@@ -494,7 +508,7 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 		gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_EventTolerance   + i, &DefaultTolerances,         sizeof(double), cudaMemcpyHostToDevice, Stream) );
 	}
 	
-	std::cout << std::endl << std::endl;
+	std::cout << std::endl << std::endl;*/
 	
 	std::cout << "Object for Parameters scan is successfully created! Required memory allocations have been done" << std::endl << std::endl;
 }
@@ -503,7 +517,7 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::~ProblemSolver()
 {
-    gpuErrCHK( cudaSetDevice(Device) );
+    /*gpuErrCHK( cudaSetDevice(Device) );
 	
 	gpuErrCHK( cudaStreamDestroy(Stream) );
 	gpuErrCHK( cudaEventDestroy(Event) );
@@ -547,11 +561,11 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::~ProblemSol
 	
 	gpuErrCHK( cudaFree(KernelParameters.d_DenseOutputIndex) );
 	gpuErrCHK( cudaFree(KernelParameters.d_DenseOutputTimeInstances) );
-	gpuErrCHK( cudaFree(KernelParameters.d_DenseOutputStates) );
+	gpuErrCHK( cudaFree(KernelParameters.d_DenseOutputStates) );*/
 	
 	std::cout << "Object for Parameters scan is deleted! Every memory have been deallocated!" << std::endl << std::endl;
 }
-
+/*
 // ERROR HANDLING, set/get host, options
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ErrorHandlingSetGetHost(std::string Function, std::string Variable, int Value, int Limit)
@@ -1348,7 +1362,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Synchr
 	
 	gpuErrCHK( cudaEventSynchronize(Event) );
 }
-
+*/
 // --- AUXILIARY FUNCTIONS ---
 
 template <class DataType>

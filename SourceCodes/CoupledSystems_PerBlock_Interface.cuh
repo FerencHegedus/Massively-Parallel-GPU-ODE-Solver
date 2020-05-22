@@ -73,6 +73,7 @@ void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
 
+// Interface with the kernels
 struct Struct_ThreadConfiguration
 {
 	int LogicalThreadsPerBlock;
@@ -203,8 +204,10 @@ class ProblemSolver
 		// Default solver options
 		Struct_SolverOptions<Precision> SolverOptions;
 		
+		// Private member functions
 		void BoundCheck(std::string, std::string, int, int, int);
 		void SharedMemoryCheck();
+		
 		template <typename T> void WriteToFileUniteScope(std::string, int, int, T*);
 		template <typename T> void WriteToFileSystemAndGlobalScope(std::string, int, int, T*);
 		template <typename T> void WriteToFileDenseOutput(std::string, int, int, T*, T*);
