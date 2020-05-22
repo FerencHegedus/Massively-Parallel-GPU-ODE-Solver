@@ -5,7 +5,7 @@
 #include <fstream>
 
 #include "Reference_SystemDefinition.cuh"
-#include "SingleSystem_PerThread.cuh"
+#include "SingleSystem_PerThread_Interface.cuh"
 
 #define PI 3.14159265358979323846
 
