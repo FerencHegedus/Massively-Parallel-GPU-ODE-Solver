@@ -194,12 +194,12 @@ class ProblemSolver
 		void SynchroniseFromHostToDevice(ListOfVariables);
 		void SynchroniseFromDeviceToHost(ListOfVariables);
 		
-		template <typename T> T GetHost(int, ListOfVariables, int);            // Problem scope and dense time
+		template <typename T> T GetHost(int, ListOfVariables, int);            // Unit scope and DenseTime
+		template <typename T> T GetHost(int, ListOfVariables);                 // System scope
 		template <typename T> T GetHost(ListOfVariables, int);                 // Global scope
-		template <typename T> T GetHost(int, ListOfVariables, int, int);       // Dense state
-		template <typename T> T GetHost(int, ListOfVariables);                 // Dense index and actual time
+		template <typename T> T GetHost(int, ListOfVariables, int, int);       // DenseState
 		
-		void Print(ListOfVariables);      // Problem and global scope
+		void Print(ListOfVariables);      // System, Unit and Global scope
 		void Print(ListOfVariables, int); // Dense output
 		
 		void Solve();
@@ -765,7 +765,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 	switch (Variable)
 	{
 		case ActualTime:
-			h_ActualState[idx] = (Precision)Value;
+			h_ActualTime[idx] = (Precision)Value;
 			break;
 		
 		case DenseIndex:
@@ -794,7 +794,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 		
 		case IntegerSharedParameters:
 			BoundCheck("SetHost", "IntegerSharedParameters", SerialNumber, 0, NISP-1 );
-			h_SharedParameters[SerialNumber] = (int)Value;
+			h_IntegerSharedParameters[SerialNumber] = (int)Value;
 			break;
 		
 		default:
@@ -830,15 +830,8 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 	}
 }
 
-
-
-
-
-
-
-
-// SYNCHRONISE, H->D, default
-/*template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+// SYNCHRONISE, Host -> Device
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromHostToDevice(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
@@ -846,75 +839,66 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Synchr
 	switch (Variable)
 	{
 		case TimeDomain:
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
-			
+		
 		case ActualState:
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ActualState, h_ActualState, SizeOfActualState*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualState, h_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
-			
+		
+		case ActualTime:
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualTime, h_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
 		case ControlParameters:
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
-			
+		
 		case SharedParameters:
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_SharedParameters, h_SharedParameters, SizeOfSharedParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_SharedParameters, h_SharedParameters, SizeOfSharedParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
 			break;
-			
-		case Accessories:
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_Accessories, h_Accessories, SizeOfAccessories*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			break;
-			
-		case DenseOutput:
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			break;
-			
-		case All:
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ActualState, h_ActualState, SizeOfActualState*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_SharedParameters, h_SharedParameters, SizeOfSharedParameters*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_Accessories, h_Accessories, SizeOfAccessories*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_IntegerSharedParameters, h_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_IntegerAccessories, h_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(double), cudaMemcpyHostToDevice, Stream) );
-			break;
-			
-		default:
-			std::cerr << "ERROR in solver member function SynchroniseFromHostToDevice:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
-}
-
-// SYNCHRONISE, H->D, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromHostToDevice(IntegerVariableSelection Variable)
-{
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	switch (Variable)
-	{
+		
 		case IntegerSharedParameters:
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_IntegerSharedParameters, h_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_IntegerSharedParameters, h_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			break;
-			
+		
+		case Accessories:
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_Accessories, h_Accessories, SizeOfAccessories*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
 		case IntegerAccessories:
-			gpuErrCHK( cudaMemcpyAsync(KernelParameters.d_IntegerAccessories, h_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_IntegerAccessories, h_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			break;
-			
+		
+		case DenseOutput:
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
+		case All:
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualState, h_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualTime, h_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_SharedParameters, h_SharedParameters, SizeOfSharedParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_Accessories, h_Accessories, SizeOfAccessories*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_IntegerSharedParameters, h_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_IntegerAccessories, h_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			break;
+		
 		default:
-			std::cerr << "ERROR in solver member function SynchroniseFromHostToDevice:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
+			std::cerr << "ERROR: In solver member function SynchroniseFromHostToDevice!" << std::endl;
+			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+			std::cerr << "       This option is not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
 	}
 }
 
-// SYNCHRONISE, D->H, default
+// SYNCHRONISE, Device -> Host
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromDeviceToHost(ListOfVariables Variable)
 {
@@ -923,67 +907,57 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Synchr
 	switch (Variable)
 	{
 		case TimeDomain:
-			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, KernelParameters.d_TimeDomain, SizeOfTimeDomain*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, GlobalVariables.d_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			break;
-			
+		
 		case ActualState:
-			gpuErrCHK( cudaMemcpyAsync(h_ActualState, KernelParameters.d_ActualState, SizeOfActualState*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ActualState, GlobalVariables.d_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			break;
-			
+		
+		case ActualTime:
+			gpuErrCHK( cudaMemcpyAsync(h_ActualTime, GlobalVariables.d_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			break;
+		
 		case ControlParameters:
-			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, KernelParameters.d_ControlParameters, SizeOfControlParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, GlobalVariables.d_ControlParameters, SizeOfControlParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			break;
-			
+		
 		case SharedParameters:
-			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, KernelParameters.d_SharedParameters, SizeOfSharedParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, GlobalVariables.d_SharedParameters, SizeOfSharedParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
 			break;
-			
-		case Accessories:
-			gpuErrCHK( cudaMemcpyAsync(h_Accessories, KernelParameters.d_Accessories, SizeOfAccessories*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			break;
-			
-		case DenseOutput:
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, KernelParameters.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, KernelParameters.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, KernelParameters.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			break;
-			
-		case All:
-			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, KernelParameters.d_TimeDomain, SizeOfTimeDomain*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_ActualState, KernelParameters.d_ActualState, SizeOfActualState*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, KernelParameters.d_ControlParameters, SizeOfControlParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, KernelParameters.d_SharedParameters, SizeOfSharedParameters*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_Accessories, KernelParameters.d_Accessories, SizeOfAccessories*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_IntegerSharedParameters, KernelParameters.d_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_IntegerAccessories, KernelParameters.d_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, KernelParameters.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, KernelParameters.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, KernelParameters.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(double), cudaMemcpyDeviceToHost, Stream) );
-			break;
-			
-		default:
-			std::cerr << "ERROR in solver member function SynchroniseFromDeviceToHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
-}
-
-// SYNCHRONISE, D->H, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromDeviceToHost(IntegerVariableSelection Variable)
-{
-	gpuErrCHK( cudaSetDevice(Device) );
-	
-	switch (Variable)
-	{
+		
 		case IntegerSharedParameters:
-			gpuErrCHK( cudaMemcpyAsync(h_IntegerSharedParameters, KernelParameters.d_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_IntegerSharedParameters, GlobalVariables.d_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			break;
-			
+		
+		case Accessories:
+			gpuErrCHK( cudaMemcpyAsync(h_Accessories, GlobalVariables.d_Accessories, SizeOfAccessories*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			break;
+		
 		case IntegerAccessories:
-			gpuErrCHK( cudaMemcpyAsync(h_IntegerAccessories, KernelParameters.d_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_IntegerAccessories, GlobalVariables.d_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			break;
-			
+		
+		case DenseOutput:
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, GlobalVariables.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, GlobalVariables.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			break;
+		
+		case All:
+			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, GlobalVariables.d_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ActualState, GlobalVariables.d_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ActualTime, GlobalVariables.d_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, GlobalVariables.d_ControlParameters, SizeOfControlParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, GlobalVariables.d_SharedParameters, SizeOfSharedParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_Accessories, GlobalVariables.d_Accessories, SizeOfAccessories*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_IntegerSharedParameters, GlobalVariables.d_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_IntegerAccessories, GlobalVariables.d_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, GlobalVariables.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, GlobalVariables.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			break;
+		
 		default:
 			std::cerr << "ERROR in solver member function SynchroniseFromDeviceToHost:" << std::endl << "    "\
 			          << "Invalid option for variable selection!" << std::endl;
@@ -991,142 +965,119 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Synchr
 	}
 }
 
-// GETHOST, Problem scope, double
+// GETHOST, Unit scope and DenseTime
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber)
+template <typename T>
+T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber)
 {
-	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
 	
-	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads;
+	int idx = ProblemNumber + SerialNumber*NT;
 	
-	double Value;
 	switch (Variable)
 	{
 		case TimeDomain:
-			ErrorHandlingSetGetHost("GetHost", "TimeDomain", SerialNumber, 2);
-			Value = h_TimeDomain[idx];
-			break;
-			
-		case ActualState:
-			ErrorHandlingSetGetHost("GetHost", "ActualState", SerialNumber, KernelParameters.SystemDimension);
-			Value = h_ActualState[idx];
-			break;
-			
-		case ControlParameters:
-			ErrorHandlingSetGetHost("GetHost", "ControlParameters", SerialNumber, KernelParameters.NumberOfControlParameters);
-			Value = h_ControlParameters[idx];
-			break;
-			
-		case Accessories:
-			ErrorHandlingSetGetHost("GetHost", "Accessories", SerialNumber, KernelParameters.NumberOfAccessories);
-			Value = h_Accessories[idx];
-			break;
-			
-		case DenseTime:
-			ErrorHandlingSetGetHost("GetHost", "DenseTime", SerialNumber, KernelParameters.DenseOutputNumberOfPoints);
-			Value = h_DenseOutputTimeInstances[idx];
-			break;
-			
-		default:
-			std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
-	
-	return Value;
-}
-
-// GETHOST, Problem scope, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, IntegerVariableSelection Variable, int SerialNumber)
-{
-	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
-	
-	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads;
-	
-	double Value;
-	switch (Variable)
-	{
-		case IntegerAccessories:
-			ErrorHandlingSetGetHost("GetHost", "IntegerAccessories", SerialNumber, KernelParameters.NumberOfIntegerAccessories);
-			Value = h_IntegerAccessories[idx];
-			break;
-			
-		default:
-			std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
-	
-	return Value;
-}
-
-// GETHOST, Dense state
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStep)
-{
-	ErrorHandlingSetGetHost("GetHost", "ProblemNumber", ProblemNumber, KernelParameters.NumberOfThreads);
-	
-	int idx = ProblemNumber + SerialNumber*KernelParameters.NumberOfThreads + TimeStep*KernelParameters.NumberOfThreads*KernelParameters.SystemDimension;
-	
-	double Value;
-	switch (Variable)
-	{
-		case DenseState:
-			ErrorHandlingSetGetHost("GetHost", "DenseState", SerialNumber, KernelParameters.SystemDimension);
-			ErrorHandlingSetGetHost("GetHost", "DenseState/TimeStep", TimeStep, KernelParameters.DenseOutputNumberOfPoints);
-			Value = h_DenseOutputStates[idx];
-			break;
+			BoundCheck("SetHost", "TimeDomain", SerialNumber, 0, 1 );
+			return (T)h_TimeDomain[idx];
 		
-		default :
-			std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
+		case ActualState:
+			BoundCheck("SetHost", "ActualState", SerialNumber, 0, SD-1 );
+			return (T)h_ActualState[idx];
+		
+		case ControlParameters:
+			BoundCheck("SetHost", "ControlParameters", SerialNumber, 0, NCP-1 );
+			return (T)h_ControlParameters[idx];
+		
+		case Accessories:
+			BoundCheck("SetHost", "Accessories", SerialNumber, 0, NA-1 );
+			return (T)h_Accessories[idx];
+		
+		case IntegerAccessories:
+			BoundCheck("SetHost", "IntegerAccessories", SerialNumber, 0, NIA-1 );
+			return (T)h_IntegerAccessories[idx];
+		
+		case DenseTime:
+			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, NDO-1 );
+			return (T)h_DenseOutputTimeInstances[idx];
+		
+		default:
+			std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
+			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
 	}
-	
-	return Value;
 }
 
-// GETHOST, Global scope, double
+// GETHOST, System scope
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-double ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(ListOfVariables Variable, int SerialNumber)
+template <typename T>
+T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable)
 {
-	double Value;
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
+	
+	int idx = ProblemNumber;
+	
+	switch (Variable)
+	{
+		case ActualTime:
+			return (T)h_ActualTime[idx];
+		
+		case DenseIndex:
+			return (T)h_DenseOutputIndex[idx];
+		
+		default:
+				std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
+				std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+				std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
+				exit(EXIT_FAILURE);
+	}
+}
+
+// GETHOST, Global scope
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+template <typename T>
+T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(ListOfVariables Variable, int SerialNumber)
+{
 	switch (Variable)
 	{
 		case SharedParameters:
-			ErrorHandlingSetGetHost("GetHost", "SharedParameters", SerialNumber, KernelParameters.NumberOfSharedParameters);
-			Value = h_SharedParameters[SerialNumber];
-			break;
+			BoundCheck("SetHost", "SharedParameters", SerialNumber, 0, NSP-1 );
+			return (T)h_SharedParameters[SerialNumber];
 		
-		default :
-			std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
-			exit(EXIT_FAILURE);
+		case IntegerSharedParameters:
+			BoundCheck("SetHost", "IntegerSharedParameters", SerialNumber, 0, NISP-1 );
+			return (T)h_IntegerSharedParameters[SerialNumber];
+		
+		default:
+				std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
+				std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+				std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
+				exit(EXIT_FAILURE);
 	}
-	
-	return Value;
 }
 
-// GETHOST, Global scope, int
+// GETHOST, DenseState
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-int ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(IntegerVariableSelection Variable, int SerialNumber)
+template <typename T>
+T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber)
 {
-	double Value;
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
+	
+	int idx = ProblemNumber + SerialNumber*NT + TimeStepNumber*NT*SD;
+	
 	switch (Variable)
 	{
-		case IntegerSharedParameters:
-			ErrorHandlingSetGetHost("GetHost", "IntegerSharedParameters", SerialNumber, KernelParameters.NumberOfIntegerSharedParameters);
-			Value = h_IntegerSharedParameters[SerialNumber];
-			break;
+		case DenseState:
+			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, SD-1 );
+			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, NDO-1 );
+			return (T)h_DenseOutputStates[idx];
 		
-		default :
-			std::cerr << "ERROR in solver member function GetHost:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
-			exit(EXIT_FAILURE);
+		default:
+				std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
+				std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+				std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
+				exit(EXIT_FAILURE);
 	}
-	
-	return Value;
 }
 
 // PRINT, default
@@ -1252,7 +1203,9 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 	DataFile.close();
 }
 
-// PRINT, Dense state
+
+
+// PRINT, DenseState
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(ListOfVariables Variable, int ThreadID)
 {
