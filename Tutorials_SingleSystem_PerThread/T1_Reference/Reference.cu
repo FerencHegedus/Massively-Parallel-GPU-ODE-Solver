@@ -13,15 +13,15 @@ using namespace std;
 
 // Solver Configuration
 #define SOLVER RKCK45 // RK4, RKCK45
-const int NT   = 23040; // NumberOfThreads
-const int SD   = 2;     // SystemDimension
-const int NCP  = 1;     // NumberOfControlParameters
-const int NSP  = 100*100;     // NumberOfSharedParameters
-const int NISP = 0;     // NumberOfIntegerSharedParameters
-const int NE   = 2;     // NumberOfEvents
-const int NA   = 3;     // NumberOfAccessories
-const int NIA  = 0;     // NumberOfIntegerAccessories
-const int NDO  = 200;   // NumberOfPointsOfDenseOutput
+const int NT   = 23040; // NumberOfThreads (23040)
+const int SD   = 2;     // SystemDimension (2)
+const int NCP  = 1;     // NumberOfControlParameters (1)
+const int NSP  = 1;     // NumberOfSharedParameters (1)
+const int NISP = 0;     // NumberOfIntegerSharedParameters (0)
+const int NE   = 2;     // NumberOfEvents (2)
+const int NA   = 3;     // NumberOfAccessories (3)
+const int NIA  = 2;     // NumberOfIntegerAccessories (0)
+const int NDO  = 200;   // NumberOfPointsOfDenseOutput (200)
 
 void Linspace(vector<double>&, double, double, int);
 void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, const vector<double>&, double, double, double, int, int);
@@ -81,10 +81,10 @@ int main()
 	
 // SIMULATIONS ------------------------------------------------------------------------------------
 	
-	/*int NumberOfSimulationLaunches = NumberOfProblems / NT + (NumberOfProblems % NT == 0 ? 0:1);
+	int NumberOfSimulationLaunches = NumberOfProblems / NT + (NumberOfProblems % NT == 0 ? 0:1);
 	
-	ofstream DataFile;
-	DataFile.open ( "Duffing.txt" );
+	//ofstream DataFile;
+	//DataFile.open ( "Duffing.txt" );
 	
 	clock_t SimulationStart = clock();
 	clock_t TransientStart;
@@ -93,8 +93,8 @@ int main()
 	for (int LaunchCounter=0; LaunchCounter<NumberOfSimulationLaunches; LaunchCounter++)
 	{
 		FillSolverObject(ScanDuffing, Parameters_k_Values, Parameters_B, InitialConditions_X1, InitialConditions_X2, LaunchCounter * NT, NT);
-		
-		ScanDuffing.SynchroniseFromHostToDevice(All);
+	
+		/*ScanDuffing.SynchroniseFromHostToDevice(All);
 		ScanDuffing.InsertSynchronisationPoint();
 		ScanDuffing.SynchroniseSolver();
 		
@@ -116,19 +116,19 @@ int main()
 			ScanDuffing.SynchroniseSolver();
 			
 			SaveData(ScanDuffing, DataFile, NT);
-		}
+		}*/
 	}
 	
 	clock_t SimulationEnd = clock();
 		cout << "Total simulation time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 	
-	DataFile.close();
+	//DataFile.close();
 	
-	ScanDuffing.Print(DenseOutput, 0);
-	ScanDuffing.Print(DenseOutput, 4789);
-	ScanDuffing.Print(DenseOutput, 15479);
+	//ScanDuffing.Print(DenseOutput, 0);
+	//ScanDuffing.Print(DenseOutput, 4789);
+	//ScanDuffing.Print(DenseOutput, 15479);
 	
-	cout << "Test finished!" << endl;*/
+	cout << "Test finished!" << endl;
 }
 
 // AUXILIARY FUNCTION -----------------------------------------------------------------------------
@@ -151,7 +151,7 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-/*void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
 {
 	int k_begin = FirstProblemNumber;
 	int k_end   = FirstProblemNumber + NumberOfThreads;
@@ -159,7 +159,7 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	int ProblemNumber = 0;
 	for (int k=k_begin; k<k_end; k++)
 	{
-		Solver.SetHost(ProblemNumber, TimeDomain,  0, 0 );
+		Solver.SetHost(ProblemNumber, TimeDomain,  0, 0.0 );
 		Solver.SetHost(ProblemNumber, TimeDomain,  1, 2*PI );
 		
 		Solver.SetHost(ProblemNumber, ActualState, 0, X10 );
@@ -167,9 +167,11 @@ void Linspace(vector<double>& x, double B, double E, int N)
 		
 		Solver.SetHost(ProblemNumber, ControlParameters, 0, k_Values[k] );
 		
-		Solver.SetHost(ProblemNumber, Accessories, 0, 0 );
-		Solver.SetHost(ProblemNumber, Accessories, 1, 0 );
-		Solver.SetHost(ProblemNumber, Accessories, 2, 0 );
+		Solver.SetHost(ProblemNumber, Accessories, 0, 0.0 );
+		Solver.SetHost(ProblemNumber, Accessories, 1, 0.0 );
+		Solver.SetHost(ProblemNumber, Accessories, 2, 0.0 );
+		
+		Solver.SetHost(ProblemNumber, Accessories, 2, 0.0 );
 		
 		ProblemNumber++;
 	}
@@ -177,7 +179,7 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	Solver.SetHost(SharedParameters, 0, B );
 }
 
-void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, ofstream& DataFile, int NumberOfThreads)
+/*void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, ofstream& DataFile, int NumberOfThreads)
 {
 	int Width = 18;
 	DataFile.precision(10);

@@ -171,13 +171,10 @@ class ProblemSolver
 		// Default solver options
 		Struct_SolverOptions<Precision> SolverOptions;
 		
-		// Private member functions
+		// Auxiliary member functions
 		void BoundCheck(std::string, std::string, int, int, int);
 		void SharedMemoryCheck();
-		
-		template <typename T> void WriteToFileUniteScope(std::string, int, int, T*);
-		template <typename T> void WriteToFileSystemAndGlobalScope(std::string, int, int, T*);
-		template <typename T> void WriteToFileDenseOutput(std::string, int, int, T*, T*);
+		template <typename T> void WriteToFileGeneral(std::string, int, int, T*);
 		
 	public:
 		ProblemSolver(int);
@@ -199,8 +196,8 @@ class ProblemSolver
 		template <typename T> T GetHost(ListOfVariables, int);                 // Global scope
 		template <typename T> T GetHost(int, ListOfVariables, int, int);       // DenseState
 		
-		void Print(ListOfVariables);      // System, Unit and Global scope
-		void Print(ListOfVariables, int); // Dense output
+		void Print(ListOfVariables);      // General
+		void Print(ListOfVariables, int); // DenseOutput
 		
 		void Solve();
 		
@@ -1080,142 +1077,121 @@ T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(i
 	}
 }
 
-// PRINT, default
+// WRITE TO FILE, General
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+template <typename T>
+void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::WriteToFileGeneral(std::string FileName, int NumberOfRows, int NumberOfColumns, T* Data)
+{
+	std::ofstream DataFile;
+	DataFile.open (FileName);
+	
+	// Make it depend on type
+	int Width = 18;
+	DataFile.precision(10);
+	DataFile.flags(std::ios::scientific);
+	
+	int idx;
+	for (int i=0; i<NumberOfRows; i++)
+	{
+		for (int j=0; j<NumberOfColumns; j++)
+		{
+			idx = i + j*NumberOfRows;
+			DataFile.width(Width); DataFile << Data[idx];
+			if ( j<(NumberOfColumns-1) )
+				DataFile << ',';
+		}
+		DataFile << '\n';
+	}
+	
+	DataFile.close();
+}
+
+// PRINT, General
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(ListOfVariables Variable)
 {
-	std::ofstream DataFile;
+	std::string FileName;
 	int NumberOfRows;
 	int NumberOfColumns;
-	double* PointerToActualData;
 	
 	switch (Variable)
 	{
 		case TimeDomain:
-			DataFile.open ( "TimeDomainInSolverObject.txt" );
-			NumberOfRows = KernelParameters.NumberOfThreads;
+			FileName = "TimeDomainInSolverObject.txt";
+			NumberOfRows = NT;
 			NumberOfColumns = 2;
-			PointerToActualData = h_TimeDomain;
+			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_TimeDomain);
 			break;
-			
+		
 		case ActualState:
-			DataFile.open ( "ActualStateInSolverObject.txt" );
-			NumberOfRows = KernelParameters.NumberOfThreads;
-			NumberOfColumns = KernelParameters.SystemDimension;
-			PointerToActualData = h_ActualState;
+			FileName = "ActualStateInSolverObject.txt";
+			NumberOfRows = NT;
+			NumberOfColumns = SD;
+			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_ActualState);
 			break;
-			
-		case ControlParameters:
-			DataFile.open ( "ControlParametersInSolverObject.txt" );
-			NumberOfRows = KernelParameters.NumberOfThreads;
-			NumberOfColumns = KernelParameters.NumberOfControlParameters;
-			PointerToActualData = h_ControlParameters;
-			break;
-			
-		case SharedParameters:
-			DataFile.open ( "SharedParametersInSolverObject.txt" );
-			NumberOfRows = KernelParameters.NumberOfSharedParameters;		
+		
+		case ActualTime:
+			FileName = "ActualTimeInSolverObject.txt";
+			NumberOfRows = NT;
 			NumberOfColumns = 1;
-			PointerToActualData = h_SharedParameters;
+			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_ActualTime);
 			break;
-			
+		
+		case ControlParameters:
+			FileName = "ControlParametersInSolverObject.txt";
+			NumberOfRows = NT;
+			NumberOfColumns = NCP;
+			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_ControlParameters);
+			break;
+		
+		case SharedParameters:
+			FileName = "SharedParametersInSolverObject.txt";
+			NumberOfRows = NSP;		
+			NumberOfColumns = 1;
+			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_SharedParameters);
+			break;
+		
+		case IntegerSharedParameters:
+			FileName = "IntegerSharedParametersInSolverObject.txt";
+			NumberOfRows = NISP;		
+			NumberOfColumns = 1;
+			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_IntegerSharedParameters);
+			break;
+		
 		case Accessories:
-			DataFile.open ( "AccessoriesInSolverObject.txt" );
-			NumberOfRows = KernelParameters.NumberOfThreads;
-			NumberOfColumns = KernelParameters.NumberOfAccessories;
-			PointerToActualData = h_Accessories;
+			FileName = "AccessoriesInSolverObject.txt";
+			NumberOfRows = NT;
+			NumberOfColumns = NA;
+			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_Accessories);
+			break;
+		
+		case IntegerAccessories:
+			FileName = "IntegerAccessoriesInSolverObject.txt";
+			NumberOfRows = NT;
+			NumberOfColumns = NIA;
+			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_IntegerAccessories);
 			break;
 		
 		default :
-			std::cerr << "ERROR in solver member function Print:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
+			std::cerr << "ERROR: In solver member function Print!" << std::endl;
+			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+			std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 			exit(EXIT_FAILURE);
 	}
-	
-	int Width = 18;
-	DataFile.precision(10);
-	DataFile.flags(std::ios::scientific);
-	
-	int idx;
-	for (int i=0; i<NumberOfRows; i++)
-	{
-		for (int j=0; j<NumberOfColumns; j++)
-		{
-			idx = i + j*NumberOfRows;
-			DataFile.width(Width); DataFile << PointerToActualData[idx];
-			if ( j<(NumberOfColumns-1) )
-				DataFile << ',';
-		}
-		DataFile << '\n';
-	}
-	
-	DataFile.close();
 }
 
-// PRINT, int
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(IntegerVariableSelection Variable)
-{
-	std::ofstream DataFile;
-	int NumberOfRows;
-	int NumberOfColumns;
-	int* PointerToActualData;
-	
-	switch (Variable)
-	{
-		case IntegerSharedParameters:
-			DataFile.open ( "IntegerSharedParametersInSolverObject.txt" );
-			NumberOfRows = KernelParameters.NumberOfIntegerSharedParameters;		
-			NumberOfColumns = 1;
-			PointerToActualData = h_IntegerSharedParameters;
-			break;
-			
-		case IntegerAccessories:
-			DataFile.open ( "IntegerAccessoriesInSolverObject.txt" );
-			NumberOfRows = KernelParameters.NumberOfThreads;
-			NumberOfColumns = KernelParameters.NumberOfIntegerAccessories;
-			PointerToActualData = h_IntegerAccessories;
-			break;
-			
-		default :
-			std::cerr << "ERROR in solver member function Print:" << std::endl << "    "\
-			          << "Invalid option for variable selection!" << std::endl;
-			exit(EXIT_FAILURE);
-	}
-	
-	int Width = 18;
-	DataFile.precision(10);
-	DataFile.flags(std::ios::scientific);
-	
-	int idx;
-	for (int i=0; i<NumberOfRows; i++)
-	{
-		for (int j=0; j<NumberOfColumns; j++)
-		{
-			idx = i + j*NumberOfRows;
-			DataFile.width(Width); DataFile << PointerToActualData[idx];
-			if ( j<(NumberOfColumns-1) )
-				DataFile << ',';
-		}
-		DataFile << '\n';
-	}
-	
-	DataFile.close();
-}
-
-
-
-// PRINT, DenseState
+// PRINT, DenseOutput
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(ListOfVariables Variable, int ThreadID)
 {
-	ErrorHandlingSetGetHost("Print", "Thread", ThreadID, KernelParameters.NumberOfThreads);
+	BoundCheck("Print", "Thread", ThreadID, 0, NT-1 );
 	
 	if ( Variable != DenseOutput )
 	{
-        std::cerr << "ERROR in solver member function Print:" << std::endl << "    "\
-			      << "Invalid option for variable selection!" << std::endl;
-        exit(EXIT_FAILURE);
+        std::cerr << "ERROR: In solver member function Print!" << std::endl;
+		std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
+		std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
+		exit(EXIT_FAILURE);
     }
 	
 	std::ofstream DataFile;
@@ -1228,49 +1204,49 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 	
 	int idx;
 	DataFile << "ControlParameters:\n";
-	for (int i=0; i<KernelParameters.NumberOfControlParameters; i++)
+	for (int i=0; i<NCP; i++)
 	{
-		idx = ThreadID + i*KernelParameters.NumberOfThreads;
+		idx = ThreadID + i*NT;
 		DataFile.width(Width); DataFile << h_ControlParameters[idx];
-		if ( i<(KernelParameters.NumberOfControlParameters-1) )
+		if ( i<(NCP-1) )
 			DataFile << ',';
 	}
 	DataFile << '\n';
 	
 	DataFile << "SharedParameters:\n";
-	for (int i=0; i<KernelParameters.NumberOfSharedParameters; i++)
+	for (int i=0; i<NSP; i++)
 	{
 		DataFile.width(Width); DataFile << h_SharedParameters[i];
-		if ( i<(KernelParameters.NumberOfSharedParameters-1) )
+		if ( i<(NSP-1) )
 			DataFile << ',';
 	}
 	DataFile << '\n';
 	
 	DataFile << "IntegerSharedParameters:\n";
-	for (int i=0; i<KernelParameters.NumberOfIntegerSharedParameters; i++)
+	for (int i=0; i<NISP; i++)
 	{
 		DataFile.width(Width); DataFile << h_IntegerSharedParameters[i];
-		if ( i<(KernelParameters.NumberOfIntegerSharedParameters-1) )
+		if ( i<(NISP-1) )
 			DataFile << ',';
 	}
 	DataFile << '\n';
 	
 	DataFile << "Accessories:\n";
-	for (int i=0; i<KernelParameters.NumberOfAccessories; i++)
+	for (int i=0; i<NA; i++)
 	{
-		idx = ThreadID + i*KernelParameters.NumberOfThreads;
+		idx = ThreadID + i*NT;
 		DataFile.width(Width); DataFile << h_Accessories[idx];
-		if ( i<(KernelParameters.NumberOfAccessories-1) )
+		if ( i<(NA-1) )
 			DataFile << ',';
 	}
 	DataFile << '\n';
 	
 	DataFile << "IntegerAccessories:\n";
-	for (int i=0; i<KernelParameters.NumberOfIntegerAccessories; i++)
+	for (int i=0; i<NIA; i++)
 	{
-		idx = ThreadID + i*KernelParameters.NumberOfThreads;
+		idx = ThreadID + i*NT;
 		DataFile.width(Width); DataFile << h_IntegerAccessories[idx];
-		if ( i<(KernelParameters.NumberOfIntegerAccessories-1) )
+		if ( i<(NIA-1) )
 			DataFile << ',';
 	}
 	DataFile << "\n\n";
@@ -1280,14 +1256,14 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 	{
 		for (int i=0; i<(h_DenseOutputIndex[ThreadID]+1); i++)
 		{
-			idx = ThreadID + i*KernelParameters.NumberOfThreads;
+			idx = ThreadID + i*NT;
 			DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx] << ',';
 			
-			for (int j=0; j<KernelParameters.SystemDimension; j++)
+			for (int j=0; j<SD; j++)
 			{
-				idx = ThreadID + j*KernelParameters.NumberOfThreads + i*KernelParameters.NumberOfThreads*KernelParameters.SystemDimension;
+				idx = ThreadID + j*NT + i*NT*SD;
 				DataFile.width(Width); DataFile << h_DenseOutputStates[idx];
-				if ( j<(KernelParameters.SystemDimension-1) )
+				if ( j<(SD-1) )
 					DataFile << ',';
 			}
 			DataFile << '\n';
@@ -1298,7 +1274,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 }
 
 // SOLVE
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+/*template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solve()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
