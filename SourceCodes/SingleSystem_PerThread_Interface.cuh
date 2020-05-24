@@ -1274,7 +1274,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 }
 
 // SOLVE
-/*template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
+template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solve()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
@@ -1308,7 +1308,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Synchr
 	
 	gpuErrCHK( cudaEventSynchronize(Event) );
 }
-*/
+
 // --- AUXILIARY FUNCTIONS ---
 
 template <class DataType>
