@@ -619,7 +619,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solver
 			break;
 		
 		case InitialTimeStep:
-			SolverOptions.InitialTimeStep = (int)Value;
+			SolverOptions.InitialTimeStep = (Precision)Value;
 			break;
 		
 		case ActiveNumberOfThreads:
@@ -627,23 +627,23 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solver
 			break;
 		
 		case MaximumTimeStep:
-			SolverOptions.MaximumTimeStep = (double)Value;
+			SolverOptions.MaximumTimeStep = (Precision)Value;
 			break;
 		
 		case MinimumTimeStep:
-			SolverOptions.MinimumTimeStep = (double)Value;
+			SolverOptions.MinimumTimeStep = (Precision)Value;
 			break;
 		
 		case TimeStepGrowLimit:
-			SolverOptions.TimeStepGrowLimit = (double)Value;
+			SolverOptions.TimeStepGrowLimit = (Precision)Value;
 			break;
 		
 		case TimeStepShrinkLimit:
-			SolverOptions.TimeStepShrinkLimit = (double)Value;
+			SolverOptions.TimeStepShrinkLimit = (Precision)Value;
 			break;
 		
 		case DenseOutputMinimumTimeStep:
-			SolverOptions.DenseOutputMinimumTimeStep = (double)Value;
+			SolverOptions.DenseOutputMinimumTimeStep = (Precision)Value;
 			break;
 		
 		case DenseOutputSaveFrequency:

@@ -99,7 +99,7 @@ int main()
 		ScanDuffing.SynchroniseSolver();
 		
 		TransientStart = clock();
-		for (int i=0; i<1024; i++)
+		//for (int i=0; i<1024; i++)
 		{
 			ScanDuffing.Solve();
 			ScanDuffing.InsertSynchronisationPoint();
@@ -108,7 +108,7 @@ int main()
 		TransientEnd = clock();
 			cout << "Launches: " << LaunchCounter << "  Simulation time: " << 1000.0*(TransientEnd-TransientStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 		
-		for (int i=0; i<32; i++)
+		//for (int i=0; i<32; i++)
 		{
 			ScanDuffing.Solve();
 			ScanDuffing.SynchroniseFromDeviceToHost(All);
@@ -165,13 +165,15 @@ void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,doub
 		Solver.SetHost(ProblemNumber, ActualState, 0, X10 );
 		Solver.SetHost(ProblemNumber, ActualState, 1, X20 );
 		
+		Solver.SetHost(ProblemNumber, ActualTime, 0.0 );
+		
 		Solver.SetHost(ProblemNumber, ControlParameters, 0, k_Values[k] );
 		
 		Solver.SetHost(ProblemNumber, Accessories, 0, 0.0 );
 		Solver.SetHost(ProblemNumber, Accessories, 1, 0.0 );
 		Solver.SetHost(ProblemNumber, Accessories, 2, 0.0 );
 		
-		Solver.SetHost(ProblemNumber, Accessories, 2, 0.0 );
+		Solver.SetHost(ProblemNumber, DenseIndex, 0 );
 		
 		ProblemNumber++;
 	}

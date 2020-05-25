@@ -1,3 +1,80 @@
+	// SINGLE SYSTEM PERTHREAD
+	
+	// Test shared memory
+	if ( tid == 0 )
+	{
+		for (int i=0; i<SD; i++)
+			printf("Comp: %d, ATOL: %+6.3e, RTOL: %+6.3e \n", i, s_AbsoluteTolerance[i], s_RelativeTolerance[i]);
+	}
+	
+	if ( tid == 0 )
+	{
+		for (int i=0; i<NE; i++)
+			printf("Comp: %d, ETOL: %+6.3e, EDIR: %d \n", i, s_EventTolerance[i], s_EventDirection[i]);
+	}
+	
+	if ( tid == 0 )
+	{
+		for (int i=0; i<NSP; i++)
+			printf("Comp: %d, SPAR: %+6.3e \n", i, gs_SharedParameters[i]);
+	}
+	
+		if ( tid == 0 )
+	{
+		for (int i=0; i<NISP; i++)
+			printf("Comp: %d, ISPAR: %d \n", i, gs_IntegerSharedParameters[i]);
+	}
+	
+		// Test registers
+		if ( tid == 0 )
+		{
+			for (int i=0; i<2; i++)
+				printf("Comp: %d, r_TimeDomain: %+6.3e \n", i, r_TimeDomain[i]);
+		}
+		
+		if ( tid == 0 )
+		{
+			for (int i=0; i<SD; i++)
+				printf("Comp: %d, r_ActualState: %+6.3e \n", i, r_ActualState[i]);
+		}
+		
+		if ( tid == 0 )
+		{
+			for (int i=0; i<NCP; i++)
+				printf("Comp: %d, r_ControlParameters: %+6.3e \n", i, r_ControlParameters[i]);
+		}
+		
+		if ( tid == 0 )
+		{
+			for (int i=0; i<NA; i++)
+				printf("Comp: %d, r_Accessories: %+6.3e \n", i, r_Accessories[i]);
+		}
+		
+		if ( tid == 0 )
+		{
+			for (int i=0; i<NIA; i++)
+				printf("Comp: %d, r_IntegerAccessories: %d \n", i, r_IntegerAccessories[i]);
+		}
+		
+		if ( tid == 0 )
+		{
+			printf("r_ActualTime            : %+6.3e \n", r_ActualTime);
+			printf("r_TimeStep              : %+6.3e \n", r_TimeStep);
+			printf("r_NewTimeStep           : %+6.3e \n", r_NewTimeStep);
+			printf("r_DenseOutputIndex      : %d     \n", r_DenseOutputIndex);
+			printf("r_DenseOutputActualTime : %+6.3e \n", r_DenseOutputActualTime);
+			printf("r_UpdateDenseOutput     : %d     \n", r_UpdateDenseOutput);
+			printf("r_NumberOfSkippedStores : %d     \n", r_NumberOfSkippedStores);
+			printf("r_TerminateSimulation   : %d     \n", r_TerminateSimulation);
+			printf("r_UserDefinedTermination: %d     \n", r_UserDefinedTermination);
+		}
+	
+	
+	
+	
+	
+	// COUPLED SYSTEMs PERBLOCK
+	
 	// Testing thread management
 	for (int BL=0; BL<NumberOfBlockLaunches; BL++)
 	{

@@ -179,7 +179,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	}
 	
 	// Initialise global scope variables if ON
-	if ( SharedMemoryUsage.GlobalVariables  == 0 )
+	if ( SharedMemoryUsage.GlobalVariables == 0 )
 	{
 		gs_GlobalParameters        = GlobalVariables.d_GlobalParameters;
 		gs_IntegerGlobalParameters = GlobalVariables.d_IntegerGlobalParameters;
