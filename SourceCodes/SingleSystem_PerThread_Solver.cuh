@@ -1,23 +1,23 @@
-#ifndef SINGLESYSTEM_PERTHREAD_RUNGEKUTTA_H
-#define SINGLESYSTEM_PERTHREAD_RUNGEKUTTA_H
+#ifndef SINGLESYSTEM_PERTHREAD_SOLVER_H
+#define SINGLESYSTEM_PERTHREAD_SOLVER_H
 
 
-__constant__ double d_BT_RK4[1];
-__constant__ double d_BT_RKCK45[26];
+//__constant__ double d_BT_RK4[1];
+//__constant__ double d_BT_RKCK45[26];
 
-#include "SingleSystem_PerThread_RungeKutta_LoadSharedVariables.cuh" // Dependency: Algorithm
-#include "SingleSystem_PerThread_RungeKutta_DenseOutput.cuh"         // Dependency: NDO (NumberOfDenseOutputs)
-#include "SingleSystem_PerThread_RungeKutta_Steppers.cuh"            // No specialised templates
-#include "SingleSystem_PerThread_RungeKutta_ErrorController.cuh"     // No specialised templates
-#include "SingleSystem_PerThread_RungeKutta_EventHandling.cuh"       // Dependency: NE (NumberOfEvents)
+//#include "SingleSystem_PerThread_RungeKutta_LoadSharedVariables.cuh" // Dependency: Algorithm
+//#include "SingleSystem_PerThread_RungeKutta_DenseOutput.cuh"         // Dependency: NDO (NumberOfDenseOutputs)
+//#include "SingleSystem_PerThread_RungeKutta_Steppers.cuh"            // No specialised templates
+//#include "SingleSystem_PerThread_RungeKutta_ErrorController.cuh"     // No specialised templates
+//#include "SingleSystem_PerThread_RungeKutta_EventHandling.cuh"       // Dependency: NE (NumberOfEvents)
 
 
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-__global__ void SingleSystem_PerThread_RungeKutta(IntegratorInternalVariables KernelParameters)
+__global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfiguration, Struct_GlobalVariables<Precision> GlobalVariables, Struct_SharedMemoryUsage SharedMemoryUsage, Struct_SolverOptions<Precision> SolverOptions)
 {
 	int tid = threadIdx.x + blockIdx.x*blockDim.x;
 	
-	extern __shared__ int DynamicSharedMemory[];
+	/*extern __shared__ int DynamicSharedMemory[];
 	double* s_SharedParameters        = nullptr;
 	double* s_RelativeTolerance       = nullptr;
 	double* s_AbsoluteTolerance       = nullptr;
@@ -162,7 +162,7 @@ __global__ void SingleSystem_PerThread_RungeKutta(IntegratorInternalVariables Ke
 		#pragma unroll
 		for (int i=0; i<NIA; i++)
 			KernelParameters.d_IntegerAccessories[tid + i*NT] = IntegerAccessories[i];
-	}
+	}*/
 }
 
 

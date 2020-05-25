@@ -209,7 +209,7 @@ class ProblemSolver
 
 // --- INCLUDE SOLVERS ---
 
-//#include "SingleSystem_PerThread_RungeKutta.cuh"
+#include "SingleSystem_PerThread_Solver.cuh"
 
 
 // --- CUDA DEVICE FUNCTIONS ---
@@ -1279,7 +1279,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solve(
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 	
-	//SingleSystem_PerThread_RungeKutta<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision><<<GridSize, BlockSize, DynamicSharedMemory, Stream>>> (KernelParameters);
+	SingleSystem_PerThread<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision><<<ThreadConfiguration.GridSize, ThreadConfiguration.BlockSize, DynamicSharedMemoryRequired, Stream>>> (ThreadConfiguration, GlobalVariables, SharedMemoryUsage, SolverOptions);
 }
 
 // SYNCHRONISE DEVICE

@@ -20,7 +20,7 @@ const int NSP  = 1;     // NumberOfSharedParameters (1)
 const int NISP = 0;     // NumberOfIntegerSharedParameters (0)
 const int NE   = 2;     // NumberOfEvents (2)
 const int NA   = 3;     // NumberOfAccessories (3)
-const int NIA  = 2;     // NumberOfIntegerAccessories (0)
+const int NIA  = 0;     // NumberOfIntegerAccessories (0)
 const int NDO  = 200;   // NumberOfPointsOfDenseOutput (200)
 
 void Linspace(vector<double>&, double, double, int);
@@ -83,8 +83,8 @@ int main()
 	
 	int NumberOfSimulationLaunches = NumberOfProblems / NT + (NumberOfProblems % NT == 0 ? 0:1);
 	
-	//ofstream DataFile;
-	//DataFile.open ( "Duffing.txt" );
+	ofstream DataFile;
+	DataFile.open ( "Duffing.txt" );
 	
 	clock_t SimulationStart = clock();
 	clock_t TransientStart;
@@ -94,7 +94,7 @@ int main()
 	{
 		FillSolverObject(ScanDuffing, Parameters_k_Values, Parameters_B, InitialConditions_X1, InitialConditions_X2, LaunchCounter * NT, NT);
 	
-		/*ScanDuffing.SynchroniseFromHostToDevice(All);
+		ScanDuffing.SynchroniseFromHostToDevice(All);
 		ScanDuffing.InsertSynchronisationPoint();
 		ScanDuffing.SynchroniseSolver();
 		
@@ -116,17 +116,17 @@ int main()
 			ScanDuffing.SynchroniseSolver();
 			
 			SaveData(ScanDuffing, DataFile, NT);
-		}*/
+		}
 	}
 	
 	clock_t SimulationEnd = clock();
 		cout << "Total simulation time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 	
-	//DataFile.close();
+	DataFile.close();
 	
-	//ScanDuffing.Print(DenseOutput, 0);
-	//ScanDuffing.Print(DenseOutput, 4789);
-	//ScanDuffing.Print(DenseOutput, 15479);
+	ScanDuffing.Print(DenseOutput, 0);
+	ScanDuffing.Print(DenseOutput, 4789);
+	ScanDuffing.Print(DenseOutput, 15479);
 	
 	cout << "Test finished!" << endl;
 }
@@ -179,7 +179,7 @@ void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,doub
 	Solver.SetHost(SharedParameters, 0, B );
 }
 
-/*void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, ofstream& DataFile, int NumberOfThreads)
+void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, ofstream& DataFile, int NumberOfThreads)
 {
 	int Width = 18;
 	DataFile.precision(10);
@@ -187,13 +187,13 @@ void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,doub
 	
 	for (int tid=0; tid<NumberOfThreads; tid++)
 	{
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ControlParameters, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(SharedParameters, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ActualState, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ActualState, 1) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 1) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 2);
+		DataFile.width(Width); DataFile << Solver.GetHost<double>(tid, ControlParameters, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<double>(SharedParameters, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<double>(tid, ActualState, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<double>(tid, ActualState, 1) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<double>(tid, Accessories, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<double>(tid, Accessories, 1) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<double>(tid, Accessories, 2);
 		DataFile << '\n';
 	}
-}*/
+}
