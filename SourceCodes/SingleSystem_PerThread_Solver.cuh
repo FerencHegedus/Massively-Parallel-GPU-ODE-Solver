@@ -144,14 +144,39 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		r_UserDefinedTermination = 0;
 		
 		
+		// INITIALISATION
+		PerThread_Initialization<Precision>(\
+			tid, \
+			NT, \
+			r_ActualTime, \
+			r_TimeStep, \
+			r_TimeDomain, \
+			r_ActualState, \
+			r_ControlParameters, \
+			gs_SharedParameters, \
+			gs_IntegerSharedParameters, \
+			r_Accessories, \
+			r_IntegerAccessories);
+		
+		PerThread_EventFunction<Precision>(\
+			tid, \
+			NT, \
+			r_ActualEventValue, \
+			r_ActualTime, \
+			r_TimeStep, \
+			r_TimeDomain, \
+			r_ActualState, \
+			r_ControlParameters, \
+			gs_SharedParameters, \
+			gs_IntegerSharedParameters, \
+			r_Accessories, \
+			r_IntegerAccessories);
 		
 		
 		
+		//double NextDenseOutputTime = ActualTime;
 		
-		/*PerThread_Initialization(tid, NT, ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
-		double NextDenseOutputTime = ActualTime;
-		
-		StoreDenseOutput<NDO>(KernelParameters, tid, ActualState, ActualTime, TimeDomain[1], DenseOutputIndex, UpdateDenseOutput, NextDenseOutputTime);
+		/*StoreDenseOutput<NDO>(KernelParameters, tid, ActualState, ActualTime, TimeDomain[1], DenseOutputIndex, UpdateDenseOutput, NextDenseOutputTime);
 		
 		PerThread_EventFunction(tid, NT, ActualEventValue, ActualState, ActualTime, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
 		
