@@ -5,14 +5,15 @@
 #include <fstream>
 
 #include "Lorenz_SystemDefinition.cuh"
-#include "SingleSystem_PerThread.cuh"
+#include "SingleSystem_PerThread_Interface.cuh"
 
 #define PI 3.14159265358979323846
 
 using namespace std;
 
 // Solver Configuration
-#define SOLVER RK4 // RK4, RKCK45
+#define SOLVER RK4        // RK4, RKCK45
+#define PRECISION double  // float, double
 const int NT   = 92160; // NumberOfThreads
 const int SD   = 3;     // SystemDimension
 const int NCP  = 1;     // NumberOfControlParameters
@@ -23,14 +24,12 @@ const int NA   = 0;     // NumberOfAccessories
 const int NIA  = 0;     // NumberOfIntegerAccessories
 const int NDO  = 0;     // NumberOfPointsOfDenseOutput
 
-void Linspace(vector<double>&, double, double, int);
-void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, const vector<double>&, int);
-void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, int);
+void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, int);
+void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>&, int);
 
 int main()
 {
-// INITIAL SETUP ----------------------------------------------------------------------------------
-	
 	int NumberOfProblems = NT;
 	int BlockSize        = 64;
 	
@@ -44,20 +43,17 @@ int main()
 	
 	
 	int NumberOfParameters_R = NumberOfProblems;
-	double R_RangeLower = 0.0;
-    double R_RangeUpper = 21.0;
-		vector<double> Parameters_R_Values(NumberOfParameters_R,0);
+	PRECISION R_RangeLower = 0.0;
+    PRECISION R_RangeUpper = 21.0;
+		vector<PRECISION> Parameters_R_Values(NumberOfParameters_R,0);
 		Linspace(Parameters_R_Values, R_RangeLower, R_RangeUpper, NumberOfParameters_R);
 	
 	
-	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanLorenz(SelectedDevice);
+	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION> ScanLorenz(SelectedDevice);
 	
 	ScanLorenz.SolverOption(ThreadsPerBlock, BlockSize);
-	ScanLorenz.SolverOption(InitialTimeStep, 1e-3);
-	//ScanLorenz.SolverOption(MaximumNumberOfTimeSteps, 10000);
+	ScanLorenz.SolverOption(InitialTimeStep, 1.0e-3);
 	
-	
-// SIMULATIONS ------------------------------------------------------------------------------------
 	
 	clock_t SimulationStart;
 	clock_t SimulationEnd;
@@ -86,9 +82,9 @@ int main()
 
 // AUXILIARY FUNCTION -----------------------------------------------------------------------------
 
-void Linspace(vector<double>& x, double B, double E, int N)
+void Linspace(vector<PRECISION>& x, PRECISION B, PRECISION E, int N)
 {
-    double Increment;
+    PRECISION Increment;
 	
 	x[0]   = B;
 	
@@ -104,13 +100,13 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& R_Values, int NumberOfThreads)
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& R_Values, int NumberOfThreads)
 {
 	int ProblemNumber = 0;
 	for (int k=0; k<NumberOfThreads; k++)
 	{
 		Solver.SetHost(ProblemNumber, TimeDomain,  0, 0 );
-		Solver.SetHost(ProblemNumber, TimeDomain,  1, 0.001*10000 );
+		Solver.SetHost(ProblemNumber, TimeDomain,  1, 0.001*10000.0 );
 		
 		Solver.SetHost(ProblemNumber, ActualState, 0, 10.0 );
 		Solver.SetHost(ProblemNumber, ActualState, 1, 10.0 );
@@ -122,10 +118,10 @@ void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,doub
 	}
 }
 
-void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, int NumberOfThreads)
+void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>& Solver, int NumberOfThreads)
 {
 	ofstream DataFile;
-	DataFile.open ( "Lorenz.txt" );
+	DataFile.open ( "Lorenz_v3.1.txt" );
 	
 	int Width = 18;
 	DataFile.precision(10);
@@ -133,10 +129,10 @@ void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Sol
 	
 	for (int tid=0; tid<NumberOfThreads; tid++)
 	{
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ControlParameters, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ActualState, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ActualState, 1) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ActualState, 2);
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, ControlParameters, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, ActualState, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, ActualState, 1) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, ActualState, 2);
 		DataFile << '\n';
 	}
 	

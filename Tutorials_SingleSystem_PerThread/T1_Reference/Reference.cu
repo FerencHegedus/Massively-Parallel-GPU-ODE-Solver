@@ -14,15 +14,15 @@ using namespace std;
 // Solver Configuration
 #define SOLVER RKCK45     // RK4, RKCK45
 #define PRECISION double  // float, double
-const int NT   = 23040; // NumberOfThreads (23040)
-const int SD   = 2;     // SystemDimension (2)
-const int NCP  = 1;     // NumberOfControlParameters (1)
-const int NSP  = 1;     // NumberOfSharedParameters (1)
-const int NISP = 0;     // NumberOfIntegerSharedParameters (0)
-const int NE   = 2;     // NumberOfEvents (2)
-const int NA   = 3;     // NumberOfAccessories (3)
-const int NIA  = 1;     // NumberOfIntegerAccessories (0)
-const int NDO  = 200;   // NumberOfPointsOfDenseOutput (200)
+const int NT   = 23040; // NumberOfThreads
+const int SD   = 2;     // SystemDimension
+const int NCP  = 1;     // NumberOfControlParameters
+const int NSP  = 1;     // NumberOfSharedParameters
+const int NISP = 0;     // NumberOfIntegerSharedParameters
+const int NE   = 2;     // NumberOfEvents
+const int NA   = 3;     // NumberOfAccessories
+const int NIA  = 1;     // NumberOfIntegerAccessories
+const int NDO  = 200;   // NumberOfPointsOfDenseOutput
 
 void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);
 void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, PRECISION, PRECISION, PRECISION, int, int);
