@@ -3,7 +3,10 @@
 
 // SYSTEM
 template <class Precision>
-__forceinline__ __device__ void PerThread_OdeFunction(int tid, int NT, double* F, double* X, double T, double* cPAR, double* sPAR, int* sPARi, double* ACC, int* ACCi)
+__forceinline__ __device__ void PerThread_OdeFunction(\
+			int tid, int NT, \
+			Precision*    F, Precision*    X, Precision     T, \
+			Precision* cPAR, Precision* sPAR, int*      sPARi, Precision* ACC, int* ACCi)
 {
 	F[0] = X[1];
 	F[1] = X[0] - X[0]*X[0]*X[0] - cPAR[0]*X[1] + sPAR[0]*cos(T);

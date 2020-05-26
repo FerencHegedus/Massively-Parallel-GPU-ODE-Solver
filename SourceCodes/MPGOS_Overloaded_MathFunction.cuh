@@ -3,6 +3,18 @@
 
 namespace MPGOS
 {
+	// Floating point absolute value
+	__forceinline__ __device__ float FABS(float a)
+	{
+		return fabsf(a);
+	}
+	
+	__forceinline__ __device__ double FABS(double a)
+	{
+		return fabs(a);
+	}
+	
+	
 	// Floating point maximum -------------------------------------------------
 	__forceinline__ __device__ float FMAX(float a, float b)
 	{

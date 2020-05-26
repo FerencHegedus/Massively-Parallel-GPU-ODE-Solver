@@ -3,9 +3,9 @@
 
 #include "MPGOS_Overloaded_MathFunction.cuh"
 #include "SingleSystem_PerThread_DenseOutput.cuh"
-//#include "SingleSystem_PerThread_RungeKutta_Steppers.cuh"            // No specialised templates
-//#include "SingleSystem_PerThread_RungeKutta_ErrorController.cuh"     // No specialised templates
-//#include "SingleSystem_PerThread_RungeKutta_EventHandling.cuh"       // Dependency: NE (NumberOfEvents)
+#include "SingleSystem_PerThread_ExplicitRungeKutta_Steppers.cuh"
+#include "SingleSystem_PerThread_ExplicitRungeKutta_ErrorControllers.cuh"
+#include "SingleSystem_PerThread_EventHandling.cuh"
 
 
 template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
@@ -209,23 +209,81 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 				r_EndTimeDomainReached = 1;
 			}
 			
-			/*if ( Algorithm==RK4 )
+			if ( Algorithm == RK4 )
 			{
-				RungeKuttaStepperRK4<NT,SD,Algorithm>(tid, ActualTime, TimeStep, ActualState, NextState, Error, IsFinite, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
-				ErrorControllerRK4(tid, KernelParameters.InitialTimeStep, IsFinite, TerminateSimulation, NewTimeStep);
+				PerThread_Stepper_RK4<NT,SD,Precision>(\
+					tid, \
+					r_ActualTime, \
+					r_TimeStep, \
+					r_ActualState, \
+					r_NextState, \
+					r_Error, \
+					r_IsFinite, \
+					r_ControlParameters, \
+					gs_SharedParameters, \
+					gs_IntegerSharedParameters, \
+					r_Accessories, \
+					r_IntegerAccessories);
+				
+				PerThread_ErrorController_RK4<Precision>(\
+					tid, \
+					SolverOptions.InitialTimeStep, \
+					r_IsFinite, \
+					r_TerminateSimulation, \
+					r_NewTimeStep);
 			}
 			
-			/*if ( Algorithm==RKCK45 )
+			if ( Algorithm == RKCK45 )
 			{
-				RungeKuttaStepperRKCK45<NT,SD,Algorithm>(tid, ActualTime, TimeStep, ActualState, NextState, Error, IsFinite, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
-				ErrorControllerRKCK45<SD>(KernelParameters, tid, TimeStep, NextState, Error, s_RelativeTolerance, s_AbsoluteTolerance, UpdateRungeKuttaStep, IsFinite, TerminateSimulation, NewTimeStep);
+				PerThread_Stepper_RKCK45<NT,SD,Precision>(\
+					tid, \
+					r_ActualTime, \
+					r_TimeStep, \
+					r_ActualState, \
+					r_NextState, \
+					r_Error, \
+					r_IsFinite, \
+					r_ControlParameters, \
+					gs_SharedParameters, \
+					gs_IntegerSharedParameters, \
+					r_Accessories, \
+					r_IntegerAccessories);
+				
+				PerThread_ErrorController_RKCK45<SD,Precision>(\
+					tid, \
+					r_TimeStep, \
+					r_ActualState, \
+					r_NextState, \
+					r_Error, \
+					s_RelativeTolerance, \
+					s_AbsoluteTolerance, \
+					r_UpdateStep, \
+					r_IsFinite, \
+					r_TerminateSimulation, \
+					r_NewTimeStep, \
+					SolverOptions);
 			}
 			
-			PerThread_EventFunction(tid, NT, NextEventValue, NextState, ActualTime, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
-			EventHandlingTimeStepControl<NE>(tid, ActualEventValue, NextEventValue, UpdateRungeKuttaStep, s_EventTolerance, s_EventDirection, TimeStep, NewTimeStep, KernelParameters.MinimumTimeStep);
+			if ( NE > 0 ) // Eliminated at compile time if NE=0
+			{
+				PerThread_EventFunction<Precision>(\
+					tid, \
+					NT, \
+					r_NextEventValue, \
+					r_ActualTime+r_TimeStep, \
+					r_TimeStep, \
+					r_TimeDomain, \
+					r_NextState, \
+					r_ControlParameters, \
+					gs_SharedParameters, \
+					gs_IntegerSharedParameters, \
+					r_Accessories, \
+					r_IntegerAccessories);
+				
+				//EventHandlingTimeStepControl<NE>(tid, ActualEventValue, NextEventValue, UpdateRungeKuttaStep, s_EventTolerance, s_EventDirection, TimeStep, NewTimeStep, KernelParameters.MinimumTimeStep);
+			}
 			
-			
-			if ( UpdateRungeKuttaStep == 1 )
+			/*if ( UpdateRungeKuttaStep == 1 )
 			{
 				ActualTime += TimeStep;
 				
@@ -275,7 +333,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		
 		GlobalVariables.d_DenseOutputIndex[tid] = r_DenseOutputIndex;
 		
-		if ( tid == 0 )
+		/*if ( tid == 0 )
 		{
 			printf("r_ActualTime            : %+6.3e \n", r_ActualTime);
 			printf("r_TimeStep              : %+6.3e \n", r_TimeStep);
@@ -286,7 +344,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			printf("r_NumberOfSkippedStores : %d     \n", r_NumberOfSkippedStores);
 			printf("r_TerminateSimulation   : %d     \n", r_TerminateSimulation);
 			printf("r_UserDefinedTermination: %d     \n", r_UserDefinedTermination);
-		}
+		}*/
 	}
 }
 
