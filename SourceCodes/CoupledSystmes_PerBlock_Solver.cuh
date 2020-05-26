@@ -664,7 +664,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 				SolverOptions);
 		}
 		
-		// Check termination
+		// CHECK TERMINATION --------------------------------------------------
 		Launches = SPB / blockDim.x + (SPB % blockDim.x == 0 ? 0 : 1);
 		for (int j=0; j<Launches; j++)
 		{
@@ -687,7 +687,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	__syncthreads();
 	
 	
-	// FINALISATION
+	// FINALISATION -----------------------------------------------------------
 	for (int BL=0; BL<NumberOfBlockLaunches; BL++)
 	{
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;

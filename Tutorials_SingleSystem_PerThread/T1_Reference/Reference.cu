@@ -30,8 +30,6 @@ void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>&,
 
 int main()
 {
-// INITIAL SETUP ----------------------------------------------------------------------------------
-	
 	int NumberOfProblems = 46080; // 2*NT;
 	int BlockSize        = 64;
 	
@@ -59,14 +57,14 @@ int main()
 	
 	ScanDuffing.SolverOption(PreferSharedMemory, 0);
 	ScanDuffing.SolverOption(ThreadsPerBlock, BlockSize);
-	ScanDuffing.SolverOption(InitialTimeStep, 1e-2);
+	ScanDuffing.SolverOption(InitialTimeStep, 1.0e-2);
 	ScanDuffing.SolverOption(ActiveNumberOfThreads, NT);
 	
 	ScanDuffing.SolverOption(DenseOutputMinimumTimeStep, 0.0);
 	ScanDuffing.SolverOption(DenseOutputSaveFrequency, 1);
 	
-	ScanDuffing.SolverOption(MaximumTimeStep, 1e3);
-	ScanDuffing.SolverOption(MinimumTimeStep, 1e-14);
+	ScanDuffing.SolverOption(MaximumTimeStep, 1.0e3);
+	ScanDuffing.SolverOption(MinimumTimeStep, 1.0e-14);
 	ScanDuffing.SolverOption(TimeStepGrowLimit, 10.0);
 	ScanDuffing.SolverOption(TimeStepShrinkLimit, 0.2);
 	
@@ -77,15 +75,14 @@ int main()
 	
 	ScanDuffing.SolverOption(EventTolerance, 0, 1e-6);
 	ScanDuffing.SolverOption(EventTolerance, 1, 1e-6);
-	ScanDuffing.SolverOption(EventDirection,   0, -1);
-	ScanDuffing.SolverOption(EventDirection,   1,  0);
+	ScanDuffing.SolverOption(EventDirection, 0, -1);
+	ScanDuffing.SolverOption(EventDirection, 1,  0);
 	
-// SIMULATIONS ------------------------------------------------------------------------------------
 	
 	int NumberOfSimulationLaunches = NumberOfProblems / NT + (NumberOfProblems % NT == 0 ? 0:1);
 	
 	ofstream DataFile;
-	DataFile.open ( "Duffing.txt" );
+	DataFile.open ( "Duffing_v3.1.txt" );
 	
 	clock_t SimulationStart = clock();
 	clock_t TransientStart;
@@ -100,7 +97,7 @@ int main()
 		ScanDuffing.SynchroniseSolver();
 		
 		TransientStart = clock();
-		//for (int i=0; i<1024; i++)
+		for (int i=0; i<1024; i++)
 		{
 			ScanDuffing.Solve();
 			ScanDuffing.InsertSynchronisationPoint();
@@ -109,7 +106,7 @@ int main()
 		TransientEnd = clock();
 			cout << "Launches: " << LaunchCounter << "  Simulation time: " << 1000.0*(TransientEnd-TransientStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 		
-		//for (int i=0; i<32; i++)
+		for (int i=0; i<32; i++)
 		{
 			ScanDuffing.Solve();
 			ScanDuffing.SynchroniseFromDeviceToHost(All);

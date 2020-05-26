@@ -18,7 +18,7 @@ __forceinline__ __device__ void PerThread_EventFunction(\
 			int tid, int NT, Precision* EF, \
 			Precision     T, Precision    dT, Precision*    TD, Precision*   X, \
 			Precision* cPAR, Precision* sPAR,       int* sPARi, Precision* ACC, int* ACCi)
-{	
+{
 	EF[0] = X[1];
 	EF[1] = X[0];
 }
@@ -33,7 +33,7 @@ __forceinline__ __device__ void PerThread_ActionAfterEventDetection(\
 		ACC[0] = X[0];
 	
 	if ( IDX == 1 )
-		ACCi[0];
+		ACCi[0]++;
 	
 	if ( (IDX ==1 ) && ( ACCi[0] == 2 ) )
 		ACC[1] = X[1];

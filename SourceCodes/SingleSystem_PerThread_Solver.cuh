@@ -195,7 +195,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		
 		
 		// SOLVER MANAGEMENT --------------------------------------------------
-		//while ( r_TerminateSimulation == 0 )
+		while ( r_TerminateSimulation == 0 )
 		{
 			// INITIALISE TIME STEPPING ---------------------------------------
 			r_UpdateStep           = 1;
@@ -394,44 +394,47 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			}
 		}
 		
-		/*PerThread_Finalization(tid, NT, ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
 		
+		// FINALISATION -----------------------------------------------------------
+		PerThread_Finalization(\
+			tid, \
+			NT, \
+			r_DenseOutputIndex, \
+			r_ActualTime, \
+			r_TimeStep, \
+			r_TimeDomain, \
+			r_ActualState, \
+			r_ControlParameters, \
+			gs_SharedParameters, \
+			gs_IntegerSharedParameters, \
+			r_Accessories, \
+			r_IntegerAccessories);
+		
+		
+		// WRITE DATA BACK TO GLOBAL MEMORY ---------------------------------------
 		#pragma unroll
 		for (int i=0; i<2; i++)
-			KernelParameters.d_TimeDomain[tid + i*NT] = TimeDomain[i];
+			GlobalVariables.d_TimeDomain[tid + i*NT] = r_TimeDomain[i];
 		
 		#pragma unroll
 		for (int i=0; i<SD; i++)
-			KernelParameters.d_ActualState[tid + i*NT] = ActualState[i];
+			GlobalVariables.d_ActualState[tid + i*NT] = r_ActualState[i];
 		
 		#pragma unroll
 		for (int i=0; i<NCP; i++)
-			KernelParameters.d_ControlParameters[tid + i*NT] = ControlParameters[i];
+			GlobalVariables.d_ControlParameters[tid + i*NT] = r_ControlParameters[i];
 		
 		#pragma unroll
 		for (int i=0; i<NA; i++)
-			KernelParameters.d_Accessories[tid + i*NT] = Accessories[i];
+			GlobalVariables.d_Accessories[tid + i*NT] = r_Accessories[i];
 		
 		#pragma unroll
 		for (int i=0; i<NIA; i++)
-			KernelParameters.d_IntegerAccessories[tid + i*NT] = IntegerAccessories[i];*/
+			GlobalVariables.d_IntegerAccessories[tid + i*NT] = r_IntegerAccessories[i];
 		
+		GlobalVariables.d_ActualTime[tid]       = r_ActualTime;
 		GlobalVariables.d_DenseOutputIndex[tid] = r_DenseOutputIndex;
-		
-		/*if ( tid == 0 )
-		{
-			printf("r_ActualTime            : %+6.3e \n", r_ActualTime);
-			printf("r_TimeStep              : %+6.3e \n", r_TimeStep);
-			printf("r_NewTimeStep           : %+6.3e \n", r_NewTimeStep);
-			printf("r_DenseOutputIndex      : %d     \n", r_DenseOutputIndex);
-			printf("r_DenseOutputActualTime : %+6.3e \n", r_DenseOutputActualTime);
-			printf("r_UpdateDenseOutput     : %d     \n", r_UpdateDenseOutput);
-			printf("r_NumberOfSkippedStores : %d     \n", r_NumberOfSkippedStores);
-			printf("r_TerminateSimulation   : %d     \n", r_TerminateSimulation);
-			printf("r_UserDefinedTermination: %d     \n", r_UserDefinedTermination);
-		}*/
 	}
 }
-
 
 #endif
