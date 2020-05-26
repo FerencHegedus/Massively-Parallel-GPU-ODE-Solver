@@ -40,10 +40,13 @@ __forceinline__ __device__ void PerThread_ActionAfterSuccessfulTimeStep(int tid,
 
 template <class Precision>
 __forceinline__ __device__ void PerThread_Initialization(\
-			int tid, int NT, \
+			int tid, int NT, int& DOIDX, \
 			Precision&    T, Precision&   dT, Precision*    TD, Precision*   X, \
 			Precision* cPAR, Precision* sPAR,       int* sPARi, Precision* ACC, int* ACCi)
 {
+	T      = TD[0]; // Reset the starting point of the simulation from the lower limit of the time domain
+	DOIDX  = 0;     // Reset the start of the filling of dense output from the beggining
+	
 	ACC[0] = X[0];
 	ACC[1] = X[1];
 	ACC[2] = X[0];

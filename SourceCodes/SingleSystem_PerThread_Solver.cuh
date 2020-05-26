@@ -1,7 +1,8 @@
 #ifndef SINGLESYSTEM_PERTHREAD_SOLVER_H
 #define SINGLESYSTEM_PERTHREAD_SOLVER_H
 
-//#include "SingleSystem_PerThread_RungeKutta_DenseOutput.cuh"         // Dependency: NDO (NumberOfDenseOutputs)
+#include "MPGOS_Overloaded_MathFunction.cuh"
+#include "SingleSystem_PerThread_DenseOutput.cuh"
 //#include "SingleSystem_PerThread_RungeKutta_Steppers.cuh"            // No specialised templates
 //#include "SingleSystem_PerThread_RungeKutta_ErrorController.cuh"     // No specialised templates
 //#include "SingleSystem_PerThread_RungeKutta_EventHandling.cuh"       // Dependency: NE (NumberOfEvents)
@@ -148,6 +149,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		PerThread_Initialization<Precision>(\
 			tid, \
 			NT, \
+			r_DenseOutputIndex, \
 			r_ActualTime, \
 			r_TimeStep, \
 			r_TimeDomain, \
@@ -158,32 +160,42 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			r_Accessories, \
 			r_IntegerAccessories);
 		
-		PerThread_EventFunction<Precision>(\
-			tid, \
-			NT, \
-			r_ActualEventValue, \
-			r_ActualTime, \
-			r_TimeStep, \
-			r_TimeDomain, \
-			r_ActualState, \
-			r_ControlParameters, \
-			gs_SharedParameters, \
-			gs_IntegerSharedParameters, \
-			r_Accessories, \
-			r_IntegerAccessories);
+		if ( NE > 0 ) // Eliminated at compile time if NE=0
+		{
+			PerThread_EventFunction<Precision>(\
+				tid, \
+				NT, \
+				r_ActualEventValue, \
+				r_ActualTime, \
+				r_TimeStep, \
+				r_TimeDomain, \
+				r_ActualState, \
+				r_ControlParameters, \
+				gs_SharedParameters, \
+				gs_IntegerSharedParameters, \
+				r_Accessories, \
+				r_IntegerAccessories);
+		}
+		
+		if ( NDO > 0 ) // Eliminated at compile time if NDO=0
+		{
+			PerThread_StoreDenseOutput<NT, SD, NDO, Precision>(\
+				tid, \
+				r_UpdateDenseOutput, \
+				r_UpdateStep, \
+				r_DenseOutputIndex, \
+				GlobalVariables.d_DenseOutputTimeInstances, \
+				r_ActualTime, \
+				GlobalVariables.d_DenseOutputStates, \
+				r_ActualState, \
+				r_NumberOfSkippedStores, \
+				r_DenseOutputActualTime, \
+				SolverOptions.DenseOutputMinimumTimeStep, \
+				r_TimeDomain[1]);
+		}
 		
 		
-		
-		//double NextDenseOutputTime = ActualTime;
-		
-		/*StoreDenseOutput<NDO>(KernelParameters, tid, ActualState, ActualTime, TimeDomain[1], DenseOutputIndex, UpdateDenseOutput, NextDenseOutputTime);
-		
-		PerThread_EventFunction(tid, NT, ActualEventValue, ActualState, ActualTime, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
-		
-		EventHandlingInitialisation<NE>(EventCounter, EventEquilibriumCounter);
-		
-		
-		while ( TerminateSimulation==0 )
+		/*while ( TerminateSimulation==0 )
 		{
 			UpdateRungeKuttaStep = 1;
 			UpdateDenseOutput = 0;
@@ -256,6 +268,21 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		#pragma unroll
 		for (int i=0; i<NIA; i++)
 			KernelParameters.d_IntegerAccessories[tid + i*NT] = IntegerAccessories[i];*/
+		
+		GlobalVariables.d_DenseOutputIndex[tid] = r_DenseOutputIndex;
+		
+		if ( tid == 0 )
+		{
+			printf("r_ActualTime            : %+6.3e \n", r_ActualTime);
+			printf("r_TimeStep              : %+6.3e \n", r_TimeStep);
+			printf("r_NewTimeStep           : %+6.3e \n", r_NewTimeStep);
+			printf("r_DenseOutputIndex      : %d     \n", r_DenseOutputIndex);
+			printf("r_DenseOutputActualTime : %+6.3e \n", r_DenseOutputActualTime);
+			printf("r_UpdateDenseOutput     : %d     \n", r_UpdateDenseOutput);
+			printf("r_NumberOfSkippedStores : %d     \n", r_NumberOfSkippedStores);
+			printf("r_TerminateSimulation   : %d     \n", r_TerminateSimulation);
+			printf("r_UserDefinedTermination: %d     \n", r_UserDefinedTermination);
+		}
 	}
 }
 

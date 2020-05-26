@@ -1254,7 +1254,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 	DataFile << "Time series:\n";
 	if ( NDO > 0 )
 	{
-		for (int i=0; i<(h_DenseOutputIndex[ThreadID]+1); i++)
+		for (int i=0; i<(h_DenseOutputIndex[ThreadID]); i++)
 		{
 			idx = ThreadID + i*NT;
 			DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx] << ',';
