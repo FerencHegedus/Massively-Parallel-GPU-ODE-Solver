@@ -275,7 +275,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	__syncthreads();
 	
 	
-	// INITIALISATION
+	// INITIALISATION ---------------------------------------------------------
 	for (int BL=0; BL<NumberOfBlockLaunches; BL++)
 	{
 		LocalThreadID_Logical = LocalThreadID_GPU + BL*blockDim.x;
@@ -549,8 +549,8 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		}
 		__syncthreads();
 		
-		// Event handling actions; Eliminated at compile time if NE=0
-		if ( NE > 0 )
+		// Event handling actions
+		if ( NE > 0 )  // Eliminated at compile time if NE=0
 		{
 			// Call user defined ActionAfterEventDetection if event is detected
 			for (int BL=0; BL<NumberOfBlockLaunches; BL++)
@@ -635,8 +635,8 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 			__syncthreads();
 		}
 		
-		// Dense output actions; Eliminated at compile time if NDO=0
-		if ( NDO > 0)
+		// Dense output actions
+		if ( NDO > 0 ) //Eliminated at compile time if NDO=0
 		{
 			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_DenseOutputStorageCondition<NumberOfBlockLaunches, UPS, SPB, NDO, Precision>(\
 				s_EndTimeDomainReached, \

@@ -21,7 +21,7 @@ const int NSP  = 1;     // NumberOfSharedParameters (1)
 const int NISP = 0;     // NumberOfIntegerSharedParameters (0)
 const int NE   = 2;     // NumberOfEvents (2)
 const int NA   = 3;     // NumberOfAccessories (3)
-const int NIA  = 0;     // NumberOfIntegerAccessories (0)
+const int NIA  = 1;     // NumberOfIntegerAccessories (0)
 const int NDO  = 200;   // NumberOfPointsOfDenseOutput (200)
 
 void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);

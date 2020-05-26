@@ -90,7 +90,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 	
 	if (tid < ThreadConfiguration.NumberOfActiveThreads)
 	{
-		// REGISTER MEMORY MANAGEMENT ---------------------------------------------
+		// REGISTER MEMORY MANAGEMENT -----------------------------------------
 		//    MINIMUM ALLOCABLE MEMORY IS 1
 		Precision r_TimeDomain[2];
 		Precision r_ActualState[SD];
@@ -145,7 +145,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		r_UserDefinedTermination = 0;
 		
 		
-		// INITIALISATION
+		// INITIALISATION -----------------------------------------------------
 		PerThread_Initialization<Precision>(\
 			tid, \
 			NT, \
@@ -182,7 +182,6 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			PerThread_StoreDenseOutput<NT, SD, NDO, Precision>(\
 				tid, \
 				r_UpdateDenseOutput, \
-				r_UpdateStep, \
 				r_DenseOutputIndex, \
 				GlobalVariables.d_DenseOutputTimeInstances, \
 				r_ActualTime, \
@@ -195,8 +194,10 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		}
 		
 		
+		// SOLVER MANAGEMENT --------------------------------------------------
 		//while ( r_TerminateSimulation == 0 )
 		{
+			// INITIALISE TIME STEPPING ---------------------------------------
 			r_UpdateStep           = 1;
 			r_IsFinite             = 1;
 			r_EndTimeDomainReached = 0;
@@ -209,6 +210,8 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 				r_EndTimeDomainReached = 1;
 			}
 			
+			
+			// STEPPER --------------------------------------------------------
 			if ( Algorithm == RK4 )
 			{
 				PerThread_Stepper_RK4<NT,SD,Precision>(\
@@ -264,6 +267,8 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 					SolverOptions);
 			}
 			
+			
+			// NEW EVENT VALUE AND TIME STEP CONTROL---------------------------
 			if ( NE > 0 ) // Eliminated at compile time if NE=0
 			{
 				PerThread_EventFunction<Precision>(\
@@ -293,30 +298,100 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 					SolverOptions.MinimumTimeStep);
 			}
 			
-			/*if ( UpdateRungeKuttaStep == 1 )
+			
+			// UPDATE PROCESS -------------------------------------------------
+			if ( r_UpdateStep == 1 )
 			{
-				ActualTime += TimeStep;
+				r_ActualTime += r_TimeStep;
 				
 				for (int i=0; i<SD; i++)
-					ActualState[i] = NextState[i];
+					r_ActualState[i] = r_NextState[i];
 				
-				EventHandlingUpdate<NE>(tid, NT, ActualEventValue, NextEventValue, EventCounter, EventEquilibriumCounter, TerminateSimulation, KernelParameters.MaxStepInsideEvent, \
-                                        s_EventTolerance, s_EventDirection, s_EventStopCounter, \
-										ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
+				PerThread_ActionAfterSuccessfulTimeStep<Precision>(\
+					tid, \
+					NT, \
+					r_UserDefinedTermination, \
+					r_ActualTime, \
+					r_TimeStep, \
+					r_TimeDomain, \
+					r_ActualState, \
+					r_ControlParameters, \
+					gs_SharedParameters, \
+					gs_IntegerSharedParameters, \
+					r_Accessories, \
+					r_IntegerAccessories);
 				
-				NumberOfSuccessfulTimeStep++;
-				if ( ( KernelParameters.MaximumNumberOfTimeSteps != 0 ) && ( NumberOfSuccessfulTimeStep == KernelParameters.MaximumNumberOfTimeSteps ) )
-					TerminateSimulation = 1;
+				if ( NE > 0 ) // Eliminated at compile time if NE=0
+				{
+					for (int i=0; i<NE; i++)
+					{
+						if ( ( ( r_ActualEventValue[i] >  s_EventTolerance[i] ) && ( abs(r_NextEventValue[i]) < s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
+							 ( ( r_ActualEventValue[i] < -s_EventTolerance[i] ) && ( abs(r_NextEventValue[i]) < s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
+						{
+							PerThread_ActionAfterEventDetection<Precision>(\
+								tid, \
+								NT, \
+								i, \
+								r_UserDefinedTermination, \
+								r_ActualTime, \
+								r_TimeStep, \
+								r_TimeDomain, \
+								r_ActualState, \
+								r_ControlParameters, \
+								gs_SharedParameters, \
+								gs_IntegerSharedParameters, \
+								r_Accessories, \
+								r_IntegerAccessories);
+						}
+					}
+					
+					PerThread_EventFunction<Precision>(\
+						tid, \
+						NT, \
+						r_NextEventValue, \
+						r_ActualTime, \
+						r_TimeStep, \
+						r_TimeDomain, \
+						r_ActualState, \
+						r_ControlParameters, \
+						gs_SharedParameters, \
+						gs_IntegerSharedParameters, \
+						r_Accessories, 
+						r_IntegerAccessories);
+					
+					for (int i=0; i<NE; i++)
+						r_ActualEventValue[i] = r_NextEventValue[i];
+				}
 				
-				PerThread_ActionAfterSuccessfulTimeStep(tid, NT, ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
+				if ( NDO > 0 ) //Eliminated at compile time if NDO=0
+				{
+					PerThread_DenseOutputStorageCondition<NDO, Precision>(\
+						r_ActualTime, \
+						r_DenseOutputActualTime, \
+						r_DenseOutputIndex, \
+						r_NumberOfSkippedStores, \
+						r_EndTimeDomainReached, \
+						r_UserDefinedTermination, \
+						r_UpdateDenseOutput, \
+						SolverOptions);
+					
+					PerThread_StoreDenseOutput<NT, SD, NDO, Precision>(\
+						tid, \
+						r_UpdateDenseOutput, \
+						r_DenseOutputIndex, \
+						GlobalVariables.d_DenseOutputTimeInstances, \
+						r_ActualTime, \
+						GlobalVariables.d_DenseOutputStates, \
+						r_ActualState, \
+						r_NumberOfSkippedStores, \
+						r_DenseOutputActualTime, \
+						SolverOptions.DenseOutputMinimumTimeStep, \
+						r_TimeDomain[1]);
+				}
 				
-				StoreDenseOutput<NDO>(KernelParameters, tid, ActualState, ActualTime, TimeDomain[1], DenseOutputIndex, UpdateDenseOutput, NextDenseOutputTime);
-				
-				if ( ActualTime > ( TimeDomain[1] - KernelParameters.MinimumTimeStep*1.01 ) )
-					TerminateSimulation = 1;
+				if ( ( r_EndTimeDomainReached == 1 ) || ( r_UserDefinedTermination == 1 ) )
+					r_TerminateSimulation = 1;
 			}
-			
-			TimeStep = NewTimeStep;*/
 		}
 		
 		/*PerThread_Finalization(tid, NT, ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);

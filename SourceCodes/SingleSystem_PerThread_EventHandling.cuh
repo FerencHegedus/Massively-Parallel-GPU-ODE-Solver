@@ -44,46 +44,4 @@ __forceinline__ __device__ void PerThread_EventTimeStepControl(\
 	}
 }
 
-
-
-// ----------------------------------------------------------------------------
-/*template <int NE>
-__forceinline__ __device__ void EventHandlingUpdate(int tid, int NT, double* ActualEventValue, double* NextEventValue, int* EventCounter, int* EventEquilibriumCounter, bool& TerminateSimulation, int MaxStepInsideEvent, \
-                                                    double* s_EventTolerance, int* s_EventDirection, int* s_EventStopCounter, \
-									                double& ActualTime, double& TimeStep, double* TimeDomain, double* ActualState, double* ControlParameters, double* s_SharedParameters, int* s_IntegerSharedParameters, double* Accessories, int* IntegerAccessories)
-{
-	for (int i=0; i<NE; i++)
-	{
-		if ( ( ( ActualEventValue[i] >  s_EventTolerance[i] ) && ( abs(NextEventValue[i]) < s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
-		     ( ( ActualEventValue[i] < -s_EventTolerance[i] ) && ( abs(NextEventValue[i]) < s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
-		{
-			EventCounter[i]++;
-			if ( EventCounter[i] == s_EventStopCounter[i] )
-				TerminateSimulation = 1;
-			
-			PerThread_ActionAfterEventDetection(tid, NT, i, EventCounter[i], ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
-			PerThread_EventFunction(tid, NT, NextEventValue, ActualState, ActualTime, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
-		}
-		
-		if ( ( abs(ActualEventValue[i]) <  s_EventTolerance[i] ) && ( abs(NextEventValue[i]) > s_EventTolerance[i] ) )
-			EventEquilibriumCounter[i] = 0;
-		
-		if ( ( abs(ActualEventValue[i]) <  s_EventTolerance[i] ) && ( abs(NextEventValue[i]) < s_EventTolerance[i] ) )
-			EventEquilibriumCounter[i]++;
-		
-		if ( EventEquilibriumCounter[i] == MaxStepInsideEvent)
-			TerminateSimulation = 1;
-		
-		ActualEventValue[i] = NextEventValue[i];
-	}
-}
-
-
-// ----------
-template <>
-__forceinline__ __device__ void EventHandlingUpdate<0>(int tid, int NT, double* ActualEventValue, double* NextEventValue, int* EventCounter, int* EventEquilibriumCounter, bool& TerminateSimulation, int MaxStepInsideEvent, \
-                                                       double* s_EventTolerance, int* s_EventDirection, int* s_EventStopCounter, \
-									                   double& ActualTime, double& TimeStep, double* TimeDomain, double* ActualState, double* ControlParameters, double* s_SharedParameters, int* s_IntegerSharedParameters, double* Accessories, int* IntegerAccessories)
-{}*/
-
 #endif
