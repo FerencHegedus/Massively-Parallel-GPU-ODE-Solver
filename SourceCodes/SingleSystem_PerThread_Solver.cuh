@@ -280,7 +280,17 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 					r_Accessories, \
 					r_IntegerAccessories);
 				
-				//EventHandlingTimeStepControl<NE>(tid, ActualEventValue, NextEventValue, UpdateRungeKuttaStep, s_EventTolerance, s_EventDirection, TimeStep, NewTimeStep, KernelParameters.MinimumTimeStep);
+				PerThread_EventTimeStepControl<NE,Precision>(\
+					tid, \
+					r_UpdateStep, \
+					r_TerminateSimulation, \
+					r_ActualEventValue, \
+					r_NextEventValue, \
+					s_EventTolerance, \
+					s_EventDirection, \
+					r_TimeStep, \
+					r_NewTimeStep, \
+					SolverOptions.MinimumTimeStep);
 			}
 			
 			/*if ( UpdateRungeKuttaStep == 1 )
