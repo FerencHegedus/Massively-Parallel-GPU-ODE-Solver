@@ -195,23 +195,27 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		}
 		
 		
-		/*while ( TerminateSimulation==0 )
+		//while ( r_TerminateSimulation == 0 )
 		{
-			UpdateRungeKuttaStep = 1;
-			UpdateDenseOutput = 0;
-			IsFinite = 1;
+			r_UpdateStep           = 1;
+			r_IsFinite             = 1;
+			r_EndTimeDomainReached = 0;
 			
-			TimeStep = fmin(TimeStep, TimeDomain[1]-ActualTime);
-			DenseOutputTimeStepCorrection<NDO>(KernelParameters, tid, UpdateDenseOutput, DenseOutputIndex, NextDenseOutputTime, ActualTime, TimeStep);
+			r_TimeStep = r_NewTimeStep;
 			
+			if ( r_TimeStep > ( r_TimeDomain[1] - r_ActualTime ) )
+			{
+				r_TimeStep = r_TimeDomain[1] - r_ActualTime;
+				r_EndTimeDomainReached = 1;
+			}
 			
-			if ( Algorithm==RK4 )
+			/*if ( Algorithm==RK4 )
 			{
 				RungeKuttaStepperRK4<NT,SD,Algorithm>(tid, ActualTime, TimeStep, ActualState, NextState, Error, IsFinite, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
 				ErrorControllerRK4(tid, KernelParameters.InitialTimeStep, IsFinite, TerminateSimulation, NewTimeStep);
 			}
 			
-			if ( Algorithm==RKCK45 )
+			/*if ( Algorithm==RKCK45 )
 			{
 				RungeKuttaStepperRKCK45<NT,SD,Algorithm>(tid, ActualTime, TimeStep, ActualState, NextState, Error, IsFinite, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
 				ErrorControllerRKCK45<SD>(KernelParameters, tid, TimeStep, NextState, Error, s_RelativeTolerance, s_AbsoluteTolerance, UpdateRungeKuttaStep, IsFinite, TerminateSimulation, NewTimeStep);
@@ -244,10 +248,10 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 					TerminateSimulation = 1;
 			}
 			
-			TimeStep = NewTimeStep;
+			TimeStep = NewTimeStep;*/
 		}
 		
-		PerThread_Finalization(tid, NT, ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
+		/*PerThread_Finalization(tid, NT, ActualTime, TimeStep, TimeDomain, ActualState, ControlParameters, s_SharedParameters, s_IntegerSharedParameters, Accessories, IntegerAccessories);
 		
 		#pragma unroll
 		for (int i=0; i<2; i++)

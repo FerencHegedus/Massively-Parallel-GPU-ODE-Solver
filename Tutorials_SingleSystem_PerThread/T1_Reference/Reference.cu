@@ -12,7 +12,7 @@
 using namespace std;
 
 // Solver Configuration
-#define SOLVER RKCK45 // RK4, RKCK45
+#define SOLVER RK4 // RK4, RKCK45
 const int NT   = 23040; // NumberOfThreads (23040)
 const int SD   = 2;     // SystemDimension (2)
 const int NCP  = 1;     // NumberOfControlParameters (1)
