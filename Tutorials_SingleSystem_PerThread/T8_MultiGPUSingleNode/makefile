@@ -8,4 +8,4 @@ MultiGPUSingleNode.exe: MultiGPUSingleNode.cu
 
 clean:
 	rm -f MultiGPUSingleNode.exe
-	rm -f Duffing.txt
+	rm -f *.txt
