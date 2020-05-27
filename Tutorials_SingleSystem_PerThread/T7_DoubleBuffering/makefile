@@ -8,4 +8,4 @@ DoubleBuffering.exe: DoubleBuffering.cu
 
 clean:
 	rm -f DoubleBuffering.exe
-	rm -f Duffing.txt
+	rm -f *.txt

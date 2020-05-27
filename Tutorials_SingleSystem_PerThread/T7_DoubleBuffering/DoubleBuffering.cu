@@ -5,14 +5,15 @@
 #include <fstream>
 
 #include "DoubleBuffering_SystemDefinition.cuh"
-#include "SingleSystem_PerThread.cuh"
+#include "SingleSystem_PerThread_Interface.cuh"
 
 #define PI 3.14159265358979323846
 
 using namespace std;
 
 // Solver Configuration
-#define SOLVER RKCK45 // RK4, RKCK45
+#define SOLVER RKCK45     // RK4, RKCK45
+#define PRECISION double  // float, double
 const int NT   = 46080/2; // NumberOfThreads
 const int SD   = 2;     // SystemDimension
 const int NCP  = 1;     // NumberOfControlParameters
@@ -20,12 +21,12 @@ const int NSP  = 1;     // NumberOfSharedParameters
 const int NISP = 0;     // NumberOfIntegerSharedParameters
 const int NE   = 2;     // NumberOfEvents
 const int NA   = 3;     // NumberOfAccessories
-const int NIA  = 0;     // NumberOfIntegerAccessories
-const int NDO  = 200;  // NumberOfPointsOfDenseOutput
+const int NIA  = 1;     // NumberOfIntegerAccessories
+const int NDO  = 200;   // NumberOfPointsOfDenseOutput
 
-void Linspace(vector<double>&, double, double, int);
-void FillSolverObjects(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, const vector<double>&, double, double, double, int, int);
-void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, ofstream&, int);
+void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);
+void FillSolverObjects(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, PRECISION, PRECISION, PRECISION, int, int);
+void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>&, ofstream&, int);
 
 
 int main()
@@ -44,38 +45,36 @@ int main()
 	PrintPropertiesOfSpecificDevice(SelectedDevice);
 	
 	
-	double InitialConditions_X1 = -0.5;
-	double InitialConditions_X2 = -0.1;
-	double Parameters_B = 0.3;
+	PRECISION InitialConditions_X1 = -0.5;
+	PRECISION InitialConditions_X2 = -0.1;
+	PRECISION Parameters_B = 0.3;
 	
 	int NumberOfParameters_k = NumberOfProblems;
-	double kRangeLower = 0.2;
-    double kRangeUpper = 0.3;
-		vector<double> Parameters_k_Values(NumberOfParameters_k,0);
+	PRECISION kRangeLower = 0.2;
+    PRECISION kRangeUpper = 0.3;
+		vector<PRECISION> Parameters_k_Values(NumberOfParameters_k,0);
 		Linspace(Parameters_k_Values, kRangeLower, kRangeUpper, NumberOfParameters_k);
 	
 	
-	
-	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanDuffing1(SelectedDevice);
-	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanDuffing2(SelectedDevice);
+	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION> ScanDuffing1(SelectedDevice);
+	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION> ScanDuffing2(SelectedDevice);
 	
 	ScanDuffing1.SolverOption(ThreadsPerBlock, BlockSize);
 	ScanDuffing2.SolverOption(ThreadsPerBlock, BlockSize);
 	
-	ScanDuffing1.SolverOption(RelativeTolerance, 0, 1e-9);
-	ScanDuffing1.SolverOption(RelativeTolerance, 1, 1e-9);
-	ScanDuffing1.SolverOption(AbsoluteTolerance, 0, 1e-9);
-	ScanDuffing1.SolverOption(AbsoluteTolerance, 1, 1e-9);
+	ScanDuffing1.SolverOption(RelativeTolerance, 0, 1.0e-9);
+	ScanDuffing1.SolverOption(RelativeTolerance, 1, 1.0e-9);
+	ScanDuffing1.SolverOption(AbsoluteTolerance, 0, 1.0e-9);
+	ScanDuffing1.SolverOption(AbsoluteTolerance, 1, 1.0e-9);
 	
-	ScanDuffing2.SolverOption(RelativeTolerance, 0, 1e-9);
-	ScanDuffing2.SolverOption(RelativeTolerance, 1, 1e-9);
-	ScanDuffing2.SolverOption(AbsoluteTolerance, 0, 1e-9);
-	ScanDuffing2.SolverOption(AbsoluteTolerance, 1, 1e-9);
+	ScanDuffing2.SolverOption(RelativeTolerance, 0, 1.0e-9);
+	ScanDuffing2.SolverOption(RelativeTolerance, 1, 1.0e-9);
+	ScanDuffing2.SolverOption(AbsoluteTolerance, 0, 1.0e-9);
+	ScanDuffing2.SolverOption(AbsoluteTolerance, 1, 1.0e-9);
 	
 	ScanDuffing1.SolverOption(EventDirection, 0, -1);
 	ScanDuffing2.SolverOption(EventDirection, 0, -1);
 	
-// SIMULATIONS ------------------------------------------------------------------------------------
 	
 	int NumberOfSimulationLaunches = NumberOfProblems / NumberOfThreads / 2;
 	
@@ -155,9 +154,9 @@ int main()
 
 // ------------------------------------------------------------------------------------------------
 
-void Linspace(vector<double>& x, double B, double E, int N)
+void Linspace(vector<PRECISION>& x, PRECISION B, PRECISION E, int N)
 {
-    double Increment;
+    PRECISION Increment;
 	
 	x[0]   = B;
 	
@@ -175,7 +174,7 @@ void Linspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillSolverObjects(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& k_Values, double B, double X10, double X20, int FirstProblemNumber, int NumberOfThreads)
+void FillSolverObjects(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& k_Values, PRECISION B, PRECISION X10, PRECISION X20, int FirstProblemNumber, int NumberOfThreads)
 {
 	int k_begin = FirstProblemNumber;
 	int k_end   = FirstProblemNumber + NumberOfThreads;
@@ -183,7 +182,7 @@ void FillSolverObjects(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,dou
 	int ProblemNumber = 0;
 	for (int k=k_begin; k<k_end; k++)
 	{
-		Solver.SetHost(ProblemNumber, TimeDomain,  0, 0 );
+		Solver.SetHost(ProblemNumber, TimeDomain,  0, 0.0 );
 		Solver.SetHost(ProblemNumber, TimeDomain,  1, 2*PI );
 		
 		Solver.SetHost(ProblemNumber, ActualState, 0, X10 );
@@ -191,9 +190,9 @@ void FillSolverObjects(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,dou
 		
 		Solver.SetHost(ProblemNumber, ControlParameters, 0, k_Values[k] );
 		
-		Solver.SetHost(ProblemNumber, Accessories, 0, 0 );
-		Solver.SetHost(ProblemNumber, Accessories, 1, 0 );
-		Solver.SetHost(ProblemNumber, Accessories, 2, 0 );
+		Solver.SetHost(ProblemNumber, Accessories, 0, 0.0 );
+		Solver.SetHost(ProblemNumber, Accessories, 1, 0.0 );
+		Solver.SetHost(ProblemNumber, Accessories, 2, 0.0 );
 		
 		ProblemNumber++;
 	}
@@ -201,7 +200,7 @@ void FillSolverObjects(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,dou
 	Solver.SetHost(SharedParameters, 0, B );
 }
 
-void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, ofstream& DataFile, int NumberOfThreads)
+void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>& Solver, ofstream& DataFile, int NumberOfThreads)
 {
 	int Width = 18;
 	DataFile.precision(10);
@@ -209,13 +208,13 @@ void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Sol
 	
 	for (int tid=0; tid<NumberOfThreads; tid++)
 	{
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ControlParameters, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(SharedParameters, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ActualState, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, ActualState, 1) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 0) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 1) << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost(tid, Accessories, 2);
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, ControlParameters, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(SharedParameters, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, ActualState, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, ActualState, 1) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, Accessories, 0) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, Accessories, 1) << ',';
+		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(tid, Accessories, 2);
 		DataFile << '\n';
 	}
 }
