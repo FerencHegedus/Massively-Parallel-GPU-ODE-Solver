@@ -121,7 +121,7 @@ void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PREC
 void SaveData(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>& Solver, int NumberOfThreads)
 {
 	ofstream DataFile;
-	DataFile.open ( "Lorenz_v3.1.txt" );
+	DataFile.open ( "Lorenz.txt" );
 	
 	int Width = 18;
 	DataFile.precision(10);

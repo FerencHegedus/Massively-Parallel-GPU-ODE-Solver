@@ -73,7 +73,7 @@ int main()
 	int NumberOfSimulationLaunches = NumberOfProblems / NT + (NumberOfProblems % NT == 0 ? 0:1);
 	
 	ofstream DataFile;
-	DataFile.open ( "DuffingPoincare_v3.1.txt" );
+	DataFile.open ( "DuffingPoincare.txt" );
 	
 	clock_t SimulationStart = clock();
 	clock_t TransientStart;
