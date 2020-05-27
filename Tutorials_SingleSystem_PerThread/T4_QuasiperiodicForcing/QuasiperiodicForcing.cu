@@ -6,7 +6,7 @@
 #include <fstream>
 
 #include "QuasiperiodicForcing_SystemDefinition.cuh"
-#include "SingleSystem_PerThread.cuh"
+#include "SingleSystem_PerThread_Interface.cuh"
 
 #define PI 3.14159265358979323846
 
@@ -19,7 +19,8 @@ const int NumberOfAmplitude1 = 2;
 const int NumberOfAmplitude2 = 2;
 	
 // Solver Configuration
-#define SOLVER RKCK45 // RK4, RKCK45
+#define SOLVER RKCK45     // RK4, RKCK45
+#define PRECISION double  // float, double
 const int NT   = NumberOfFrequency1 * NumberOfFrequency2; // NumberOfThreads
 const int SD   = 2;     // SystemDimension
 const int NCP  = 21;    // NumberOfControlParameters
@@ -27,21 +28,21 @@ const int NSP  = 0;     // NumberOfSharedParameters
 const int NISP = 0;     // NumberOfIntegerSharedParameters
 const int NE   = 1;     // NumberOfEvents
 const int NA   = 4;     // NumberOfAccessories
-const int NIA  = 0;     // NumberOfIntegerAccessories
+const int NIA  = 1;     // NumberOfIntegerAccessories
 const int NDO  = 0;     // NumberOfPointsOfDenseOutput
 
-void Linspace(vector<double>&, double, double, int);
-void Logspace(vector<double>&, double, double, int);
-void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, const vector<double>&, const vector<double>&, const vector<double>&, const vector<double>&, int, int);
+void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);
+void Logspace(vector<PRECISION>&, PRECISION, PRECISION, int);
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, const vector<PRECISION>&, int, int);
 
 int main()
 {
 	int BlockSize = 64;
 	
-	vector<double> Frequency1(NumberOfFrequency1,0);
-	vector<double> Frequency2(NumberOfFrequency2,0);
-	vector<double> Amplitude1(NumberOfAmplitude1,0);
-	vector<double> Amplitude2(NumberOfAmplitude2,0);
+	vector<PRECISION> Frequency1(NumberOfFrequency1,0);
+	vector<PRECISION> Frequency2(NumberOfFrequency2,0);
+	vector<PRECISION> Amplitude1(NumberOfAmplitude1,0);
+	vector<PRECISION> Amplitude2(NumberOfAmplitude2,0);
 	
 	Logspace(Frequency1, 20.0, 1000.0, NumberOfFrequency1);
 	Logspace(Frequency2, 20.0, 1000.0, NumberOfFrequency2);
@@ -64,31 +65,30 @@ int main()
 	int NumberOfThreads  = NT; // 16384 -> 4 launches
 	
 	
-	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanKellerMiksis(SelectedDevice);
+	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION> ScanKellerMiksis(SelectedDevice);
 	
 	ScanKellerMiksis.SolverOption(ThreadsPerBlock, BlockSize);
-	ScanKellerMiksis.SolverOption(RelativeTolerance, 0, 1e-10);
-	ScanKellerMiksis.SolverOption(RelativeTolerance, 1, 1e-10);
-	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 0, 1e-10);
-	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 1, 1e-10);
+	ScanKellerMiksis.SolverOption(RelativeTolerance, 0, 1.0e-10);
+	ScanKellerMiksis.SolverOption(RelativeTolerance, 1, 1.0e-10);
+	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 0, 1.0e-10);
+	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 1, 1.0e-10);
 	ScanKellerMiksis.SolverOption(EventDirection,   0, -1);
-	ScanKellerMiksis.SolverOption(EventStopCounter, 0,  1);
 	
-// SIMULATIONS ------------------------------------------------------------------------------------
 	
+	// Simulations
 	int NumberOfSimulationLaunches = NumberOfProblems / NumberOfThreads;
 	int ProblemStartIndex;
 	
-	vector< vector<double> > CollectedData;
-	CollectedData.resize( NumberOfThreads , vector<double>( 136 , 0 ) );
+	vector< vector<PRECISION> > CollectedData;
+	CollectedData.resize( NumberOfThreads , vector<PRECISION>( 136 , 0 ) );
 		// 136 =  6 physical parameters +
 		//        1 initial time of the converged iterations +
 		//        1 total time of the converged iterations +
 		//       64 local maxima +
 		//       64 local minima.
 	
-	double ActualPA1;
-	double ActualPA2;
+	PRECISION ActualPA1;
+	PRECISION ActualPA2;
 	clock_t SimulationStart = clock();
 	for (int LaunchCounter=0; LaunchCounter<NumberOfSimulationLaunches; LaunchCounter++)
 	{
@@ -103,9 +103,9 @@ int main()
 		StreamFilename.precision(2);
 		StreamFilename.setf(ios::fixed);
 		
-		ActualPA1 = ScanKellerMiksis.GetHost(0, ControlParameters, 15);
-		ActualPA2 = ScanKellerMiksis.GetHost(0, ControlParameters, 17);
-		StreamFilename << "KellerMiksis_Collapse_PA1_" << ActualPA1 << "_PA2_" << ActualPA2 << ".txt";
+		ActualPA1 = ScanKellerMiksis.GetHost<PRECISION>(0, ControlParameters, 15);
+		ActualPA2 = ScanKellerMiksis.GetHost<PRECISION>(0, ControlParameters, 17);
+		StreamFilename << "KellerMiksis_Collapse_PA1_" << ActualPA1 << "_PA2_" << ActualPA2 << "_v3.1.txt";
 		
 		string Filename = StreamFilename.str();
 		remove( Filename.c_str() );
@@ -114,12 +114,12 @@ int main()
 		// Collect physical parameters
 		for (int tid=0; tid<NumberOfThreads; tid++)
 		{
-			CollectedData[tid][0] = ScanKellerMiksis.GetHost(tid, ControlParameters, 15);
-			CollectedData[tid][1] = ScanKellerMiksis.GetHost(tid, ControlParameters, 16);
-			CollectedData[tid][2] = ScanKellerMiksis.GetHost(tid, ControlParameters, 17);
-			CollectedData[tid][3] = ScanKellerMiksis.GetHost(tid, ControlParameters, 18);
-			CollectedData[tid][4] = ScanKellerMiksis.GetHost(tid, ControlParameters, 19);
-			CollectedData[tid][5] = ScanKellerMiksis.GetHost(tid, ControlParameters, 20);
+			CollectedData[tid][0] = ScanKellerMiksis.GetHost<PRECISION>(tid, ControlParameters, 15);
+			CollectedData[tid][1] = ScanKellerMiksis.GetHost<PRECISION>(tid, ControlParameters, 16);
+			CollectedData[tid][2] = ScanKellerMiksis.GetHost<PRECISION>(tid, ControlParameters, 17);
+			CollectedData[tid][3] = ScanKellerMiksis.GetHost<PRECISION>(tid, ControlParameters, 18);
+			CollectedData[tid][4] = ScanKellerMiksis.GetHost<PRECISION>(tid, ControlParameters, 19);
+			CollectedData[tid][5] = ScanKellerMiksis.GetHost<PRECISION>(tid, ControlParameters, 20);
 		}
 		
 		
@@ -131,10 +131,13 @@ int main()
 			ScanKellerMiksis.SynchroniseSolver();
 		}
 		
-		
 		// Collect the initial time of the converged iteration
+		ScanKellerMiksis.SynchroniseFromDeviceToHost(ActualTime);
+		ScanKellerMiksis.InsertSynchronisationPoint();
+		ScanKellerMiksis.SynchroniseSolver();
+		
 		for (int tid=0; tid<NumberOfThreads; tid++)
-			CollectedData[tid][6] = ScanKellerMiksis.GetHost(tid, TimeDomain, 0) * ScanKellerMiksis.GetHost(tid, ControlParameters, 13); // Convert to [s]
+			CollectedData[tid][6] = ScanKellerMiksis.GetHost<PRECISION>(tid, ActualTime) * ScanKellerMiksis.GetHost<PRECISION>(tid, ControlParameters, 13); // Convert to [s]
 		
 		
 		// Converged simulations and their data collection
@@ -147,19 +150,19 @@ int main()
 			
 			for (int tid=0; tid<NumberOfThreads; tid++)
 			{	
-				CollectedData[tid][8+i]    = ScanKellerMiksis.GetHost(tid, Accessories, 0); // Local maxima
-				CollectedData[tid][8+i+64] = ScanKellerMiksis.GetHost(tid, Accessories, 2); // Local minima
+				CollectedData[tid][8+i]    = ScanKellerMiksis.GetHost<PRECISION>(tid, Accessories, 0); // Local maxima
+				CollectedData[tid][8+i+64] = ScanKellerMiksis.GetHost<PRECISION>(tid, Accessories, 2); // Local minima
 			}
 		}
 		
-		ScanKellerMiksis.SynchroniseFromDeviceToHost(TimeDomain);
+		ScanKellerMiksis.SynchroniseFromDeviceToHost(ActualTime);
 		ScanKellerMiksis.InsertSynchronisationPoint();
 		ScanKellerMiksis.SynchroniseSolver();
 		
 		
 		// Collect the total time of the converged iterations
 		for (int tid=0; tid<NumberOfThreads; tid++)
-			CollectedData[tid][7] = ScanKellerMiksis.GetHost(tid, TimeDomain, 0) * ScanKellerMiksis.GetHost(tid, ControlParameters, 13) - CollectedData[tid][6];
+			CollectedData[tid][7] = ScanKellerMiksis.GetHost<PRECISION>(tid, ActualTime) * ScanKellerMiksis.GetHost<PRECISION>(tid, ControlParameters, 13) - CollectedData[tid][6];
 		
 		
 		// Save collected data to file
@@ -193,9 +196,9 @@ int main()
 
 // ------------------------------------------------------------------------------------------------
 
-void Linspace(vector<double>& x, double B, double E, int N)
+void Linspace(vector<PRECISION>& x, PRECISION B, PRECISION E, int N)
 {
-    double Increment;
+    PRECISION Increment;
 	
 	x[0] = B;
 	
@@ -211,16 +214,16 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-void Logspace(vector<double>& x, double B, double E, int N)
+void Logspace(vector<PRECISION>& x, PRECISION B, PRECISION E, int N)
 {
     x[0] = B; 
 	
 	if ( N>1 )
 	{
 		x[N-1] = E;
-		double ExpB = log10(B);
-		double ExpE = log10(E);
-		double ExpIncr = (ExpE-ExpB)/(N-1);
+		PRECISION ExpB = log10(B);
+		PRECISION ExpE = log10(E);
+		PRECISION ExpIncr = (ExpE-ExpB)/(N-1);
 		for (int i=1; i<N-1; i++)
 		{
 			x[i] = pow(10,ExpB + i*ExpIncr);
@@ -230,34 +233,34 @@ void Logspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& F1_Values, const vector<double>& F2_Values, const vector<double>& PA1_Values, const vector<double>& PA2_Values, int ProblemStartIndex, int NumberOfThreads)
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& F1_Values, const vector<PRECISION>& F2_Values, const vector<PRECISION>& PA1_Values, const vector<PRECISION>& PA2_Values, int ProblemStartIndex, int NumberOfThreads)
 {
 	// Declaration of physical control parameters
-	double P1; // pressure amplitude1 [bar]
-	double P2; // frequency1          [kHz]
-	double P3; // pressure amplitude2 [bar]
-	double P4; // frequency2          [kHz]
+	PRECISION P1; // pressure amplitude1 [bar]
+	PRECISION P2; // frequency1          [kHz]
+	PRECISION P3; // pressure amplitude2 [bar]
+	PRECISION P4; // frequency2          [kHz]
 	
 	// Declaration of constant parameters
-	double P5 =  0.0; // phase shift          [-]
-	double P6 = 10.0; // equilibrium radius   [mum]
-	double P7 =  1.0; // ambient pressure     [bar]
-	double P9 =  1.4; // polytrophic exponent [-]
+	PRECISION P5 =  0.0; // phase shift          [-]
+	PRECISION P6 = 10.0; // equilibrium radius   [mum]
+	PRECISION P7 =  1.0; // ambient pressure     [bar]
+	PRECISION P9 =  1.4; // polytrophic exponent [-]
 	
 	// Material properties
-	double Pv  = 3.166775638952003e+03;
-    double Rho = 9.970639504998557e+02;
-    double ST  = 0.071977583160056;
-    double Vis = 8.902125058209557e-04;
-    double CL  = 1.497251785455527e+03;
+	PRECISION Pv  = 3.166775638952003e+03;
+    PRECISION Rho = 9.970639504998557e+02;
+    PRECISION ST  = 0.071977583160056;
+    PRECISION Vis = 8.902125058209557e-04;
+    PRECISION CL  = 1.497251785455527e+03;
 	
 	// Auxiliary variables
-	double Pinf;
-	double PA1;
-	double PA2;
-	double RE;
-	double f1;
-	double f2;
+	PRECISION Pinf;
+	PRECISION PA1;
+	PRECISION PA2;
+	PRECISION RE;
+	PRECISION f1;
+	PRECISION f2;
 	
 	int ProblemNumber = 0;
 	int GlobalCounter = 0;
@@ -281,18 +284,18 @@ void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,doub
 					P3 = CP4;
 					P4 = CP2;
 					
-					Solver.SetHost(ProblemNumber, TimeDomain, 0, 0);
-					Solver.SetHost(ProblemNumber, TimeDomain, 1, 1e10);
+					Solver.SetHost(ProblemNumber, TimeDomain, 0, 0.0);
+					Solver.SetHost(ProblemNumber, TimeDomain, 1, 1.0e10);
 					
 					// Initial conditions are the equilibrium condition y1=1; y2=0;
 					Solver.SetHost(ProblemNumber, ActualState, 0, 1.0);
 					Solver.SetHost(ProblemNumber, ActualState, 1, 0.0);
 					
 					// Scaling of physical parameters to SI
-					Pinf = P7 * 1e5;
-					PA1  = P1 * 1e5;
-					PA2  = P3 * 1e5;
-					RE   = P6 / 1e6;
+					Pinf = P7 * 1.0e5;
+					PA1  = P1 * 1.0e5;
+					PA2  = P3 * 1.0e5;
+					RE   = P6 / 1.0e6;
 					
 					// Scale to angular frequency
 					f1   = 2.0*PI*(P2*1000);

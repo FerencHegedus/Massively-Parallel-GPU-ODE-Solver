@@ -1,10 +1,14 @@
-#ifndef PERTHREAD_SYSTEMDEFINITION_H
-#define PERTHREAD_SYSTEMDEFINITION_H
+#ifndef T4_PERTHREAD_SYSTEMDEFINITION_H
+#define T4_PERTHREAD_SYSTEMDEFINITION_H
 
 #define PI 3.14159265358979323846
 
 // SYSTEM
-__device__ void PerThread_OdeFunction(int tid, int NT, double* F, double* X, double T, double* cPAR, double* sPAR, int* sPARi, double* ACC, int* ACCi)
+template <class Precision>
+__forceinline__ __device__ void PerThread_OdeFunction(\
+			int tid, int NT, \
+			Precision*    F, Precision*    X, Precision     T, \
+			Precision* cPAR, Precision* sPAR, int*      sPARi, Precision* ACC, int* ACCi)
 {
 	double rx1 = 1.0/X[0];
 	double p   = pow(rx1, cPAR[10]);
@@ -30,18 +34,35 @@ __device__ void PerThread_OdeFunction(int tid, int NT, double* F, double* X, dou
 }
 
 // EVENTS
-__device__ void PerThread_EventFunction(int tid, int NT, double* EF, double* X, double T, double* cPAR, double* sPAR, int* sPARi, double* ACC, int* ACCi)
+template <class Precision>
+__forceinline__ __device__ void PerThread_EventFunction(\
+			int tid, int NT, Precision* EF, \
+			Precision     T, Precision    dT, Precision*    TD, Precision*   X, \
+			Precision* cPAR, Precision* sPAR,       int* sPARi, Precision* ACC, int* ACCi)
 {
 	EF[0] = X[1];
 }
 
-__device__ void PerThread_ActionAfterEventDetection(int tid, int NT, int IDX, int CNT, double &T, double &dT, double* TD, double* X, double* cPAR, double* sPAR, int* sPARi, double* ACC, int* ACCi)
+template <class Precision>
+__forceinline__ __device__ void PerThread_ActionAfterEventDetection(\
+			int tid, int NT, int IDX, int& UDT, \
+			Precision    &T, Precision   &dT, Precision*    TD, Precision*   X, \
+			Precision* cPAR, Precision* sPAR, int*       sPARi, Precision* ACC, int* ACCi)
 {
+	// User defined termination at local maximum
+	// IDX is meaningless, as there is only 1 event function
+	ACCi[0]++;
 	
+	if ( ACCi[0] == 1 )
+		UDT = 1;
 }
 
 // ACCESSORIES
-__device__ void PerThread_ActionAfterSuccessfulTimeStep(int tid, int NT, double T, double dT, double* TD, double* X, double* cPAR, double* sPAR, int* sPARi, double* ACC, int* ACCi)
+template <class Precision>
+__forceinline__ __device__ void PerThread_ActionAfterSuccessfulTimeStep(\
+			int tid, int NT, int& UDT, \
+			Precision&    T, Precision&   dT, Precision*    TD, Precision*   X, \
+			Precision* cPAR, Precision* sPAR, int*       sPARi, Precision* ACC, int* ACCi)
 {
 	if ( X[0]<ACC[2] )
 	{
@@ -50,17 +71,27 @@ __device__ void PerThread_ActionAfterSuccessfulTimeStep(int tid, int NT, double 
 	}
 }
 
-__device__ void PerThread_Initialization(int tid, int NT, double T, double &dT, double* TD, double* X, double* cPAR, double* sPAR, int* sPARi, double* ACC, int* ACCi)
+template <class Precision>
+__forceinline__ __device__ void PerThread_Initialization(\
+			int tid, int NT, int& DOIDX, \
+			Precision&    T, Precision&   dT, Precision*    TD, Precision*   X, \
+			Precision* cPAR, Precision* sPAR,       int* sPARi, Precision* ACC, int* ACCi)
 {
 	ACC[0] = X[0];
 	ACC[1] = T;
 	ACC[2] = X[0];
 	ACC[3] = T;
+	
+	ACCi[0] = 0; // Event counter for stop condition
 }
 
-__device__ void PerThread_Finalization(int tid, int NT, double T, double dT, double* TD, double* X, double* cPAR, double* sPAR, int* sPARi, double* ACC, int* ACCi)
+template <class Precision>
+__forceinline__ __device__ void PerThread_Finalization(\
+			int tid, int NT, int& DOIDX, \
+			Precision&    T, Precision&   dT, Precision*    TD, Precision*   X, \
+			Precision* cPAR, Precision* sPAR,       int* sPARi, Precision* ACC, int* ACCi)
 {
-	TD[0] = T;
+	
 }
 
 #endif
