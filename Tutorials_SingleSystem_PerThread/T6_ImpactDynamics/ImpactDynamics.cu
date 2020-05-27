@@ -6,34 +6,35 @@
 #include <fstream>
 
 #include "ImpactDynamics_SystemDefinition.cuh"
-#include "SingleSystem_PerThread.cuh"
+#include "SingleSystem_PerThread_Interface.cuh"
 
 #define PI 3.14159265358979323846
 
 using namespace std;
 
 // Solver Configuration
-#define SOLVER RKCK45 // RK4, RKCK45
+#define SOLVER RKCK45     // RK4, RKCK45
+#define PRECISION double  // float, double
 const int NT   = 30720; // NumberOfThreads
 const int SD   = 3;     // SystemDimension
-const int NCP  = 1;    // NumberOfControlParameters
+const int NCP  = 1;     // NumberOfControlParameters
 const int NSP  = 4;     // NumberOfSharedParameters
 const int NISP = 0;     // NumberOfIntegerSharedParameters
 const int NE   = 2;     // NumberOfEvents
-const int NA   = 2;     // NumberOfAccessories
-const int NIA  = 0;     // NumberOfIntegerAccessories
+const int NA   = 3;     // NumberOfAccessories
+const int NIA  = 2;     // NumberOfIntegerAccessories
 const int NDO  = 0;     // NumberOfPointsOfDenseOutput
 
-void Linspace(vector<double>&, double, double, int);
-void Logspace(vector<double>&, double, double, int);
-void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>&, const vector<double>&);
+void Linspace(vector<PRECISION>&, PRECISION, PRECISION, int);
+void Logspace(vector<PRECISION>&, PRECISION, PRECISION, int);
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>&, const vector<PRECISION>&);
 
 int main()
 {
 	// The control parameter
 	int NumberOfFlowRates = NT;
 	
-	vector<double> FlowRates(NumberOfFlowRates,0);
+	vector<PRECISION> FlowRates(NumberOfFlowRates,0);
 	Linspace(FlowRates, 0.2, 10.0, NumberOfFlowRates);
 	
 	
@@ -52,21 +53,20 @@ int main()
 	int NumberOfThreads  = NumberOfFlowRates; // 30720 -> 1 launches
 	
 	
-	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double> ScanPressureReliefValve(SelectedDevice);
+	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION> ScanPressureReliefValve(SelectedDevice);
 	
 	ScanPressureReliefValve.SolverOption(ThreadsPerBlock, 64);
-	ScanPressureReliefValve.SolverOption(RelativeTolerance, 0, 1e-10);
-	ScanPressureReliefValve.SolverOption(RelativeTolerance, 1, 1e-10);
-	ScanPressureReliefValve.SolverOption(RelativeTolerance, 2, 1e-10);
-	ScanPressureReliefValve.SolverOption(AbsoluteTolerance, 0, 1e-10);
-	ScanPressureReliefValve.SolverOption(AbsoluteTolerance, 1, 1e-10);
-	ScanPressureReliefValve.SolverOption(AbsoluteTolerance, 2, 1e-10);
+	ScanPressureReliefValve.SolverOption(RelativeTolerance, 0, 1.0e-10);
+	ScanPressureReliefValve.SolverOption(RelativeTolerance, 1, 1.0e-10);
+	ScanPressureReliefValve.SolverOption(RelativeTolerance, 2, 1.0e-10);
+	ScanPressureReliefValve.SolverOption(AbsoluteTolerance, 0, 1.0e-10);
+	ScanPressureReliefValve.SolverOption(AbsoluteTolerance, 1, 1.0e-10);
+	ScanPressureReliefValve.SolverOption(AbsoluteTolerance, 2, 1.0e-10);
 	ScanPressureReliefValve.SolverOption(EventDirection,   0, -1);
 	ScanPressureReliefValve.SolverOption(EventDirection,   1, -1);
-	ScanPressureReliefValve.SolverOption(EventStopCounter, 0,  1);
 	
-// SIMULATIONS ------------------------------------------------------------------------------------
 	
+	// Simulation
 	int NumberOfSimulationLaunches = NumberOfProblems / NumberOfThreads;
 	int ProblemStartIndex;
 	
@@ -110,9 +110,9 @@ int main()
 			
 			for (int tid=0; tid<NumberOfThreads; tid++)
 			{
-				DataFile.width(Width); DataFile << ScanPressureReliefValve.GetHost(tid, ControlParameters, 0) << ',';
-				DataFile.width(Width); DataFile << ScanPressureReliefValve.GetHost(tid, Accessories, 0) << ',';
-				DataFile.width(Width); DataFile << ScanPressureReliefValve.GetHost(tid, Accessories, 1) << ',';
+				DataFile.width(Width); DataFile << ScanPressureReliefValve.GetHost<PRECISION>(tid, ControlParameters, 0) << ',';
+				DataFile.width(Width); DataFile << ScanPressureReliefValve.GetHost<PRECISION>(tid, Accessories, 0) << ',';
+				DataFile.width(Width); DataFile << ScanPressureReliefValve.GetHost<PRECISION>(tid, Accessories, 1) << ',';
 				DataFile << '\n';
 			}
 		}
@@ -126,9 +126,9 @@ int main()
 
 // ------------------------------------------------------------------------------------------------
 
-void Linspace(vector<double>& x, double B, double E, int N)
+void Linspace(vector<PRECISION>& x, PRECISION B, PRECISION E, int N)
 {
-    double Increment;
+    PRECISION Increment;
 	
 	x[0] = B;
 	
@@ -144,16 +144,16 @@ void Linspace(vector<double>& x, double B, double E, int N)
 	}
 }
 
-void Logspace(vector<double>& x, double B, double E, int N)
+void Logspace(vector<PRECISION>& x, PRECISION B, PRECISION E, int N)
 {
     x[0] = B; 
 	
 	if ( N>1 )
 	{
 		x[N-1] = E;
-		double ExpB = log10(B);
-		double ExpE = log10(E);
-		double ExpIncr = (ExpE-ExpB)/(N-1);
+		PRECISION ExpB = log10(B);
+		PRECISION ExpE = log10(E);
+		PRECISION ExpIncr = (ExpE-ExpB)/(N-1);
 		for (int i=1; i<N-1; i++)
 		{
 			x[i] = pow(10,ExpB + i*ExpIncr);
@@ -163,13 +163,13 @@ void Logspace(vector<double>& x, double B, double E, int N)
 
 // ------------------------------------------------------------------------------------------------
 
-void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,double>& Solver, const vector<double>& q_Values)
+void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& q_Values)
 {	
 	int ProblemNumber = 0;
 	for (auto const& q: q_Values) // dimensionless flow rate [-]
 	{
-		Solver.SetHost(ProblemNumber, TimeDomain, 0, 0);
-		Solver.SetHost(ProblemNumber, TimeDomain, 1, 1e10); // Stopped by Poincaré section
+		Solver.SetHost(ProblemNumber, TimeDomain, 0, 0.0);
+		Solver.SetHost(ProblemNumber, TimeDomain, 1, 1.0e10); // Stopped by Poincaré section
 		
 		Solver.SetHost(ProblemNumber, ActualState, 0, 0.2);
 		Solver.SetHost(ProblemNumber, ActualState, 1, 0.0);

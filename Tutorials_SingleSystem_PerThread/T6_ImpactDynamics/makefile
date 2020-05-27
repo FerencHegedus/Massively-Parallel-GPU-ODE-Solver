@@ -8,4 +8,4 @@ ImpactDynamics.exe: ImpactDynamics.cu
 
 clean:
 	rm -f ImpactDynamics.exe
-	rm -f PressureReliefValve.txt
+	rm -f *.txt
