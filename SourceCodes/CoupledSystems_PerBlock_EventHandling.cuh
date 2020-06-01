@@ -50,7 +50,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 				if ( ( ( r_ActualEventValue[BL][i] >  s_EventTolerance[i] ) && ( r_NextEventValue[BL][i] < -s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
 				     ( ( r_ActualEventValue[BL][i] < -s_EventTolerance[i] ) && ( r_NextEventValue[BL][i] >  s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
 				{
-					MPGOS::atomicMIN(&(s_EventTimeStep[LocalSystemID]), -r_ActualEventValue[BL][i] / (r_NextEventValue[BL][i]-r_ActualEventValue[BL][i]) * s_TimeStep[LocalSystemID]);
+					MPGOS::atomicFMIN(&(s_EventTimeStep[LocalSystemID]), -r_ActualEventValue[BL][i] / (r_NextEventValue[BL][i]-r_ActualEventValue[BL][i]) * s_TimeStep[LocalSystemID]);
 					atomicMax(&(s_IsCorrected[LocalSystemID]), 1);
 				}
 			}
@@ -121,7 +121,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 				if ( ( ( r_ActualEventValue[BL][i] >  s_EventTolerance[i] ) && ( r_NextEventValue[BL][i] < -s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
 				     ( ( r_ActualEventValue[BL][i] < -s_EventTolerance[i] ) && ( r_NextEventValue[BL][i] >  s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
 				{
-					MPGOS::atomicMIN(&s_EventTimeStep, -r_ActualEventValue[BL][i] / (r_NextEventValue[BL][i]-r_ActualEventValue[BL][i]) * s_TimeStep);
+					MPGOS::atomicFMIN(&s_EventTimeStep, -r_ActualEventValue[BL][i] / (r_NextEventValue[BL][i]-r_ActualEventValue[BL][i]) * s_TimeStep);
 					atomicMax(&s_IsCorrected, 1);
 				}
 			}
@@ -183,7 +183,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 			if ( ( ( r_ActualEventValue[i] >  s_EventTolerance[i] ) && ( r_NextEventValue[i] < -s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
 			     ( ( r_ActualEventValue[i] < -s_EventTolerance[i] ) && ( r_NextEventValue[i] >  s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
 			{
-				MPGOS::atomicMIN(&(s_EventTimeStep[LocalSystemID]), -r_ActualEventValue[i] / (r_NextEventValue[i]-r_ActualEventValue[i]) * s_TimeStep[LocalSystemID]);
+				MPGOS::atomicFMIN(&(s_EventTimeStep[LocalSystemID]), -r_ActualEventValue[i] / (r_NextEventValue[i]-r_ActualEventValue[i]) * s_TimeStep[LocalSystemID]);
 				atomicMax(&(s_IsCorrected[LocalSystemID]), 1);
 			}
 		}
@@ -245,7 +245,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 			if ( ( ( r_ActualEventValue[i] >  s_EventTolerance[i] ) && ( r_NextEventValue[i] < -s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
 			     ( ( r_ActualEventValue[i] < -s_EventTolerance[i] ) && ( r_NextEventValue[i] >  s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
 			{
-				MPGOS::atomicMIN(&s_EventTimeStep, -r_ActualEventValue[i] / (r_NextEventValue[i]-r_ActualEventValue[i]) * s_TimeStep);
+				MPGOS::atomicFMIN(&s_EventTimeStep, -r_ActualEventValue[i] / (r_NextEventValue[i]-r_ActualEventValue[i]) * s_TimeStep);
 				atomicMax(&s_IsCorrected, 1);
 			}
 		}

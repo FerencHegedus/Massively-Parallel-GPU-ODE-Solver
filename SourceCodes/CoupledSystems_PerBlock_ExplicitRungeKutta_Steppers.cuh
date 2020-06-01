@@ -115,10 +115,10 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		if ( LocalSystemID < SPB )
 		{
 			for (int i=0; i<UD; i++)
-				r_State[BL][i] = r_ActualState[BL][i] + r_NextState[BL][i] * 0.5*s_TimeStep[LocalSystemID];
+				r_State[BL][i] = r_ActualState[BL][i] + r_NextState[BL][i] * static_cast<Precision>(0.5)*s_TimeStep[LocalSystemID];
 			
 			if ( UnitID == 0 )
-				s_Time[LocalSystemID] = s_ActualTime[LocalSystemID] + 0.5*s_TimeStep[LocalSystemID];
+				s_Time[LocalSystemID] = s_ActualTime[LocalSystemID] + static_cast<Precision>(0.5)*s_TimeStep[LocalSystemID];
 		}
 	}
 	__syncthreads();
@@ -182,7 +182,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			for (int i=0; i<UD; i++)
 			{
 				r_NextState[BL][i] += 2*r_Stage1[BL][i];
-				r_State[BL][i] = r_ActualState[BL][i] + r_Stage1[BL][i]*0.5*s_TimeStep[LocalSystemID];
+				r_State[BL][i] = r_ActualState[BL][i] + r_Stage1[BL][i]*static_cast<Precision>(0.5)*s_TimeStep[LocalSystemID];
 			}
 		}
 	}
@@ -246,7 +246,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<UD; i++)
 			{
-				r_NextState[BL][i] += 2*r_Stage1[BL][i];
+				r_NextState[BL][i] += static_cast<Precision>(2.0)*r_Stage1[BL][i];
 				r_State[BL][i] = r_ActualState[BL][i] + r_Stage1[BL][i]*s_TimeStep[LocalSystemID];
 			}
 			
@@ -314,7 +314,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			for (int i=0; i<UD; i++)
 			{
-				r_NextState[BL][i] = r_ActualState[BL][i] + s_TimeStep[LocalSystemID]*( r_NextState[BL][i] + r_Stage1[BL][i] )*(1.0/6.0);
+				r_NextState[BL][i] = r_ActualState[BL][i] + s_TimeStep[LocalSystemID]*( r_NextState[BL][i] + r_Stage1[BL][i] )*static_cast<Precision>(1.0/6.0);
 				
 				if ( isfinite( r_NextState[BL][i] ) == 0 )
 					s_IsFinite[LocalSystemID] = 0;
@@ -775,7 +775,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 								 r_Stage4[BL][i] * ( static_cast<Precision>( 125.0/594.0  - 13525.0/55296.0 ) ) + \
 								 r_Stage5[BL][i] * ( static_cast<Precision>(   0.0        -   277.0/14336.0 ) ) + \
 								 r_Stage6[BL][i] * ( static_cast<Precision>( 512.0/1771.0 -     1.0/4.0 ) );
-				r_Error[BL][i] = s_TimeStep[LocalSystemID]*abs( r_Error[BL][i] ) + 1e-18;
+				r_Error[BL][i] = s_TimeStep[LocalSystemID]*abs( r_Error[BL][i] ) + static_cast<Precision>(1e-18);
 				
 				if ( ( isfinite( r_NextState[BL][i] ) == 0 ) || ( isfinite( r_Error[BL][i] ) == 0 ) )
 					s_IsFinite[LocalSystemID] = 0;
@@ -873,10 +873,10 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		if ( UnitID < UPS )
 		{
 			for (int i=0; i<UD; i++)
-				r_State[BL][i] = r_ActualState[BL][i] + r_NextState[BL][i] * 0.5*s_TimeStep;
+				r_State[BL][i] = r_ActualState[BL][i] + r_NextState[BL][i] * static_cast<Precision>(0.5)*s_TimeStep;
 			
 			if ( UnitID == 0 )
-				s_Time = s_ActualTime + 0.5*s_TimeStep;
+				s_Time = s_ActualTime + static_cast<Precision>(0.5)*s_TimeStep;
 		}
 	}
 	__syncthreads();
@@ -933,7 +933,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 			for (int i=0; i<UD; i++)
 			{
 				r_NextState[BL][i] += 2*r_Stage1[BL][i];
-				r_State[BL][i] = r_ActualState[BL][i] + r_Stage1[BL][i]*0.5*s_TimeStep;
+				r_State[BL][i] = r_ActualState[BL][i] + r_Stage1[BL][i]*static_cast<Precision>(0.5)*s_TimeStep;
 			}
 		}
 	}
@@ -990,7 +990,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<UD; i++)
 			{
-				r_NextState[BL][i] += 2*r_Stage1[BL][i];
+				r_NextState[BL][i] += static_cast<Precision>(2.0)*r_Stage1[BL][i];
 				r_State[BL][i] = r_ActualState[BL][i] + r_Stage1[BL][i]*s_TimeStep;
 			}
 			
@@ -1051,7 +1051,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 		{
 			for (int i=0; i<UD; i++)
 			{
-				r_NextState[BL][i] = r_ActualState[BL][i] + s_TimeStep*( r_NextState[BL][i] + r_Stage1[BL][i] )*(1.0/6.0);
+				r_NextState[BL][i] = r_ActualState[BL][i] + s_TimeStep*( r_NextState[BL][i] + r_Stage1[BL][i] )*static_cast<Precision>(1.0/6.0);
 				
 				if ( isfinite( r_NextState[BL][i] ) == 0 )
 					s_IsFinite = 0;
@@ -1467,7 +1467,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 								 r_Stage4[BL][i] * ( static_cast<Precision>( 125.0/594.0  - 13525.0/55296.0 ) ) + \
 								 r_Stage5[BL][i] * ( static_cast<Precision>(   0.0        -   277.0/14336.0 ) ) + \
 								 r_Stage6[BL][i] * ( static_cast<Precision>( 512.0/1771.0 -     1.0/4.0 ) );
-				r_Error[BL][i] = s_TimeStep*abs( r_Error[BL][i] ) + 1e-18;
+				r_Error[BL][i] = s_TimeStep*abs( r_Error[BL][i] ) + static_cast<Precision>(1e-18);
 				
 				if ( ( isfinite( r_NextState[BL][i] ) == 0 ) || ( isfinite( r_Error[BL][i] ) == 0 ) )
 					s_IsFinite = 0;
@@ -1547,10 +1547,10 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	if ( LocalSystemID < SPB )
 	{
 		for (int i=0; i<UD; i++)
-			r_State[i] = r_ActualState[i] + r_NextState[i] * 0.5*s_TimeStep[LocalSystemID];
+			r_State[i] = r_ActualState[i] + r_NextState[i] * static_cast<Precision>(0.5)*s_TimeStep[LocalSystemID];
 		
 		if ( UnitID == 0 )
-			s_Time[LocalSystemID] = s_ActualTime[LocalSystemID] + 0.5*s_TimeStep[LocalSystemID];
+			s_Time[LocalSystemID] = s_ActualTime[LocalSystemID] + static_cast<Precision>(0.5)*s_TimeStep[LocalSystemID];
 	}
 	__syncthreads();
 	
@@ -1592,7 +1592,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 		for (int i=0; i<UD; i++)
 		{
 			r_NextState[i] += 2*r_Stage1[i];
-			r_State[i] = r_ActualState[i] + r_Stage1[i]*0.5*s_TimeStep[LocalSystemID];
+			r_State[i] = r_ActualState[i] + r_Stage1[i]*static_cast<Precision>(0.5)*s_TimeStep[LocalSystemID];
 		}
 	}
 	__syncthreads();
@@ -1634,7 +1634,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<UD; i++)
 		{
-			r_NextState[i] += 2*r_Stage1[i];
+			r_NextState[i] += static_cast<Precision>(2.0)*r_Stage1[i];
 			r_State[i] = r_ActualState[i] + r_Stage1[i]*s_TimeStep[LocalSystemID];
 		}
 		
@@ -1680,7 +1680,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 	{
 		for (int i=0; i<UD; i++)
 		{
-			r_NextState[i] = r_ActualState[i] + s_TimeStep[LocalSystemID]*( r_NextState[i] + r_Stage1[i] )*(1.0/6.0);
+			r_NextState[i] = r_ActualState[i] + s_TimeStep[LocalSystemID]*( r_NextState[i] + r_Stage1[i] )*static_cast<Precision>(1.0/6.0);
 			
 			if ( isfinite( r_NextState[i] ) == 0 )
 				s_IsFinite[LocalSystemID] = 0;
@@ -2002,7 +2002,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 						 r_Stage4[i] * ( static_cast<Precision>( 125.0/594.0  - 13525.0/55296.0 ) ) + \
 						 r_Stage5[i] * ( static_cast<Precision>(   0.0        -   277.0/14336.0 ) ) + \
 						 r_Stage6[i] * ( static_cast<Precision>( 512.0/1771.0 -     1.0/4.0 ) );
-			r_Error[i] = s_TimeStep[LocalSystemID]*abs( r_Error[i] ) + 1e-18;
+			r_Error[i] = s_TimeStep[LocalSystemID]*abs( r_Error[i] ) + static_cast<Precision>(1e-18);
 			
 			if ( ( isfinite( r_NextState[i] ) == 0 ) || ( isfinite( r_Error[i] ) == 0 ) )
 				s_IsFinite[LocalSystemID] = 0;
@@ -2080,10 +2080,10 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 	if ( LocalThreadID < UPS )
 	{
 		for (int i=0; i<UD; i++)
-			r_State[i] = r_ActualState[i] + r_NextState[i] * 0.5*s_TimeStep;
+			r_State[i] = r_ActualState[i] + r_NextState[i] * static_cast<Precision>(0.5)*s_TimeStep;
 		
 		if ( LocalThreadID == 0 )
-			s_Time = s_ActualTime + 0.5*s_TimeStep;
+			s_Time = s_ActualTime + static_cast<Precision>(0.5)*s_TimeStep;
 	}
 	__syncthreads();
 	
@@ -2125,7 +2125,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 		for (int i=0; i<UD; i++)
 		{
 			r_NextState[i] += 2*r_Stage1[i];
-			r_State[i] = r_ActualState[i] + r_Stage1[i]*0.5*s_TimeStep;
+			r_State[i] = r_ActualState[i] + r_Stage1[i]*static_cast<Precision>(0.5)*s_TimeStep;
 		}
 	}
 	__syncthreads();
@@ -2167,7 +2167,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 	{
 		for (int i=0; i<UD; i++)
 		{
-			r_NextState[i] += 2*r_Stage1[i];
+			r_NextState[i] += static_cast<Precision>(2.0)*r_Stage1[i];
 			r_State[i] = r_ActualState[i] + r_Stage1[i]*s_TimeStep;
 		}
 		
@@ -2213,7 +2213,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 	{
 		for (int i=0; i<UD; i++)
 		{
-			r_NextState[i] = r_ActualState[i] + s_TimeStep*( r_NextState[i] + r_Stage1[i] )*(1.0/6.0);
+			r_NextState[i] = r_ActualState[i] + s_TimeStep*( r_NextState[i] + r_Stage1[i] )*static_cast<Precision>(1.0/6.0);
 			
 			if ( isfinite( r_NextState[i] ) == 0 )
 				s_IsFinite = 0;
@@ -2534,7 +2534,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 						 r_Stage4[i] * ( static_cast<Precision>( 125.0/594.0  - 13525.0/55296.0 ) ) + \
 						 r_Stage5[i] * ( static_cast<Precision>(   0.0        -   277.0/14336.0 ) ) + \
 						 r_Stage6[i] * ( static_cast<Precision>( 512.0/1771.0 -     1.0/4.0 ) );
-			r_Error[i] = s_TimeStep*abs( r_Error[i] ) + 1e-18;
+			r_Error[i] = s_TimeStep*abs( r_Error[i] ) + static_cast<Precision>(1e-18);
 			
 			if ( ( isfinite( r_NextState[i] ) == 0 ) || ( isfinite( r_Error[i] ) == 0 ) )
 				s_IsFinite = 0;

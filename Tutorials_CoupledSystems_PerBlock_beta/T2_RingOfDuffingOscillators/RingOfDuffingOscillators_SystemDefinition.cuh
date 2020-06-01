@@ -74,7 +74,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_ActionAfterSuccessfulTim
 
 template <class Precision>
 __forceinline__ __device__ void CoupledSystems_PerBlock_Initialization(\
-			int sid, int uid, \
+			int sid, int uid, int& DOIDX, \
 			Precision&    T, Precision&    dT, Precision*   TD, Precision*     X, \
 			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
 			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
@@ -84,6 +84,9 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_Initialization(\
 		sACC[0]  = dT; // Minimum dT
 		sACC[1]  = dT; // Maximum dT
 		isACC[0] = 0;  // Number of time steps
+		
+		T = TD[0];  // Reset the starting point of the simulation from the lower limit of the time domain
+		DOIDX = 0; // Reset the start of the filling of dense output from the beggining
 	}
 	
 	uACC[2]  = X[0];   // End state of the unit first reach the second local maximum; initial state otherwise
@@ -92,7 +95,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_Initialization(\
 
 template <class Precision>
 __forceinline__ __device__ void CoupledSystems_PerBlock_Finalization(\
-			int sid, int uid, \
+			int sid, int uid, int& DOIDX, \
 			Precision&    T, Precision&    dT, Precision*   TD, Precision*     X, \
 			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
 			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)

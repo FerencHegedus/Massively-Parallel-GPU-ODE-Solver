@@ -39,7 +39,7 @@ namespace MPGOS
 	}
 	
 	// Floating point atomic minimum ------------------------------------------
-	__forceinline__ __device__ float atomicMIN(float* address, float val)
+	__forceinline__ __device__ float atomicFMIN(float* address, float val)
 	{
 		int ret = __float_as_int(*address);
 		while ( val < __int_as_float(ret) )
@@ -51,7 +51,7 @@ namespace MPGOS
 		return __int_as_float(ret);
 	}
 	
-	__forceinline__ __device__ double atomicMIN(double *address, double val)
+	__forceinline__ __device__ double atomicFMIN(double *address, double val)
 	{
 		unsigned long long ret = __double_as_longlong(*address);
 		while ( val < __longlong_as_double(ret) )
@@ -64,7 +64,7 @@ namespace MPGOS
 	}
 	
 	// Floating point atomic maximum ------------------------------------------
-	__forceinline__ __device__ float atomicMAX(float *address, float val)
+	__forceinline__ __device__ float atomicFMAX(float *address, float val)
 	{
 		int ret = __float_as_int(*address);
 		while ( val > __int_as_float(ret) )
@@ -76,7 +76,7 @@ namespace MPGOS
 		return __int_as_float(ret);
 	}
 	
-	__forceinline__ __device__ double atomicMAX(double *address, double val)
+	__forceinline__ __device__ double atomicFMAX(double *address, double val)
 	{
 		unsigned long long ret = __double_as_longlong(*address);
 		while ( val > __longlong_as_double(ret) )

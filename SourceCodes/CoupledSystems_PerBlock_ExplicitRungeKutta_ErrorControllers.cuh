@@ -26,7 +26,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 				s_TerminateSystemScope[lsid] = 1;
 				atomicAdd(&s_TerminatedSystemsPerBlock, 1);
 				
-				s_UpdateStep[lsid]           = 0;
+				s_UpdateStep[lsid] = 0;
 			}
 			
 			s_NewTimeStep[lsid] = InitialTimeStep;
@@ -88,14 +88,13 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 			
 			for (int i=0; i<UD; i++)
 			{
-				//r_ErrorTolerance = MPGOS::FMAX( s_RelativeTolerance[i] * abs( r_NextState[BL][i]), s_AbsoluteTolerance[i] );
-				r_ErrorTolerance = s_RelativeTolerance[i] * MPGOS::FMAX( abs(r_NextState[BL][i]), abs(r_ActualState[BL][i]) ) + s_AbsoluteTolerance[i];
+				r_ErrorTolerance = MPGOS::FMAX( s_RelativeTolerance[i]*MPGOS::FMAX( MPGOS::FABS(r_NextState[BL][i]), MPGOS::FABS(r_ActualState[BL][i]) ), s_AbsoluteTolerance[i] );
 				r_UpdateStep     = r_UpdateStep & ( r_Error[BL][i] < r_ErrorTolerance );
 				r_RelativeError  = MPGOS::FMIN( r_RelativeError, r_ErrorTolerance / r_Error[BL][i] );
 			}
 			
 			atomicAnd(&(s_UpdateStep[LocalSystemID]), r_UpdateStep);
-			MPGOS::atomicMIN(&(s_RelativeError[LocalSystemID]), r_RelativeError);
+			MPGOS::atomicFMIN(&(s_RelativeError[LocalSystemID]), r_RelativeError);
 		}
 	}
 	__syncthreads();
@@ -111,9 +110,9 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 		{
 			// Base time step multiplicator
 			if ( s_UpdateStep[lsid] == 1 )
-				s_TimeStepMultiplicator[lsid] = 0.8 * pow(s_RelativeError[lsid], (1.0/5.0) ); // 1.0/5.0
+				s_TimeStepMultiplicator[lsid] = static_cast<Precision>(0.8) * pow(s_RelativeError[lsid], static_cast<Precision>(1.0/5.0) ); // 1.0/5.0
 			else
-				s_TimeStepMultiplicator[lsid] = 0.8 * pow(s_RelativeError[lsid], (1.0/4.0) ); // 1.0/4.0
+				s_TimeStepMultiplicator[lsid] = static_cast<Precision>(0.8) * pow(s_RelativeError[lsid], static_cast<Precision>(1.0/4.0) ); // 1.0/4.0
 			
 			if ( isfinite(s_TimeStepMultiplicator[lsid]) == 0 )
 				s_IsFinite[lsid] = 0;
@@ -124,7 +123,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 				s_TimeStepMultiplicator[lsid] = SolverOptions.TimeStepShrinkLimit;
 				s_UpdateStep[lsid] = 0;
 				
-				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*1.01) )
+				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 				{
 					printf("Error: State is not a finite number, minimum step size reached. Try to use less stringent tolerances. (global system id: %d)\n", gsid);
 					s_TerminateSystemScope[lsid] = 1;
@@ -132,7 +131,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_Multiple
 				}
 			} else
 			{
-				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*1.01) )
+				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 				{
 					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed! (global system id: %d, time step: %+6.5e, TSM: %+6.3e \n", gsid, SolverOptions.MinimumTimeStep, s_TimeStepMultiplicator[lsid]);
 					s_UpdateStep[lsid] = 1;
@@ -227,13 +226,13 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 			
 			for (int i=0; i<UD; i++)
 			{
-				r_ErrorTolerance = s_RelativeTolerance[i] * MPGOS::FMAX( abs(r_NextState[BL][i]), abs(r_ActualState[BL][i]) ) + s_AbsoluteTolerance[i];
+				r_ErrorTolerance = MPGOS::FMAX( s_RelativeTolerance[i]*MPGOS::FMAX( MPGOS::FABS(r_NextState[BL][i]), MPGOS::FABS(r_ActualState[BL][i]) ), s_AbsoluteTolerance[i] );
 				r_UpdateStep     = r_UpdateStep & ( r_Error[BL][i] < r_ErrorTolerance );
 				r_RelativeError  = MPGOS::FMIN( r_RelativeError, r_ErrorTolerance / r_Error[BL][i] );
 			}
 			
 			atomicAnd(&s_UpdateStep, r_UpdateStep);
-			MPGOS::atomicMIN(&s_RelativeError, r_RelativeError);
+			MPGOS::atomicFMIN(&s_RelativeError, r_RelativeError);
 		}
 	}
 	__syncthreads();
@@ -242,9 +241,9 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 	{
 		// Base time step multiplicator
 		if ( s_UpdateStep == 1 )
-			s_TimeStepMultiplicator = 0.8 * pow(s_RelativeError, (1.0/5.0) ); // 1.0/5.0
+			s_TimeStepMultiplicator = static_cast<Precision>(0.8) * pow(s_RelativeError, static_cast<Precision>(1.0/5.0) ); // 1.0/5.0
 		else
-			s_TimeStepMultiplicator = 0.8 * pow(s_RelativeError, (1.0/4.0) ); // 1.0/4.0
+			s_TimeStepMultiplicator = static_cast<Precision>(0.8) * pow(s_RelativeError, static_cast<Precision>(1.0/4.0) ); // 1.0/4.0
 		
 		if ( isfinite(s_TimeStepMultiplicator) == 0 )
 			s_IsFinite = 0;
@@ -255,7 +254,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 			s_TimeStepMultiplicator = SolverOptions.TimeStepShrinkLimit;
 			s_UpdateStep = 0;
 			
-			if ( s_TimeStep < (SolverOptions.MinimumTimeStep*1.01) )
+			if ( s_TimeStep < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 			{
 				printf("Error: State is not a finite number, minimum step size reached. Try to use less stringent tolerances. (global system id: %d)\n", GlobalSystemID);
 				s_TerminateSystemScope = 1;
@@ -263,7 +262,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlo
 			}
 		} else
 		{
-			if ( s_TimeStep < (SolverOptions.MinimumTimeStep*1.01) )
+			if ( s_TimeStep < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 			{
 				printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed! (global system id: %d, time step: %+6.5e, TSM: %+6.3e \n", GlobalSystemID, SolverOptions.MinimumTimeStep, s_TimeStepMultiplicator);
 				s_UpdateStep = 1;
@@ -307,7 +306,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 				s_TerminateSystemScope[lsid] = 1;
 				atomicAdd(&s_TerminatedSystemsPerBlock, 1);
 				
-				s_UpdateStep[lsid]           = 0;
+				s_UpdateStep[lsid] = 0;
 			}
 			
 			s_NewTimeStep[lsid] = InitialTimeStep;
@@ -359,13 +358,13 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 		
 		for (int i=0; i<UD; i++)
 		{
-			r_ErrorTolerance = s_RelativeTolerance[i] * MPGOS::FMAX( abs(r_NextState[i]), abs(r_ActualState[i]) ) + s_AbsoluteTolerance[i];
+			r_ErrorTolerance = MPGOS::FMAX( s_RelativeTolerance[i]*MPGOS::FMAX( MPGOS::FABS(r_NextState[i]), MPGOS::FABS(r_ActualState[i]) ), s_AbsoluteTolerance[i] );
 			r_UpdateStep     = r_UpdateStep & ( r_Error[i] < r_ErrorTolerance );
 			r_RelativeError  = MPGOS::FMIN( r_RelativeError, r_ErrorTolerance / r_Error[i] );
 		}
 		
 		atomicAnd(&(s_UpdateStep[LocalSystemID]), r_UpdateStep);
-		MPGOS::atomicMIN(&(s_RelativeError[LocalSystemID]), r_RelativeError);
+		MPGOS::atomicFMIN(&(s_RelativeError[LocalSystemID]), r_RelativeError);
 	}
 	__syncthreads();
 	
@@ -380,9 +379,9 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 		{
 			// Base time step multiplicator
 			if ( s_UpdateStep[lsid] == 1 )
-				s_TimeStepMultiplicator[lsid] = 0.8 * pow(s_RelativeError[lsid], (1.0/5.0) ); // 1.0/5.0
+				s_TimeStepMultiplicator[lsid] = static_cast<Precision>(0.8) * pow(s_RelativeError[lsid], static_cast<Precision>(1.0/5.0) ); // 1.0/5.0
 			else
-				s_TimeStepMultiplicator[lsid] = 0.8 * pow(s_RelativeError[lsid], (1.0/4.0) ); // 1.0/4.0
+				s_TimeStepMultiplicator[lsid] = static_cast<Precision>(0.8) * pow(s_RelativeError[lsid], static_cast<Precision>(1.0/4.0) ); // 1.0/4.0
 			
 			if ( isfinite(s_TimeStepMultiplicator[lsid]) == 0 )
 				s_IsFinite[lsid] = 0;
@@ -393,7 +392,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 				s_TimeStepMultiplicator[lsid] = SolverOptions.TimeStepShrinkLimit;
 				s_UpdateStep[lsid] = 0;
 				
-				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*1.01) )
+				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 				{
 					printf("Error: State is not a finite number, minimum step size reached. Try to use less stringent tolerances. (global system id: %d)\n", gsid);
 					s_TerminateSystemScope[lsid] = 1;
@@ -401,7 +400,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_MultipleSystems_SingleBl
 				}
 			} else
 			{
-				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*1.01) )
+				if ( s_TimeStep[lsid] < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 				{
 					printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed! (global system id: %d, time step: %+6.5e, TSM: %+6.3e \n", gsid, SolverOptions.MinimumTimeStep, s_TimeStepMultiplicator[lsid]);
 					s_UpdateStep[lsid] = 1;
@@ -488,13 +487,13 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 		
 		for (int i=0; i<UD; i++)
 		{
-			r_ErrorTolerance = s_RelativeTolerance[i] * MPGOS::FMAX( abs(r_NextState[i]), abs(r_ActualState[i]) ) + s_AbsoluteTolerance[i];
+			r_ErrorTolerance = MPGOS::FMAX( s_RelativeTolerance[i]*MPGOS::FMAX( MPGOS::FABS(r_NextState[i]), MPGOS::FABS(r_ActualState[i]) ), s_AbsoluteTolerance[i] );
 			r_UpdateStep     = r_UpdateStep & ( r_Error[i] < r_ErrorTolerance );
 			r_RelativeError  = MPGOS::FMIN( r_RelativeError, r_ErrorTolerance / r_Error[i] );
 		}
 		
 		atomicAnd(&s_UpdateStep, r_UpdateStep);
-		MPGOS::atomicMIN(&s_RelativeError, r_RelativeError);
+		MPGOS::atomicFMIN(&s_RelativeError, r_RelativeError);
 	}
 	__syncthreads();
 	
@@ -502,9 +501,9 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 	{
 		// Base time step multiplicator
 		if ( s_UpdateStep == 1 )
-			s_TimeStepMultiplicator = 0.8 * pow(s_RelativeError, (1.0/5.0) ); // 1.0/5.0
+			s_TimeStepMultiplicator = static_cast<Precision>(0.8) * pow(s_RelativeError, static_cast<Precision>(1.0/5.0) ); // 1.0/5.0
 		else
-			s_TimeStepMultiplicator = 0.8 * pow(s_RelativeError, (1.0/4.0) ); // 1.0/4.0
+			s_TimeStepMultiplicator = static_cast<Precision>(0.8) * pow(s_RelativeError, static_cast<Precision>(1.0/4.0) ); // 1.0/4.0
 		
 		if ( isfinite(s_TimeStepMultiplicator) == 0 )
 			s_IsFinite = 0;
@@ -515,7 +514,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 			s_TimeStepMultiplicator = SolverOptions.TimeStepShrinkLimit;
 			s_UpdateStep = 0;
 			
-			if ( s_TimeStep < (SolverOptions.MinimumTimeStep*1.01) )
+			if ( s_TimeStep < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 			{
 				printf("Error: State is not a finite number, minimum step size reached. Try to use less stringent tolerances. (global system id: %d)\n", GlobalSystemID);
 				s_TerminateSystemScope = 1;
@@ -523,7 +522,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_SingleSystem_SingleBlock
 			}
 		} else
 		{
-			if ( s_TimeStep < (SolverOptions.MinimumTimeStep*1.01) )
+			if ( s_TimeStep < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 			{
 				printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed! (global system id: %d, time step: %+6.5e, TSM: %+6.3e \n", GlobalSystemID, SolverOptions.MinimumTimeStep, s_TimeStepMultiplicator);
 				s_UpdateStep = 1;

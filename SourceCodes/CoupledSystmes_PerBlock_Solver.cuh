@@ -3,7 +3,7 @@
 
 #include "MPGOS_Overloaded_MathFunction.cuh"
 #include "CoupledSystems_PerBlock_ExplicitRungeKutta_Steppers.cuh"
-#include "CoupledSystems_PerBlock_ExplicitRungeKutta_ErrorController.cuh"
+#include "CoupledSystems_PerBlock_ExplicitRungeKutta_ErrorControllers.cuh"
 #include "CoupledSystems_PerBlock_EventHandling.cuh"
 #include "CoupledSystems_PerBlock_DenseOutput.cuh"
 
@@ -97,7 +97,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 				
 				if ( i==0 )
 				{
-					s_ActualTime[lsid]  = s_TimeDomain[lsid][i];
+					s_ActualTime[lsid]  = GlobalVariables.d_ActualTime[gsid];
 					s_TimeStep[lsid]    = SolverOptions.InitialTimeStep;
 					s_NewTimeStep[lsid] = SolverOptions.InitialTimeStep;
 				}
@@ -131,7 +131,6 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 			{
 				GlobalMemoryID = gsid + i*NS;
 				s_DenseOutputIndex[lsid]       = GlobalVariables.d_DenseOutputIndex[GlobalMemoryID];
-				s_DenseOutputActualTime[lsid]  = s_TimeDomain[lsid][0];
 				s_UpdateDenseOutput[lsid]      = 1;
 				s_NumberOfSkippedStores[lsid]  = 0;
 				s_TerminateSystemScope[lsid]   = 0;
@@ -288,6 +287,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 			CoupledSystems_PerBlock_Initialization<Precision>(\
 				GlobalSystemID, \
 				UnitID, \
+				s_DenseOutputIndex[LocalSystemID], \
 				s_ActualTime[LocalSystemID], \
 				s_TimeStep[LocalSystemID], \
 				&s_TimeDomain[LocalSystemID][0], \
@@ -304,7 +304,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	}
 	__syncthreads();
 	
-	if ( NE > 0 ) // Eliminated at compile time if NE=0
+	if ( NE > 0 )
 	{
 		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
 		{
@@ -337,7 +337,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 	}
 	
 	
-	if ( NDO > 0 ) // Eliminated at compile time if NDO=0
+	if ( NDO > 0 )
 	{
 		CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_StoreDenseOutput<NumberOfBlockLaunches, NS, UPS, UD, SPB, Precision>(\
 			s_UpdateStep, \
@@ -375,8 +375,6 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 				if ( s_TimeStep[lsid] > ( s_TimeDomain[lsid][1] - s_ActualTime[lsid] ) )
 				{
 					s_TimeStep[lsid] = s_TimeDomain[lsid][1] - s_ActualTime[lsid];
-					s_TimeStep[lsid] = MPGOS::FMAX(s_TimeStep[lsid], SolverOptions.MinimumTimeStep);
-					
 					s_EndTimeDomainReached[lsid] = 1;
 				}
 			}
@@ -385,7 +383,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		
 		
 		// STEPPER ------------------------------------------------------------
-		if ( Algorithm == RK4 ) // Eliminated at compile if Algorithm != RK4
+		if ( Algorithm == RK4 )
 		{
 			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_Stepper_RK4<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>( \
 				r_ActualState, \
@@ -416,7 +414,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 				s_UpdateStep);
 		}
 		
-		if ( Algorithm == RKCK45 ) // Eliminated at compile if Algorithm != RKCK45
+		if ( Algorithm == RKCK45 )
 		{
 			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_Stepper_RKCK45<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>( \
 				r_ActualState, \
@@ -456,7 +454,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		
 		
 		// NEW EVENT VALUE AND TIME STEP CONTROL-------------------------------
-		if ( NE > 0 ) // Eliminated at compile time if NE=0
+		if ( NE > 0 )
 		{
 			for (int BL=0; BL<NumberOfBlockLaunches; BL++)
 			{
@@ -550,7 +548,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		__syncthreads();
 		
 		// Event handling actions
-		if ( NE > 0 )  // Eliminated at compile time if NE=0
+		if ( NE > 0 )
 		{
 			// Call user defined ActionAfterEventDetection if event is detected
 			for (int BL=0; BL<NumberOfBlockLaunches; BL++)
@@ -636,7 +634,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 		}
 		
 		// Dense output actions
-		if ( NDO > 0 ) //Eliminated at compile time if NDO=0
+		if ( NDO > 0 )
 		{
 			CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches_DenseOutputStorageCondition<NumberOfBlockLaunches, UPS, SPB, NDO, Precision>(\
 				s_EndTimeDomainReached, \
@@ -700,6 +698,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_MultipleBlockLaunches(St
 			CoupledSystems_PerBlock_Finalization<Precision>(\
 				GlobalSystemID, \
 				UnitID, \
+				s_DenseOutputIndex[LocalSystemID], \
 				s_ActualTime[LocalSystemID], \
 				s_TimeStep[LocalSystemID], \
 				&s_TimeDomain[LocalSystemID][0], \
@@ -865,7 +864,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 			
 			if ( i==0 )
 			{
-				s_ActualTime  = s_TimeDomain[i];
+				s_ActualTime  = GlobalVariables.d_ActualTime[GlobalSystemID];
 				s_TimeStep    = SolverOptions.InitialTimeStep;
 				s_NewTimeStep = SolverOptions.InitialTimeStep;
 			}
@@ -899,7 +898,6 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 		{
 			GlobalMemoryID = GlobalSystemID + i*NS;
 			s_DenseOutputIndex       = GlobalVariables.d_DenseOutputIndex[GlobalMemoryID];
-			s_DenseOutputActualTime  = s_TimeDomain[0];
 			s_UpdateDenseOutput      = 1;
 			s_NumberOfSkippedStores  = 0;
 			s_TerminateSystemScope   = 0;
@@ -1052,6 +1050,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 			CoupledSystems_PerBlock_Initialization<Precision>(\
 				GlobalSystemID, \
 				UnitID, \
+				s_DenseOutputIndex, \
 				s_ActualTime, \
 				s_TimeStep, \
 				&s_TimeDomain[0], \
@@ -1068,7 +1067,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 	}
 	__syncthreads();
 	
-	if ( NE > 0 ) // Eliminated at compile time if NE=0
+	if ( NE > 0 )
 	{
 		for (int BL=0; BL<NumberOfBlockLaunches; BL++)
 		{
@@ -1097,7 +1096,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 		__syncthreads();
 	}
 	
-	if ( NDO > 0 ) // Eliminated at compile time if NDO=0
+	if ( NDO > 0 )
 	{
 		CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_StoreDenseOutput<NumberOfBlockLaunches, NS, UPS, UD, Precision>(\
 			s_UpdateStep, \
@@ -1130,8 +1129,6 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 			if ( s_TimeStep > ( s_TimeDomain[1] - s_ActualTime ) )
 			{
 				s_TimeStep = s_TimeDomain[1] - s_ActualTime;
-				s_TimeStep = MPGOS::FMAX(s_TimeStep, SolverOptions.MinimumTimeStep);
-				
 				s_EndTimeDomainReached = 1;
 			}
 		}
@@ -1139,7 +1136,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 		
 		
 		// STEPPER ------------------------------------------------------------
-		if ( Algorithm == RK4 ) // Eliminated at compile if Algorithm != RK4
+		if ( Algorithm == RK4 )
 		{
 			CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_Stepper_RK4<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>(\
 				r_ActualState, \
@@ -1170,7 +1167,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 				s_UpdateStep);
 		}
 		
-		if ( Algorithm == RKCK45 ) // Eliminated at compile if Algorithm != RKCK45
+		if ( Algorithm == RKCK45 )
 		{
 			CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_Stepper_RKCK45<NumberOfBlockLaunches,NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>(\
 				r_ActualState, \
@@ -1210,7 +1207,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 		
 		
 		// NEW EVENT VALUE AND TIME STEP CONTROL-------------------------------
-		if ( NE > 0 ) // Eliminated at compile time if NE=0
+		if ( NE > 0 )
 		{
 			for (int BL=0; BL<NumberOfBlockLaunches; BL++)
 			{
@@ -1295,7 +1292,6 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 		}
 		__syncthreads();
 		
-		// Event handling actions; Eliminated at compile time if NE=0
 		if ( NE > 0 )
 		{
 			// Call user defined ActionAfterEventDetection if event is detected
@@ -1374,7 +1370,6 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 			__syncthreads();
 		}
 		
-		// Dense output actions; Eliminated at compile time if NDO=0
 		if ( NDO > 0)
 		{
 			CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches_DenseOutputStorageCondition<NDO, Precision>(\
@@ -1430,6 +1425,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_MultipleBlockLaunches(Struc
 			CoupledSystems_PerBlock_Finalization<Precision>(\
 				GlobalSystemID, \
 				UnitID, \
+				s_DenseOutputIndex, \
 				s_ActualTime, \
 				s_TimeStep, \
 				&s_TimeDomain[0], \
@@ -1597,7 +1593,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 				
 				if ( i==0 )
 				{
-					s_ActualTime[lsid]  = s_TimeDomain[lsid][i];
+					s_ActualTime[lsid]  = GlobalVariables.d_ActualTime[gsid];
 					s_TimeStep[lsid]    = SolverOptions.InitialTimeStep;
 					s_NewTimeStep[lsid] = SolverOptions.InitialTimeStep;
 				}
@@ -1631,7 +1627,6 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 			{
 				GlobalMemoryID = gsid + i*NS;
 				s_DenseOutputIndex[lsid]       = GlobalVariables.d_DenseOutputIndex[GlobalMemoryID];
-				s_DenseOutputActualTime[lsid]  = s_TimeDomain[lsid][0];
 				s_UpdateDenseOutput[lsid]      = 1;
 				s_NumberOfSkippedStores[lsid]  = 0;
 				s_TerminateSystemScope[lsid]   = 0;
@@ -1775,6 +1770,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 		CoupledSystems_PerBlock_Initialization<Precision>(\
 			GlobalSystemID, \
 			UnitID, \
+			s_DenseOutputIndex[LocalSystemID], \
 			s_ActualTime[LocalSystemID], \
 			s_TimeStep[LocalSystemID], \
 			&s_TimeDomain[LocalSystemID][0], \
@@ -1790,7 +1786,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 	}
 	__syncthreads();
 	
-	if ( NE > 0 ) // Eliminated at compile time if NE=0
+	if ( NE > 0 )
 	{
 		if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
 		{
@@ -1814,7 +1810,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 		__syncthreads();
 	}
 	
-	if ( NDO > 0 ) // Eliminated at compile time if NDO=0
+	if ( NDO > 0 )
 	{
 		CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch_StoreDenseOutput<NS, UPS, UD, SPB, Precision>(\
 			BlockID, \
@@ -1856,8 +1852,6 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 				if ( s_TimeStep[lsid] > ( s_TimeDomain[lsid][1] - s_ActualTime[lsid] ) )
 				{
 					s_TimeStep[lsid] = s_TimeDomain[lsid][1] - s_ActualTime[lsid];
-					s_TimeStep[lsid] = MPGOS::FMAX(s_TimeStep[lsid], SolverOptions.MinimumTimeStep);
-					
 					s_EndTimeDomainReached[lsid] = 1;
 				}
 			}
@@ -1866,7 +1860,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 		
 		
 		// STEPPER ------------------------------------------------------------
-		if ( Algorithm == RK4 ) // Eliminated at compile if Algorithm != RK4
+		if ( Algorithm == RK4 )
 		{
 			CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch_Stepper_RK4<NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>( \
 				LocalSystemID, \
@@ -1900,7 +1894,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 				s_UpdateStep);
 		}
 		
-		if ( Algorithm == RKCK45 ) // Eliminated at compile if Algorithm != RKCK45
+		if ( Algorithm == RKCK45 )
 		{
 			CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch_Stepper_RKCK45<NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>( \
 				LocalSystemID, \
@@ -1944,7 +1938,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 		
 		
 		// NEW EVENT VALUE AND TIME STEP CONTROL-------------------------------
-		if ( NE > 0 ) // Eliminated at compile time if NE=0
+		if ( NE > 0 )
 		{
 			if ( ( LocalSystemID < SPB ) && ( s_TerminateSystemScope[LocalSystemID] == 0 ) )
 			{
@@ -2015,7 +2009,6 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 		}
 		__syncthreads();
 		
-		// Event handling actions; Eliminated at compile time if NE=0
 		if ( NE > 0 )
 		{
 			// Call user defined ActionAfterEventDetection if event is detected
@@ -2079,7 +2072,6 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 			__syncthreads();
 		}
 		
-		// Dense output actions; Eliminated at compile time if NDO=0
 		if ( NDO > 0)
 		{
 			CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch_DenseOutputStorageCondition<UPS, SPB, NDO, Precision>(\
@@ -2141,6 +2133,7 @@ __global__ void CoupledSystems_PerBlock_MultipleSystems_SingleBlockLaunch(Struct
 		CoupledSystems_PerBlock_Finalization<Precision>(\
 			GlobalSystemID, \
 			UnitID, \
+			s_DenseOutputIndex[LocalSystemID], \
 			s_ActualTime[LocalSystemID], \
 			s_TimeStep[LocalSystemID], \
 			&s_TimeDomain[LocalSystemID][0], \
@@ -2298,7 +2291,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 			
 			if ( i==0 )
 			{
-				s_ActualTime  = s_TimeDomain[i];
+				s_ActualTime  = GlobalVariables.d_ActualTime[GlobalSystemID];
 				s_TimeStep    = SolverOptions.InitialTimeStep;
 				s_NewTimeStep = SolverOptions.InitialTimeStep;
 			}
@@ -2332,7 +2325,6 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 		{
 			GlobalMemoryID = GlobalSystemID + i*NS;
 			s_DenseOutputIndex       = GlobalVariables.d_DenseOutputIndex[GlobalMemoryID];
-			s_DenseOutputActualTime  = s_TimeDomain[0];
 			s_UpdateDenseOutput      = 1;
 			s_NumberOfSkippedStores  = 0;
 			s_TerminateSystemScope   = 0;
@@ -2475,6 +2467,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 		CoupledSystems_PerBlock_Initialization<Precision>(\
 			GlobalSystemID, \
 			LocalThreadID, \
+			s_DenseOutputIndex, \
 			s_ActualTime, \
 			s_TimeStep, \
 			&s_TimeDomain[0], \
@@ -2490,7 +2483,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 	}
 	__syncthreads();
 	
-	if ( NE > 0 ) // Eliminated at compile time if NE=0
+	if ( NE > 0 )
 	{
 		if ( ( LocalThreadID < UPS ) && ( s_TerminateSystemScope == 0 ) )
 		{
@@ -2514,7 +2507,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 		__syncthreads();
 	}
 	
-	if ( NDO > 0 ) // Eliminated at compile time if NDO=0
+	if ( NDO > 0 )
 	{
 		CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch_StoreDenseOutput<NS, UPS, UD, Precision>(\
 			LocalThreadID, \
@@ -2550,8 +2543,6 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 			if ( s_TimeStep > ( s_TimeDomain[1] - s_ActualTime ) )
 			{
 				s_TimeStep = s_TimeDomain[1] - s_ActualTime;
-				s_TimeStep = MPGOS::FMAX(s_TimeStep, SolverOptions.MinimumTimeStep);
-				
 				s_EndTimeDomainReached = 1;
 			}
 		}
@@ -2559,7 +2550,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 		
 		
 		// STEPPER ------------------------------------------------------------
-		if ( Algorithm == RK4 ) // Eliminated at compile if Algorithm != RK4
+		if ( Algorithm == RK4 )
 		{
 			CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch_Stepper_RK4<NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>(\
 				LocalThreadID, \
@@ -2592,7 +2583,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 				s_UpdateStep);
 		}
 		
-		if ( Algorithm == RKCK45 ) // Eliminated at compile if Algorithm != RKCK45
+		if ( Algorithm == RKCK45 )
 		{
 			CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch_Stepper_RKCK45<NS,UPS,UD,TPB,SPB,NC,NCp,CBW,CCI,NUP,NSPp,NGP,NiGP,NUA,NiUA,NSAp,NiSAp,NE,NDO,Precision>(\
 				LocalThreadID, \
@@ -2636,7 +2627,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 		
 		
 		// NEW EVENT VALUE AND TIME STEP CONTROL-------------------------------
-		if ( NE > 0 ) // Eliminated at compile time if NE=0
+		if ( NE > 0 )
 		{
 			if ( ( LocalThreadID < UPS ) && ( s_TerminateSystemScope == 0 ) )
 			{
@@ -2708,7 +2699,6 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 		}
 		__syncthreads();
 		
-		// Event handling actions; Eliminated at compile time if NE=0
 		if ( NE > 0 )
 		{
 			// Call user defined ActionAfterEventDetection if event is detected
@@ -2772,7 +2762,6 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 			__syncthreads();
 		}
 		
-		// Dense output actions; Eliminated at compile time if NDO=0
 		if ( NDO > 0)
 		{
 			CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch_DenseOutputStorageCondition<NDO, Precision>(\
@@ -2827,6 +2816,7 @@ __global__ void CoupledSystems_PerBlock_SingleSystem_SingleBlockLaunch(Struct_Th
 		CoupledSystems_PerBlock_Finalization<Precision>(\
 			GlobalSystemID, \
 			LocalThreadID, \
+			s_DenseOutputIndex, \
 			s_ActualTime, \
 			s_TimeStep, \
 			&s_TimeDomain[0], \
