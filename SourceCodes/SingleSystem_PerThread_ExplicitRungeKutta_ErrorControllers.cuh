@@ -61,14 +61,14 @@ __forceinline__ __device__ void PerThread_ErrorController_RKCK45(\
 		TimeStepMultiplicator = SolverOptions.TimeStepShrinkLimit;
 		r_UpdateStep = 0;
 		
-		if ( r_TimeStep < (SolverOptions.MinimumTimeStep*1.01) )
+		if ( r_TimeStep < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 		{
 			printf("Error: State is not a finite number even with the minimal step size. Try to use less stringent tolerances. (thread id: %d)\n", tid);
 			r_TerminateSimulation = 1;
 		}
 	} else
 	{
-		if ( r_TimeStep < (SolverOptions.MinimumTimeStep*1.01) )
+		if ( r_TimeStep < (SolverOptions.MinimumTimeStep*static_cast<Precision>(1.01)) )
 		{
 			printf("Warning: Minimum step size reached! Continue with fixed minimum step size! Tolerance cannot be guaranteed!, thread id: %d, time step: %+6.5e, min step size: %+6.5e \n", tid, r_TimeStep, SolverOptions.MinimumTimeStep);
 			r_UpdateStep = 1;

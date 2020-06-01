@@ -138,7 +138,6 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		r_TimeStep               = SolverOptions.InitialTimeStep;
 		r_NewTimeStep            = SolverOptions.InitialTimeStep;
 		r_DenseOutputIndex       = GlobalVariables.d_DenseOutputIndex[tid];
-		r_DenseOutputActualTime  = r_ActualTime;
 		r_UpdateDenseOutput      = 1;
 		r_NumberOfSkippedStores  = 0;
 		r_TerminateSimulation    = 0;
@@ -160,7 +159,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			r_Accessories, \
 			r_IntegerAccessories);
 		
-		if ( NE > 0 ) // Eliminated at compile time if NE=0
+		if ( NE > 0 )
 		{
 			PerThread_EventFunction<Precision>(\
 				tid, \
@@ -177,7 +176,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 				r_IntegerAccessories);
 		}
 		
-		if ( NDO > 0 ) // Eliminated at compile time if NDO=0
+		if ( NDO > 0 )
 		{
 			PerThread_StoreDenseOutput<NT, SD, NDO, Precision>(\
 				tid, \
@@ -269,7 +268,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			
 			
 			// NEW EVENT VALUE AND TIME STEP CONTROL---------------------------
-			if ( NE > 0 ) // Eliminated at compile time if NE=0
+			if ( NE > 0 )
 			{
 				PerThread_EventFunction<Precision>(\
 					tid, \
@@ -321,7 +320,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 					r_Accessories, \
 					r_IntegerAccessories);
 				
-				if ( NE > 0 ) // Eliminated at compile time if NE=0
+				if ( NE > 0 )
 				{
 					for (int i=0; i<NE; i++)
 					{
@@ -363,7 +362,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 						r_ActualEventValue[i] = r_NextEventValue[i];
 				}
 				
-				if ( NDO > 0 ) //Eliminated at compile time if NDO=0
+				if ( NDO > 0 )
 				{
 					PerThread_DenseOutputStorageCondition<NDO, Precision>(\
 						r_ActualTime, \
