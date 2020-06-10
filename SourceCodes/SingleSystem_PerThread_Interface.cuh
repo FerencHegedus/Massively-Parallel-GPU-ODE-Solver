@@ -441,10 +441,10 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 	SharedMemoryRequiredSharedVariables  = sizeof(Precision)*(NSP) + sizeof(int)*(NISP);
 	DynamicSharedMemoryRequired          = SharedMemoryUsage.PreferSharedMemory * SharedMemoryRequiredSharedVariables;
 	
-	StaticSharedMemoryRequired           = sizeof(Precision)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : SD ) + \	// AbsoluteTolerance
-										   sizeof(Precision)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : SD ) + \	// RelativeTolerance
-										   sizeof(Precision)*( NE==0 ? 1 : NE ) + \								// EventTolerance
-										   sizeof(int)*( NE==0 ? 1 : NE );										// EventDirection
+	StaticSharedMemoryRequired           = sizeof(Precision)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : SD ) + \
+										   sizeof(Precision)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : SD ) + \
+										   sizeof(Precision)*( NE==0 ? 1 : NE ) + \
+										   sizeof(int)*( NE==0 ? 1 : NE );
 	
 	SharedMemoryRequiredUpperLimit       = StaticSharedMemoryRequired + SharedMemoryRequiredSharedVariables;
 	SharedMemoryRequired                 = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;

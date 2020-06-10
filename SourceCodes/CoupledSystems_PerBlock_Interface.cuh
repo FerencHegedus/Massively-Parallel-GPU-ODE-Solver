@@ -549,35 +549,35 @@ ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE
 	int NSAp  = (  NSA==4 ?  NSA+1 : (  NSA==8 ?  NSA+1 : (  NSA==16 ?  NSA+1 : NSA  ) ) );
 	int NiSAp = ( NiSA==4 ? NiSA+1 : ( NiSA==8 ? NiSA+1 : ( NiSA==16 ? NiSA+1 : NiSA ) ) );
 	
-	StaticSharedMemoryRequired = sizeof(Precision)*( SPB*UPS*NCp ) + \									// Solver
-	                             sizeof(Precision)*( SPB*NCp ) + \										// Solver
-								 sizeof(Precision)*( SPB*2 ) + \										// Solver
-								 sizeof(Precision)*( SPB ) + \											// Solver
-								 sizeof(Precision)*( SPB ) + \											// Solver
-								 sizeof(Precision)*( SPB ) + \											// Solver
-								 sizeof(Precision)*( (NSPp==0 ? 1 : SPB) * (NSPp==0 ? 1 : NSPp) ) + \	// Solver
-								 sizeof(Precision)*( (NSAp==0 ? 1 : SPB) * (NSAp==0 ? 1 : NSAp) ) + \	// Solver
-								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \	// Solver
-								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \	// Solver
-								 sizeof(Precision)*( (NE==0 ? 1 : NE) ) + \								// Solver
-								 sizeof(Precision)*( SPB ) + \											// Solver
-								 sizeof(Precision)*( SPB ) + \											// Stepper
-								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \	// ErrorController
-								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \	// ErrorController
-								 sizeof(Precision)*( (NE==0 ? 0 : SPB) ) + \							// EventHandling
-								 sizeof(int)*( NC ) + \													// Solver
-								 sizeof(int)*( SPB ) + \												// Solver
-								 sizeof(int)*( SPB ) + \												// Solver
-								 sizeof(int)*( SPB ) + \												// Solver
-								 sizeof(int)*( (NiSAp==0 ? 1 : SPB) * (NiSAp==0 ? 1 : NiSAp) ) + \		// Solver
-								 sizeof(int)*( (NE==0 ? 1 : NE) ) + \									// Solver
-								 sizeof(int)*( 1 ) + \													// Solver
-								 sizeof(int)*( SPB ) + \												// Solver
-								 sizeof(int)*( SPB ) + \												// Solver
-								 sizeof(int)*( SPB ) + \												// Solver
-								 sizeof(int)*( SPB ) + \												// Solver
-								 sizeof(int)*( SPB ) + \												// Solver
-								 sizeof(int)*( (NE==0 ? 0 : SPB) );										// EventHandling
+	StaticSharedMemoryRequired = sizeof(Precision)*( SPB*UPS*NCp ) + \
+	                             sizeof(Precision)*( SPB*NCp ) + \
+								 sizeof(Precision)*( SPB*2 ) + \
+								 sizeof(Precision)*( SPB ) + \
+								 sizeof(Precision)*( SPB ) + \
+								 sizeof(Precision)*( SPB ) + \
+								 sizeof(Precision)*( (NSPp==0 ? 1 : SPB) * (NSPp==0 ? 1 : NSPp) ) + \
+								 sizeof(Precision)*( (NSAp==0 ? 1 : SPB) * (NSAp==0 ? 1 : NSAp) ) + \
+								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \
+								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 1 : UD) ) + \
+								 sizeof(Precision)*( (NE==0 ? 1 : NE) ) + \
+								 sizeof(Precision)*( SPB ) + \
+								 sizeof(Precision)*( SPB ) + \
+								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \
+								 sizeof(Precision)*( (SharedMemoryUsage.IsAdaptive==0 ? 0 : SPB) ) + \
+								 sizeof(Precision)*( (NE==0 ? 0 : SPB) ) + \
+								 sizeof(int)*( NC ) + \
+								 sizeof(int)*( SPB ) + \
+								 sizeof(int)*( SPB ) + \
+								 sizeof(int)*( SPB ) + \
+								 sizeof(int)*( (NiSAp==0 ? 1 : SPB) * (NiSAp==0 ? 1 : NiSAp) ) + \
+								 sizeof(int)*( (NE==0 ? 1 : NE) ) + \
+								 sizeof(int)*( 1 ) + \
+								 sizeof(int)*( SPB ) + \
+								 sizeof(int)*( SPB ) + \
+								 sizeof(int)*( SPB ) + \
+								 sizeof(int)*( SPB ) + \
+								 sizeof(int)*( SPB ) + \
+								 sizeof(int)*( (NE==0 ? 0 : SPB) );
 	
 	SharedMemoryRequired = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
 	
