@@ -8,6 +8,7 @@
 #include <ctime>
 #include <random>
 
+#include "MPGOS_Overloaded_MathFunction.cuh"
 #include "RingOfDuffingOscillators_SystemDefinition.cuh"
 #include "CoupledSystems_PerBlock_Interface.cuh"
 
@@ -18,7 +19,7 @@ using namespace std;
 // Physical control parameters
 const int NumberOfInitialConditionsX = 5; // Control parameter
 const int NumberOfInitialConditionsY = 5; // Control parameter
-const int NumberOfUnitsPerSystem = 32; // Number coupled units
+const int NumberOfUnitsPerSystem = 14; // Number coupled units
 
 // Solver Configuration
 #define TIMESTEP   1.0e-2
@@ -31,7 +32,7 @@ const int NS   = NumberOfInitialConditionsX * NumberOfInitialConditionsY; // Num
 const int UPS  = NumberOfUnitsPerSystem;                // UnitsPerSystem
 const int UD   = 2;     // UnitDimension
 const int TPB  = 32;    // ThreadsPerBlock (integer multiple of the warp size that is 32)
-const int SPB  = 1;     // SystemsPerBlock
+const int SPB  = 3;     // SystemsPerBlock
 const int NC   = 2;     // NumberOfCouplings
 const int CBW  = 1;     // CouplingBandwidthRadius (0: full coupling matrix)
 const int CCI  = 1;     // CouplingCircularity (0: non-circular matrix, 1: circular matrix)
@@ -108,7 +109,7 @@ int main()
 	
 	
 	ofstream DataFile;
-	DataFile.open ( "Results_SSSSBL.txt" );
+	DataFile.open ( "Results.txt" );
 	
 	for (int sid=0; sid<NS; sid++)
 	{

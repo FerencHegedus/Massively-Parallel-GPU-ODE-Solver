@@ -86,7 +86,7 @@ __forceinline__ __device__ void CoupledSystems_PerBlock_Initialization(\
 		isACC[0] = 0;  // Number of time steps
 		
 		T = TD[0];  // Reset the starting point of the simulation from the lower limit of the time domain
-		DOIDX = 0; // Reset the start of the filling of dense output from the beggining
+		DOIDX = 0;  // Reset the start of the filling of dense output from the beggining
 	}
 	
 	uACC[2]  = X[0];   // End state of the unit first reach the second local maximum; initial state otherwise

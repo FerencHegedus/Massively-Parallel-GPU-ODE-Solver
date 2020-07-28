@@ -8,4 +8,4 @@ RingOfDuffingOscillators.exe: RingOfDuffingOscillators.cu
 
 clean:
 	rm -f RingOfDuffingOscillators.exe
-#	rm -f *.txt
+	rm -f *.txt
