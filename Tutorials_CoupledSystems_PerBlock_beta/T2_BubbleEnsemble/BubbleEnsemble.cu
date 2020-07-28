@@ -8,20 +8,18 @@
 #include <ctime>
 #include <random>
 
+#include "MPGOS_Overloaded_MathFunction.cuh"
 #include "BubbleEnsemble_SystemDefinition.cuh"
 #include "CoupledSystems_PerBlock_Interface.cuh"
 
 #define PI 3.14159265358979323846
 
-#define COUPLINGSTRENGTH 1.0
-#define DISTANCE 2000.0;
-
 using namespace std;
 
 // Physical control parameters
-const int NumberOfFrequency      = 1; // Control parameter
-const int NumberOfAmplitude      = 120*5; // Control parameter
-const int NumberOfUnitsPerSystem = 128; // Number coupled units
+const int NumberOfFrequency      = 1;
+const int NumberOfAmplitude      = 120*5;
+const int NumberOfUnitsPerSystem = 128;
 
 // Solver Configuration
 #define SOLVER RKCK45      // RK4, RKCK45
@@ -29,7 +27,7 @@ const int NumberOfUnitsPerSystem = 128; // Number coupled units
 const int NS   = NumberOfFrequency * NumberOfAmplitude; // NumberOfSystems
 const int UPS  = NumberOfUnitsPerSystem;                // UnitsPerSystem
 const int UD   = 2;     // UnitDimension
-const int TPB  = 128;    // ThreadsPerBlock (integer multiple of the warp size that is 32)
+const int TPB  = 128;   // ThreadsPerBlock (integer multiple of the warp size that is 32)
 const int SPB  = 1;     // SystemsPerBlock
 const int NC   = 1;     // NumberOfCouplings
 const int CBW  = 0;     // CouplingBandwidthRadius (0: full coupling matrix)
@@ -78,8 +76,6 @@ int main()
 	Gauss(PositionY,      0.0,   10.0, UPS); // mm
 	Gauss(PositionZ,      0.0,   10.0, UPS); // mm
 	
-	//BubbleSize[0]=10.0;
-	//BubbleSize[1]=8.0;
 	
 	ListCUDADevices();
 	
@@ -104,23 +100,6 @@ int main()
 	SavePositions(PositionX, PositionY, PositionZ, "Positions.txt", UPS);
 	SaveBubbleSizes(BubbleSize, "BubbleSizes.txt", UPS);
 	
-	ScanSystem.Print(TimeDomain);
-	ScanSystem.Print(ActualState);
-	ScanSystem.Print(UnitParameters);
-	ScanSystem.Print(CouplingMatrix,0);
-	//ScanSystem.Print(CouplingMatrix,1);
-	
-	
-	// CHECK COUPLING MATRIX
-	/*cout << ScanSystem.GetHost<PRECISION>(0, CouplingMatrix, 0, 0) << " " << endl;
-	cout << endl;
-	cout << ScanSystem.GetHost<PRECISION>(1, CouplingMatrix, 0, 0) << " " << endl;*/
-	
-	
-	
-	
-	
-	
 	// SIMULATION -------------------------------------------------------------
 	
 	ofstream DataFile;
@@ -128,13 +107,10 @@ int main()
 	string       Filename;
 	stringstream StreamFilename;
 	
-	PRECISION Tmp1 = DISTANCE;
-	PRECISION Tmp2 = COUPLINGSTRENGTH;
 	StreamFilename.str("");
 	StreamFilename.precision(0);
 	StreamFilename.setf(ios::fixed);
-	//StreamFilename << "BubbleEnsemble_" << Frequency[0] << "_" << Tmp1 << "_" << Tmp2 << ".txt";
-	StreamFilename << "TestCase_N64_1.txt";
+	StreamFilename << "BubbleEnsemble_N128_f1000.txt";
 	Filename = StreamFilename.str();
 		
 	DataFile.open ( Filename.c_str() );
@@ -145,13 +121,13 @@ int main()
 	
 	ScanSystem.SynchroniseFromHostToDevice(All);
 	// Transients
-	for (int i=0; i<100; i++)
+	for (int i=0; i<512; i++)
 	{
 		ScanSystem.Solve();
 		ScanSystem.InsertSynchronisationPoint();
 		ScanSystem.SynchroniseSolver();
 		
-		//cout << "Transient finished: " << i << endl;
+		cout << "Transient finished: " << i << endl;
 	}
 	
 		ScanSystem.SynchroniseFromDeviceToHost(All);
@@ -159,12 +135,12 @@ int main()
 		ScanSystem.SynchroniseSolver();
 		
 	clock_t SimulationEnd = clock();
-		cout << "Total simulation time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
+		cout << "Total transient time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 	
 		SaveData(ScanSystem, DataFile, NS, UPS, UD);
 		
 	// Save Poincare section
-	/*for (int i=0; i<0; i++)
+	for (int i=0; i<32; i++)
 	{
 		ScanSystem.Solve();
 		ScanSystem.SynchroniseFromDeviceToHost(All);
@@ -174,9 +150,7 @@ int main()
 		SaveData(ScanSystem, DataFile, NS, UPS, UD);
 		
 		cout << "Poincare finished: " << i << endl;
-	}*/
-	
-	
+	}
 	
 	DataFile.close();
 	
@@ -292,24 +266,7 @@ void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiG
 			Solver.SetHost(SystemNumber, TimeDomain, 1, 1.0);
 			
 			for (int i=0; i<NC; i++)
-				Solver.SetHost(SystemNumber, CouplingStrength, i, COUPLINGSTRENGTH);
-			
-			// DUMMY System Parameters ----------------------------------------
-			for (int i=0; i<NSP; i++)
-				Solver.SetHost(SystemNumber, SystemParameters, i, (SystemNumber+1)*10+(i+1));
-			
-			for (int i=0; i<NSA; i++)
-				Solver.SetHost(SystemNumber, SystemAccessories, i, (SystemNumber+1)*10+(i+1));
-			
-			for (int i=0; i<NiSA; i++)
-				Solver.SetHost(SystemNumber, IntegerSystemAccessories, i, (SystemNumber+1)*10+(i+1));
-			
-			for (int i=0; i<NDO; i++)
-				Solver.SetHost(SystemNumber, DenseTime, i, i);
-			
-				Solver.SetHost(SystemNumber, DenseIndex, SystemNumber+1);
-			// ----------------------------------------------------------------
-			
+				Solver.SetHost(SystemNumber, CouplingStrength, i, 1.0);
 			
 			// UNIT SCOPE
 			int UnitNumber = 0;
@@ -357,20 +314,6 @@ void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiG
 				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 19, P5 ); // ZERO
 				Solver.SetHost(SystemNumber, UnitNumber, UnitParameters, 20, P6 );
 				
-				// DUMMY Unit Parameters --------------------------------------
-				for (int i=0; i<NUA; i++)
-					Solver.SetHost(SystemNumber, UnitNumber, UnitAccessories, i, (SystemNumber+1)*100 + (UnitNumber+1)*10 + (i+1));
-				
-				for (int i=0; i<NiUA; i++)
-					Solver.SetHost(SystemNumber, UnitNumber, IntegerUnitAccessories, i, (SystemNumber+1)*100 + (UnitNumber+1)*10 + (i+1));
-				
-				for (int i=0; i<NDO; i++)
-				{
-					Solver.SetHost(SystemNumber, UnitNumber, DenseState, 0, i, i);
-					Solver.SetHost(SystemNumber, UnitNumber, DenseState, 1, i, i);
-				}
-				// ------------------------------------------------------------
-				
 				UnitNumber++;
 			}
 			
@@ -381,14 +324,6 @@ void FillSolverObject(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiG
 	// GLOBAL SCOPE
 	for (int i=0; i<NC; i++)
 		Solver.SetHost(CouplingIndex, i, 1);
-	
-	// DUMMY Global Parameters ------------------------------------
-	for (int i=0; i<NGP; i++)
-		Solver.SetHost(GlobalParameters, i, 5.0+i);
-	
-	for (int i=0; i<NiGP; i++)
-		Solver.SetHost(IntegerGlobalParameters, i, 10.0+i);
-	// ------------------------------------------------------------
 }
 
 void FillCouplingMatrix(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& X, const vector<PRECISION>& Y, const vector<PRECISION>& Z, const vector<PRECISION>& RE)
@@ -404,114 +339,16 @@ void FillCouplingMatrix(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,N
 	{
 		for (int Col=0; Col<N; Col++)
 		{
-			// Full Matrix Storage---------------------------------------------
-			if ( ( CBW == 0 ) && ( CCI == 0 ) )
+			if ( Row != Col )
 			{
-				if ( Row != Col )
-				{
-					Distance = DISTANCE;
-					//Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [mum]
-					Solver.SetHost(0, CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
-					
-					if ( Distance < 100 )
-						cout << Distance << endl;
-					
-					// DUMMY second coupling matrix
-					//Solver.SetHost(1, CouplingMatrix, Row, Col, 1.125);
-				} else
-				{
-					Solver.SetHost(0, CouplingMatrix, Row, Col, 0.0);
-					
-					// DUMMY second coupling matrix
-					//Solver.SetHost(1, CouplingMatrix, Row, Col, 2.5);
-				}
-			}
-			
-			// Diagonal Matrix Storage-----------------------------------------
-			if ( ( CBW > 0 ) && ( CCI == 0 ) )
-			{
-				ModRow = Row;
-				ModCol = Col - Row + CBW;
-				
-				if ( ModCol >= UPS )
-					ModCol = ModCol - UPS;
-				
-				if ( ModCol < 0 )
-					ModCol = ModCol + UPS;
-				
-				if ( ( Row != Col ) && ( ModCol < 2*CBW+1 ) )
-				{
-					Distance = DISTANCE;
-					//Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [mum]
-					Solver.SetHost(0, CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
-					if ( Distance < 100 )
-						cout << Distance << endl;
-					
-					// DUMMY second coupling matrix
-					//Solver.SetHost(1, CouplingMatrix, Row, Col, 1.125);
-				}
-				
-				if ( Row == Col )
-				{
-					Solver.SetHost(0, CouplingMatrix, Row, Col, 0.0);
-					
-					// DUMMY second coupling matrix
-					//Solver.SetHost(1, CouplingMatrix, Row, Col, 2.5);
-				}
-			}
-			
-			// Collapsed Diagonal Matrix Storage-------------------------------
-			if ( CCI == 1 )
-			{
-				ModRow = Row;
-				ModCol = Col - Row + CBW;
-				
-				if ( ModCol >= UPS )
-					ModCol = ModCol - UPS;
-				
-				if ( ModCol < 0 )
-					ModCol = ModCol + UPS;
-				
-				if ( CBW == 0 )
-					ColLimit = UPS;
-				else
-					ColLimit = 2*CBW+1;
-				
-				if ( ( Row != Col ) && ( ModCol < ColLimit ) )
-				{
-					Distance = DISTANCE;
-					//Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [mum]
-					Solver.SetHost(0, CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
-					if ( Distance < 100 )
-						cout << Distance << endl;
-					
-					// DUMMY second coupling matrix
-					//Solver.SetHost(1, CouplingMatrix, Row, Col, 1.125);
-				}
-				
-				if ( Row == Col )
-				{
-					Solver.SetHost(0, CouplingMatrix, Row, Col, 0.0);
-					
-					// DUMMY second coupling matrix
-					//Solver.SetHost(1, CouplingMatrix, Row, Col, 2.5);
-				}
-			}
-			
-			// Original
-			/*if ( Row != Col )
-			{
-				Distance = DISTANCE;
-				//Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [mum]
+				Distance = sqrt( (X[Row]-X[Col])*(X[Row]-X[Col]) + (Y[Row]-Y[Col])*(Y[Row]-Y[Col]) + (Z[Row]-Z[Col])*(Z[Row]-Z[Col]) ) * 1000; // Change units from [mm] to [mum]
 				Solver.SetHost(0, CouplingMatrix, Row, Col, pow(RE[Col],3) / pow(RE[Row],2) / Distance);
 				if ( Distance < 100 )
-					cout << Distance << endl;
+					cout << "Distance smaller than 100 micron: "  << Distance << endl;
 			} else
 			{
 				Solver.SetHost(0, CouplingMatrix, Row, Col, 0.0);
-			}*/
-			
-			//cout << endl;
+			}
 		}
 	}
 }
@@ -577,28 +414,13 @@ void SaveData(ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,Ni
 	DataFile.precision(10);
 	DataFile.flags(ios::scientific);
 	
-	/*for (int sid=0; sid<NS; sid++)
-	{
-		DataFile.width(4); DataFile << sid << ',';
-		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(sid, 0, UnitParameters, 15) << ',';
-		for (int uid=0; uid<UPS; uid++)
-		{
-			for (int cmp=0; cmp<UD; cmp++)
-			{
-				DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(sid, uid, ActualState, cmp) << ',';
-			}
-		}
-		DataFile << '\n';
-	}*/
-	
-	// Speciality for 2 bubbles
 	for (int sid=0; sid<NS; sid++)
 	{
 		DataFile.width(4); DataFile << sid << ',';
 		DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(sid, 0, UnitParameters, 15) << ',';
 		for (int uid=0; uid<UPS; uid++)
 		{
-			for (int cmp=0; cmp<1; cmp++)
+			for (int cmp=0; cmp<UD; cmp++)
 			{
 				DataFile.width(Width); DataFile << Solver.GetHost<PRECISION>(sid, uid, ActualState, cmp) << ',';
 			}

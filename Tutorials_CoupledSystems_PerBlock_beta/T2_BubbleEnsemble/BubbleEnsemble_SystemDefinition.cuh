@@ -5,7 +5,8 @@
 
 // SYSTEM
 template <class Precision>
-__device__ void CoupledSystems_PerBlock_OdeFunction(\
+__forceinline__ __device__ void CoupledSystems_PerBlock_OdeFunction(\
+			int sid, int uid, \
 			Precision*    F, Precision*     X, Precision     T,             \
 			Precision* uPAR, Precision*  sPAR, Precision* gPAR, int* igPAR, \
 			Precision* uACC,       int* iuACC, Precision* sACC, int* isACC, \
@@ -34,10 +35,63 @@ __device__ void CoupledSystems_PerBlock_OdeFunction(\
 	
 	CPT[0] = -(2*X[0]*X[1]*X[1] + X[0]*X[0]*N*rD); // i=0...NC
 	CPF[0] = rD;                                   // i=0...NC
+}
+
+
+// EVENTS
+template <class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_EventFunction(\
+			int sid, int uid, Precision* EF, \
+			Precision     T, Precision     dT, Precision*   TD, Precision*     X, \
+			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
+			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
+{	
 	
-	// DUMMY (ONLY FOR TESTING PURPOSES)
-	//CPT[1] = 0.0;
-	//CPF[1] = 0.0;
+}
+
+template <class Precision> // ActionAfterSuccessfulTimeStep called first!
+__forceinline__ __device__ void CoupledSystems_PerBlock_ActionAfterEventDetection(\
+			int sid, int uid, int IDX, int& UDT, \
+			Precision&    T, Precision&    dT, Precision*   TD, Precision*     X, \
+			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
+			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
+{	
+	
+}
+
+
+// ACCESSORIES
+template <class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_ActionAfterSuccessfulTimeStep(\
+			int sid, int uid, int& UDT, \
+			Precision&    T, Precision&    dT, Precision*   TD, Precision*     X, \
+			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
+			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
+{
+	
+}
+
+template <class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_Initialization(\
+			int sid, int uid, int& DOIDX, \
+			Precision&    T, Precision&    dT, Precision*   TD, Precision*     X, \
+			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
+			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
+{
+	if ( uid == 0 )
+	{
+		T = TD[0]; // Reset the starting point of the simulation from the lower limit of the time domain
+	}
+}
+
+template <class Precision>
+__forceinline__ __device__ void CoupledSystems_PerBlock_Finalization(\
+			int sid, int uid, int& DOIDX, \
+			Precision&    T, Precision&    dT, Precision*   TD, Precision*     X, \
+			Precision* uPAR, Precision*  sPAR, Precision* gPAR,       int* igPAR, \
+			Precision* uACC,       int* iuACC, Precision* sACC,       int* isACC)
+{
+	
 }
 
 #endif
