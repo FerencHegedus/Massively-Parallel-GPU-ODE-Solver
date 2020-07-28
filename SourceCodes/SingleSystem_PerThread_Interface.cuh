@@ -1195,7 +1195,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
     }
 	
 	std::ofstream DataFile;
-	std::string FileName = "tid_" + std::to_string(ThreadID) + ".txt";
+	std::string FileName = "DenseOutput_" + std::to_string(ThreadID) + ".txt";
 	DataFile.open ( FileName.c_str() );
 	
 	int Width = 18;
