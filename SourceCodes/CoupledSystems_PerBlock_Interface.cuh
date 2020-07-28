@@ -223,7 +223,7 @@ class ProblemSolver
 		template <typename T> void SetHost(int, ListOfVariables, int, T);           // System scope and dense time
 		template <typename T> void SetHost(ListOfVariables, int, T);                // Global scope
 		template <typename T> void SetHost(int, ListOfVariables, int, int, T);      // Coupling matrix
-		template <typename T> void SetHost(int, ListOfVariables, T);                // Dense index
+		template <typename T> void SetHost(int, ListOfVariables, T);                // Dense index and actual time
 		template <typename T> void SetHost(int, int, ListOfVariables, int, int, T); // Dense state
 		
 		void SynchroniseFromHostToDevice(ListOfVariables);
@@ -233,7 +233,7 @@ class ProblemSolver
 		template <typename T> T GetHost(int, ListOfVariables, int);           // System scope and dense time
 		template <typename T> T GetHost(ListOfVariables, int);                // Global scope
 		template <typename T> T GetHost(int, ListOfVariables, int, int);      // Coupling matrix
-		template <typename T> T GetHost(int, ListOfVariables);                // Dense index
+		template <typename T> T GetHost(int, ListOfVariables);                // Dense index and actual time
 		template <typename T> T GetHost(int, int, ListOfVariables, int, int); // Dense state
 		
 		void Print(ListOfVariables);      // Unit, system and global scope
@@ -924,11 +924,6 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 			h_TimeDomain[GlobalMemoryID] = (Precision)Value;
 			break;
 		
-		case ActualTime:
-			BoundCheck("SetHost", "ActualTime", SerialNumber, 0, 0);
-			h_ActualTime[GlobalMemoryID] = (Precision)Value;
-			break;
-		
 		case SystemParameters:
 			BoundCheck("SetHost", "SystemParameters", SerialNumber, 0, NSP-1);
 			h_SystemParameters[GlobalMemoryID] = (Precision)Value;
@@ -1084,7 +1079,7 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 	}
 }
 
-// SETHOST, Dense index
+// SETHOST, Dense index and actual time
 template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
 void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::SetHost(int SystemNumber, ListOfVariables Variable, T Value)
@@ -1097,6 +1092,10 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 	{
 		case DenseIndex:
 			h_DenseOutputIndex[GlobalMemoryID] = (int)Value;
+			break;
+		
+		case ActualTime:
+			h_ActualTime[GlobalMemoryID] = (Precision)Value;
 			break;
 		
 		default:
@@ -1390,10 +1389,6 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 			BoundCheck("GetHost", "TimeDomain", SerialNumber, 0, 1);
 			return (T)h_TimeDomain[GlobalMemoryID];
 		
-		case ActualTime:
-			BoundCheck("GetHost", "ActualTime", SerialNumber, 0, 0);
-			return (T)h_ActualTime[GlobalMemoryID];
-		
 		case SystemParameters:
 			BoundCheck("GetHost", "SystemParameters", SerialNumber, 0, NSP-1);
 			return (T)h_SystemParameters[GlobalMemoryID];
@@ -1475,7 +1470,7 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 	}
 }
 
-// GETHOST, Dense index
+// GETHOST, Dense index and actual time
 template <int NS, int UPS, int UD, int TPB, int SPB, int NC, int CBW, int CCI, int NUP, int NSP, int NGP, int NiGP, int NUA, int NiUA, int NSA, int NiSA, int NE, int NDO, Algorithms Algorithm, class Precision>
 template <typename T>
 T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,NE,NDO,Algorithm,Precision>::GetHost(int SystemNumber, ListOfVariables Variable)
@@ -1488,6 +1483,9 @@ T ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,NiSA,
 	{
 		case DenseIndex:
 			return (T)h_DenseOutputIndex[GlobalMemoryID];
+		
+		case ActualTime:
+			return (T)h_ActualTime[GlobalMemoryID];
 		
 		default:
 			std::cerr << "ERROR: In solver member function GetHost!" << std::endl;

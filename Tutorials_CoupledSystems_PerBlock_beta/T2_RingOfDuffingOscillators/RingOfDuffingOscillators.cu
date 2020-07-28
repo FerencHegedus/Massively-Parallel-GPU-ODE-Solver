@@ -115,7 +115,7 @@ int main()
 		DataFile << "SID: " << fixed << sid;
 		DataFile << ", Ndt: " << ScanSystem.GetHost<int>(sid, IntegerSystemAccessories, 0);
 		DataFile << scientific;
-		DataFile << ", t: "   << ScanSystem.GetHost<PRECISION>(sid, ActualTime, 0);
+		DataFile << ", t: "   << ScanSystem.GetHost<PRECISION>(sid, ActualTime);
 		DataFile << ", dtmin: " << ScanSystem.GetHost<PRECISION>(sid, SystemAccessories, 0);
 		DataFile << ", dtmax: " << ScanSystem.GetHost<PRECISION>(sid, SystemAccessories, 1) << endl;
 		DataFile << " Initial conditions:";
