@@ -71,7 +71,7 @@ int main()
 	
 	Logspace(Frequency, 1000.0, 2000.0, NumberOfFrequency);  // kHz
 	Linspace(Amplitude,   0.0,    5.0, NumberOfAmplitude);  // bar
-	Random(BubbleSize,    4.0,    4.0, UPS, 10001); // micron
+	Random(BubbleSize,    3.0,    8.0, UPS, 10001); // micron
 	Gauss(PositionX,      0.0,   10.0, UPS); // mm
 	Gauss(PositionY,      0.0,   10.0, UPS); // mm
 	Gauss(PositionZ,      0.0,   10.0, UPS); // mm
