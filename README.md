@@ -27,9 +27,7 @@ Coupled Systems Per-Block v1.0:
 
 ### February 14, 2020.
 #### Single System Per-Thread v3.0:
-* Massive performance improvements.
-* The introduced template metaprogramming technique allowed us to produce a highly optimised code.
-* The average seep-up is 3x, while for low dimensional systems, it can be even an order of magnitude.
+* Massive performance improvements. The introduced template metaprogramming technique allowed us to produce a highly optimised code. The average seep-up is 3x, while for low dimensional systems, it can be even an order of magnitude.
 
 ### October 10, 2019.
 #### Single System Per-Thread v2.1:
