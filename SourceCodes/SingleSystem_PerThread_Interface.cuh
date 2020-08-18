@@ -766,6 +766,7 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 			break;
 		
 		case DenseIndex:
+			BoundCheck("SetHost", "DenseIndex-Value", (int)Value, 0, NDO-1 );
 			h_DenseOutputIndex[idx] = (int)Value;
 			break;
 		

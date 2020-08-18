@@ -1091,6 +1091,7 @@ void ProblemSolver<NS,UPS,UD,TPB,SPB,NC,CBW,CCI,NUP,NSP,NGP,NiGP,NUA,NiUA,NSA,Ni
 	switch (Variable)
 	{
 		case DenseIndex:
+			BoundCheck("SetHost", "DenseIndex-Value", (int)Value, 0, NDO-1 );
 			h_DenseOutputIndex[GlobalMemoryID] = (int)Value;
 			break;
 		

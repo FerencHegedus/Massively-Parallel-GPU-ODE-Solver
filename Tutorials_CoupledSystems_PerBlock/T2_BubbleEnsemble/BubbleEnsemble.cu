@@ -8,7 +8,6 @@
 #include <ctime>
 #include <random>
 
-#include "MPGOS_Overloaded_MathFunction.cuh"
 #include "BubbleEnsemble_SystemDefinition.cuh"
 #include "CoupledSystems_PerBlock_Interface.cuh"
 
