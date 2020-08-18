@@ -17,7 +17,7 @@ Single System Per-Thread v3.1:
 * Improved/reworked manual, e.g., a more detailed installation guide for Windows users.
 * Inclusion of the batch file make.bat to simplify the compilation process on Windows.
 * A new tutorial (Tutorial 5) is added to test an example having instances with very large time scale differences. The performance curve of MPGOS is compared with program packages odeint (C++) and DifferentialEquations.jl (Julia). MPGOS is superior over these packages.
-* Tutorial 6 (impact dynamics) is also extended with performance curves, see the previous point. In this case, MPGOS is the only program package that is capable of handling systems with impact dynamics. Therefore, performance comparisons were made only with CPU versions of odeint and DifferentialEquations.jl.
+* Tutorial 6 (impact dynamics) is also extended with performance curves, see the previous point. In this case, MPGOS is the only program package that is capable of handling systems with impact dynamics (on GPUs). Therefore, performance comparisons were made only with CPU versions of odeint and DifferentialEquations.jl.
 * Minor changes: Clear separation of the TimeDomain and the ActualState variables.
 
 Coupled Systems Per-Block v1.0:
