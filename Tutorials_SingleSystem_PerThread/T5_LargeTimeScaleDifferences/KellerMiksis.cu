@@ -20,7 +20,7 @@ const int NumberOfFrequency = 46080;
 #define PRECISION double  // float, double
 const int NT   = NumberOfFrequency; // NumberOfThreads
 const int SD   = 2;     // SystemDimension
-const int NCP  = 9;    // NumberOfControlParameters
+const int NCP  = 13;    // NumberOfControlParameters
 const int NSP  = 0;     // NumberOfSharedParameters
 const int NISP = 0;     // NumberOfIntegerSharedParameters
 const int NE   = 0;     // NumberOfEvents
@@ -52,10 +52,10 @@ int main()
 	ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION> ScanKellerMiksis(SelectedDevice);
 	
 	ScanKellerMiksis.SolverOption(ThreadsPerBlock, BlockSize);
-	ScanKellerMiksis.SolverOption(RelativeTolerance, 0, 1.0e-10);
-	ScanKellerMiksis.SolverOption(RelativeTolerance, 1, 1.0e-10);
-	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 0, 1.0e-10);
-	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 1, 1.0e-10);
+	ScanKellerMiksis.SolverOption(RelativeTolerance, 0, 1e-10);
+	ScanKellerMiksis.SolverOption(RelativeTolerance, 1, 1e-10);
+	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 0, 1e-10);
+	ScanKellerMiksis.SolverOption(AbsoluteTolerance, 1, 1e-10);
 	
 	
 	// Simulation
@@ -153,10 +153,11 @@ void Logspace(vector<PRECISION>& x, PRECISION B, PRECISION E, int N)
 void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PRECISION>& Solver, const vector<PRECISION>& Values, int NumberOfThreads)
 {
 	// Declaration of physical control parameters
-	PRECISION P2; // frequency          [kHz]
-	
-	// Declaration of constant parameters
-	PRECISION P1 =  1.5; // pressure amplitude   [bar]
+	PRECISION P1 = 1.5; // pressure amplitude1 [bar]
+	PRECISION P2;       // frequency1          [kHz]
+	PRECISION P3 = 0.0; // pressure amplitude2 [bar]
+	PRECISION P4 = 0.0; // frequency2          [kHz]
+	PRECISION P5 =  0.0; // phase shift          [-]
 	PRECISION P6 = 10.0; // equilibrium radius   [mum]
 	PRECISION P7 =  1.0; // ambient pressure     [bar]
 	PRECISION P9 =  1.4; // polytrophic exponent [-]
@@ -171,8 +172,10 @@ void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PREC
 	// Auxiliary variables
 	PRECISION Pinf;
 	PRECISION PA1;
+	PRECISION PA2;
 	PRECISION RE;
 	PRECISION f1;
+	PRECISION f2;
 	
 	for (int i=0; i<NumberOfThreads; i++)
 	{	
@@ -189,20 +192,26 @@ void FillSolverObject(ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,SOLVER,PREC
 		// Scaling of physical parameters to SI
 		Pinf = P7 * 1.0e5;
 		PA1  = P1 * 1.0e5;
+		PA2  = P3 * 1.0e5;
 		RE   = P6 / 1.0e6;
 		
 		// Scale to angular frequency
 		f1   = 2.0*PI*(P2*1000);
-					
+		f2   = 2.0*PI*(P4*1000);
+		
 		// System coefficients and other, auxiliary parameters
-		Solver.SetHost(i, ControlParameters, 0, (2.0*ST/RE + Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
-		Solver.SetHost(i, ControlParameters, 1, (1.0-3.0*P9) * (2*ST/RE + Pinf - Pv) * (2.0*PI/RE/f1) / CL/Rho );
-		Solver.SetHost(i, ControlParameters, 2, (Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
-		Solver.SetHost(i, ControlParameters, 3, (2.0*ST/RE/Rho) * pow(2.0*PI/RE/f1, 2.0) );
-		Solver.SetHost(i, ControlParameters, 4, (4.0*Vis/Rho/pow(RE,2.0)) * (2.0*PI/f1) );
-		Solver.SetHost(i, ControlParameters, 5, PA1 * pow(2.0*PI/RE/f1, 2.0) / Rho );
-		Solver.SetHost(i, ControlParameters, 6, (RE*f1*PA1/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) );
-		Solver.SetHost(i, ControlParameters, 7, RE*f1/(2.0*PI)/CL );
-		Solver.SetHost(i, ControlParameters, 8, 3.0*P9 );
+		Solver.SetHost(i, ControlParameters,  0, (2.0*ST/RE + Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
+		Solver.SetHost(i, ControlParameters,  1, (1.0-3.0*P9) * (2*ST/RE + Pinf - Pv) * (2.0*PI/RE/f1) / CL/Rho );
+		Solver.SetHost(i, ControlParameters,  2, (Pinf - Pv) * pow(2.0*PI/RE/f1, 2.0) / Rho );
+		Solver.SetHost(i, ControlParameters,  3, (2.0*ST/RE/Rho) * pow(2.0*PI/RE/f1, 2.0) );
+		Solver.SetHost(i, ControlParameters,  4, (4.0*Vis/Rho/pow(RE,2.0)) * (2.0*PI/f1) );
+		Solver.SetHost(i, ControlParameters,  5, PA1 * pow(2.0*PI/RE/f1, 2.0) / Rho );
+		Solver.SetHost(i, ControlParameters,  6, PA2 * pow(2.0*PI/RE/f1, 2.0) / Rho );
+		Solver.SetHost(i, ControlParameters,  7, (RE*f1*PA1/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) );
+		Solver.SetHost(i, ControlParameters,  8, (RE*f2*PA2/Rho/CL) * pow(2.0*PI/RE/f1, 2.0) );
+		Solver.SetHost(i, ControlParameters,  9, RE*f1/(2.0*PI)/CL );
+		Solver.SetHost(i, ControlParameters, 10, 3.0*P9 );
+		Solver.SetHost(i, ControlParameters, 11, P4/P2 );
+		Solver.SetHost(i, ControlParameters, 12, P5 );
 	}
 }

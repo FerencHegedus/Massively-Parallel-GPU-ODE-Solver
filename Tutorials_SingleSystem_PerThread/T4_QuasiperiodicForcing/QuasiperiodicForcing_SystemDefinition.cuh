@@ -28,7 +28,6 @@ __forceinline__ __device__ void PerThread_OdeFunction(\
 	D = X[0] - cPAR[9]*X[0]*X[1] + cPAR[4]*cPAR[9];
 	rD = 1.0/D;
 	
-	
 	F[0] = X[1];
 	F[1] = N*rD;
 }
