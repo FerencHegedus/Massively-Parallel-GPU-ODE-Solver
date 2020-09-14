@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <fstream>
 #include <string>
+#include <typeinfo>
 #include <cuda_runtime.h>
 
 #define gpuErrCHK(call)                                                                          \
