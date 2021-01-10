@@ -21,6 +21,18 @@
 	}                                                                                            \
 }
 
+#define __MPGOS_PERTHREAD_NT 1
+#define __MPGOS_PERTHREAD_SD 1
+#define __MPGOS_PERTHREAD_NCP 0
+#define __MPGOS_PERTHREAD_NSP 0
+#define __MPGOS_PERTHREAD_NISP 0
+#define __MPGOS_PERTHREAD_NE 0
+#define __MPGOS_PERTHREAD_NA 0
+#define __MPGOS_PERTHREAD_NIA 0
+#define __MPGOS_PERTHREAD_NDO 0
+#define __MPGOS_PERTHREAD_ALGORITHM RK4
+#define __MPGOS_PERTHREAD_PRECISION double
+
 template <class DataType>
 DataType* AllocateHostMemory(int);
 
@@ -76,24 +88,23 @@ struct Struct_ThreadConfiguration
 	int NumberOfActiveThreads;
 };
 
-template <class Precision>
 struct Struct_GlobalVariables
 {
-	Precision* d_TimeDomain;
-	Precision* d_ActualState;
-	Precision* d_ActualTime;
-	Precision* d_ControlParameters;
-	Precision* d_SharedParameters;
+	__MPGOS_PERTHREAD_PRECISION* d_TimeDomain;
+	__MPGOS_PERTHREAD_PRECISION* d_ActualState;
+	__MPGOS_PERTHREAD_PRECISION* d_ActualTime;
+	__MPGOS_PERTHREAD_PRECISION* d_ControlParameters;
+	__MPGOS_PERTHREAD_PRECISION* d_SharedParameters;
 	int*       d_IntegerSharedParameters;
-	Precision* d_Accessories;
+	__MPGOS_PERTHREAD_PRECISION* d_Accessories;
 	int*       d_IntegerAccessories;
-	Precision* d_RelativeTolerance;
-	Precision* d_AbsoluteTolerance;
-	Precision* d_EventTolerance;
+	__MPGOS_PERTHREAD_PRECISION* d_RelativeTolerance;
+	__MPGOS_PERTHREAD_PRECISION* d_AbsoluteTolerance;
+	__MPGOS_PERTHREAD_PRECISION* d_EventTolerance;
 	int*       d_EventDirection;
 	int*       d_DenseOutputIndex;
-	Precision* d_DenseOutputTimeInstances;
-	Precision* d_DenseOutputStates;
+	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputTimeInstances;
+	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputStates;
 };
 
 struct Struct_SharedMemoryUsage
@@ -102,19 +113,18 @@ struct Struct_SharedMemoryUsage
 	int IsAdaptive;
 };
 
-template <class Precision>
+
 struct Struct_SolverOptions
 {
-	Precision InitialTimeStep;
-	Precision MaximumTimeStep;
-	Precision MinimumTimeStep;
-	Precision TimeStepGrowLimit;
-	Precision TimeStepShrinkLimit;
+	__MPGOS_PERTHREAD_PRECISION InitialTimeStep;
+	__MPGOS_PERTHREAD_PRECISION MaximumTimeStep;
+	__MPGOS_PERTHREAD_PRECISION MinimumTimeStep;
+	__MPGOS_PERTHREAD_PRECISION TimeStepGrowLimit;
+	__MPGOS_PERTHREAD_PRECISION TimeStepShrinkLimit;
 	int       DenseOutputSaveFrequency;
-	Precision DenseOutputMinimumTimeStep;
+	__MPGOS_PERTHREAD_PRECISION DenseOutputMinimumTimeStep;
 };
 
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
 class ProblemSolver
 {
     private:
@@ -123,15 +133,15 @@ class ProblemSolver
 		int Revision;
 		cudaStream_t Stream;
 		cudaEvent_t Event;
-		
+
 		// Thread management
 		Struct_ThreadConfiguration ThreadConfiguration;
-		
+
 		// Global memory management
 		size_t GlobalMemoryRequired;
 		size_t GlobalMemoryFree;
 		size_t GlobalMemoryTotal;
-		
+
 		long SizeOfTimeDomain;
 		long SizeOfActualState;
 		long SizeOfActualTime;
@@ -144,64 +154,64 @@ class ProblemSolver
 		long SizeOfDenseOutputIndex;
 		long SizeOfDenseOutputTimeInstances;
 		long SizeOfDenseOutputStates;
-		
-		Precision* h_TimeDomain;
-		Precision* h_ActualState;
-		Precision* h_ActualTime;
-		Precision* h_ControlParameters;
-		Precision* h_SharedParameters;
+
+		__MPGOS_PERTHREAD_PRECISION* h_TimeDomain;
+		__MPGOS_PERTHREAD_PRECISION* h_ActualState;
+		__MPGOS_PERTHREAD_PRECISION* h_ActualTime;
+		__MPGOS_PERTHREAD_PRECISION* h_ControlParameters;
+		__MPGOS_PERTHREAD_PRECISION* h_SharedParameters;
 		int*       h_IntegerSharedParameters;
-		Precision* h_Accessories;
+		__MPGOS_PERTHREAD_PRECISION* h_Accessories;
 		int*       h_IntegerAccessories;
 		int*       h_DenseOutputIndex;
-		Precision* h_DenseOutputTimeInstances;
-		Precision* h_DenseOutputStates;
-		
-		Struct_GlobalVariables<Precision> GlobalVariables;
-		
+		__MPGOS_PERTHREAD_PRECISION* h_DenseOutputTimeInstances;
+		__MPGOS_PERTHREAD_PRECISION* h_DenseOutputStates;
+
+		Struct_GlobalVariables GlobalVariables;
+
 		// Shared memory management
 		Struct_SharedMemoryUsage SharedMemoryUsage;
-		
+
 		size_t SharedMemoryRequiredSharedVariables;
 		size_t SharedMemoryRequiredUpperLimit;
 		size_t SharedMemoryRequired;
 		size_t SharedMemoryAvailable;
 		size_t DynamicSharedMemoryRequired;
 		size_t StaticSharedMemoryRequired;
-		
+
 		// Default solver options
-		Struct_SolverOptions<Precision> SolverOptions;
-		
+		Struct_SolverOptions SolverOptions;
+
 		// Auxiliary member functions
 		void BoundCheck(std::string, std::string, int, int, int);
 		void SharedMemoryCheck();
-		template <typename T> void WriteToFileGeneral(std::string, int, int, T*);
-		
+		void WriteToFileGeneral(std::string, int, int, __MPGOS_PERTHREAD_PRECISION*);
+
 	public:
 		ProblemSolver(int);
 		~ProblemSolver();
-		
-		template <typename T> void SolverOption(ListOfSolverOptions, T);
-		template <typename T> void SolverOption(ListOfSolverOptions, int, T);
-		
-		template <typename T> void SetHost(int, ListOfVariables, int, T);      // Unit scope and DenseTime
-		template <typename T> void SetHost(int, ListOfVariables, T);           // System scope
-		template <typename T> void SetHost(ListOfVariables, int, T);           // Global scope
-		template <typename T> void SetHost(int, ListOfVariables, int, int, T); // DenseState
-		
+
+		void SolverOption(ListOfSolverOptions, __MPGOS_PERTHREAD_PRECISION);
+		void SolverOption(ListOfSolverOptions, int, __MPGOS_PERTHREAD_PRECISION);
+
+		void SetHost(int, ListOfVariables, int, __MPGOS_PERTHREAD_PRECISION);      // Unit scope and DenseTime
+		void SetHost(int, ListOfVariables, __MPGOS_PERTHREAD_PRECISION);           // System scope
+		void SetHost(ListOfVariables, int, __MPGOS_PERTHREAD_PRECISION);           // Global scope
+		void SetHost(int, ListOfVariables, int, int, __MPGOS_PERTHREAD_PRECISION); // DenseState
+
 		void SynchroniseFromHostToDevice(ListOfVariables);
 		void SynchroniseFromDeviceToHost(ListOfVariables);
-		
-		template <typename T> T GetHost(int, ListOfVariables, int);            // Unit scope and DenseTime
-		template <typename T> T GetHost(int, ListOfVariables);                 // System scope
-		template <typename T> T GetHost(ListOfVariables, int);                 // Global scope
-		template <typename T> T GetHost(int, ListOfVariables, int, int);       // DenseState
-		
+
+		__MPGOS_PERTHREAD_PRECISION GetHost(int, ListOfVariables, int);            // Unit scope and DenseTime
+		__MPGOS_PERTHREAD_PRECISION GetHost(int, ListOfVariables);                 // System scope
+		__MPGOS_PERTHREAD_PRECISION GetHost(ListOfVariables, int);                 // Global scope
+		__MPGOS_PERTHREAD_PRECISION GetHost(int, ListOfVariables, int, int);       // DenseState
+
 		void Print(ListOfVariables);      // General
 		void Print(ListOfVariables, int); // DenseOutput
-		
+
 		void Solve();
-		
+
 		void SynchroniseDevice();
 		void InsertSynchronisationPoint();
 		void SynchroniseSolver();
@@ -256,16 +266,16 @@ void ListCUDADevices()
 int SelectDeviceByClosestRevision(int MajorRevision, int MinorRevision)
 {
 	int SelectedDevice;
-	
+
 	cudaDeviceProp SelectedDeviceProperties;
 	memset( &SelectedDeviceProperties, 0, sizeof(cudaDeviceProp) );
-	
+
 	SelectedDeviceProperties.major = MajorRevision;
 	SelectedDeviceProperties.minor = MinorRevision;
 		cudaChooseDevice( &SelectedDevice, &SelectedDeviceProperties );
-	
+
 	std::cout << "CUDA Device Number Closest to Revision " << SelectedDeviceProperties.major << "." << SelectedDeviceProperties.minor << ": " << SelectedDevice << std::endl << std::endl << std::endl;
-	
+
 	return SelectedDevice;
 }
 
@@ -273,7 +283,7 @@ void PrintPropertiesOfSpecificDevice(int SelectedDevice)
 {
 	cudaDeviceProp SelectedDeviceProperties;
 	cudaGetDeviceProperties(&SelectedDeviceProperties, SelectedDevice);
-	
+
 	std::cout << "Selected device number: " << SelectedDevice << std::endl;
 	std::cout << "Selected device name:   " << SelectedDeviceProperties.name << std::endl;
 	std::cout << "--------------------------------------" << std::endl;
@@ -299,73 +309,72 @@ void PrintPropertiesOfSpecificDevice(int SelectedDevice)
 	std::cout << "Concurrent memory copy:     " << SelectedDeviceProperties.deviceOverlap << std::endl;
 	std::cout << "Execution multiple kernels: " << SelectedDeviceProperties.concurrentKernels << std::endl;
 	std::cout << "ECC support turned on:      " << SelectedDeviceProperties.ECCEnabled << std::endl << std::endl;
-	
+
 	std::cout << std::endl;
 }
 
 // --- PROBLEM SOLVER OBJECT ---
 
 // CONSTRUCTOR
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolver(int AssociatedDevice)
+ProblemSolver(int AssociatedDevice)
 {
-    std::cout << "---------------------------" << std::endl;
+  std::cout << "---------------------------" << std::endl;
 	std::cout << "Creating a SolverObject ..." << std::endl;
 	std::cout << "---------------------------" << std::endl << std::endl;
-	
-	
+
+
 	// ARCHITECTURE SPECIFIC SETUP
 	std::cout << "ARCHITECTURE SPECIFIC SETUP:" << std::endl;
-	
+
 	Device = AssociatedDevice;
 	gpuErrCHK( cudaSetDevice(Device) );
 	gpuErrCHK( cudaStreamCreate(&Stream) );
 	gpuErrCHK( cudaEventCreate(&Event) );
-	
+
 	cudaDeviceProp SelectedDeviceProperties;
 	cudaGetDeviceProperties(&SelectedDeviceProperties, Device);
-	
+
 	Revision = SelectedDeviceProperties.major*10 + SelectedDeviceProperties.minor;
 	std::cout << "   Compute capability of the selected device is: " << SelectedDeviceProperties.major << "." << SelectedDeviceProperties.minor << std::endl;
 	std::cout << "   It is advised to set a compiler option falg:  " << "--gpu-architecture=sm_" << Revision << std::endl << std::endl;
-	
-	if ( typeid(Precision) == typeid(double) )
+
+	if ( typeid(__MPGOS_PERTHREAD_PRECISION) == typeid(double) )
 		gpuErrCHK( cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte) );
-	
-	if ( typeid(Precision) == typeid(float) )
+
+	if ( typeid(__MPGOS_PERTHREAD_PRECISION) == typeid(float) )
 		gpuErrCHK( cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeFourByte) );
-	
-	
+
+
 	// THREAD MANAGEMENT
 	std::cout << "THREAD MANAGEMENT:" << std::endl;
-	
-	ThreadConfiguration.NumberOfActiveThreads = NT;
+
+	ThreadConfiguration.NumberOfActiveThreads = __MPGOS_PERTHREAD_NT;
 	ThreadConfiguration.BlockSize             = SelectedDeviceProperties.warpSize; // Default option ThreadsPerBlock is the warp size
-	ThreadConfiguration.GridSize              = NT/ThreadConfiguration.BlockSize + (NT % ThreadConfiguration.BlockSize == 0 ? 0:1);
-	
-	std::cout << "   Total number of threads:            " << std::setw(6) << NT << std::endl;
-	std::cout << "   Active threads:                     " << std::setw(6) << NT                            << " (default: total number of threads) -> SolverOption: ActiveNumberOfThreads" << std::endl;
+	ThreadConfiguration.GridSize              = __MPGOS_PERTHREAD_NT/ThreadConfiguration.BlockSize + (__MPGOS_PERTHREAD_NT % ThreadConfiguration.BlockSize == 0 ? 0:1);
+
+	std::cout << "   Total number of threads:            " << std::setw(6) << __MPGOS_PERTHREAD_NT << std::endl;
+	std::cout << "   Active threads:                     " << std::setw(6) << __MPGOS_PERTHREAD_NT                            << " (default: total number of threads) -> SolverOption: ActiveNumberOfThreads" << std::endl;
 	std::cout << "   BlockSize (threads per block):      " << std::setw(6) << ThreadConfiguration.BlockSize << " (default: warp size)               -> SolverOption: ThreadsPerBlock" << std::endl;
 	std::cout << "   GridSize (total number of blocks):  " << std::setw(6) << ThreadConfiguration.GridSize << std::endl << std::endl;
-	
-	
+
+
 	// GLOBAL MEMORY MANAGEMENT
 	std::cout << "GLOBAL MEMORY MANAGEMENT:" << std::endl;
-	
-	SizeOfTimeDomain               = NT * 2;
-	SizeOfActualState              = NT * SD;
-	SizeOfActualTime               = NT;
-	SizeOfControlParameters        = NT * NCP;
-	SizeOfSharedParameters         = NSP;
-	SizeOfIntegerSharedParameters  = NT * NISP;
-	SizeOfAccessories              = NT * NA;
-	SizeOfIntegerAccessories       = NT * NIA;
-	SizeOfEvents                   = NT * NE;
-	SizeOfDenseOutputIndex         = NT;
-	SizeOfDenseOutputTimeInstances = NT * NDO;
-	SizeOfDenseOutputStates        = NT * SD * NDO;
-	
-	GlobalMemoryRequired = sizeof(Precision) * ( SizeOfTimeDomain + \
+
+	SizeOfTimeDomain               = __MPGOS_PERTHREAD_NT * 2;
+	SizeOfActualState              = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_SD;
+	SizeOfActualTime               = __MPGOS_PERTHREAD_NT;
+	SizeOfControlParameters        = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NCP;
+	SizeOfSharedParameters         = __MPGOS_PERTHREAD_NSP;
+	SizeOfIntegerSharedParameters  = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NISP;
+	SizeOfAccessories              = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NA;
+	SizeOfIntegerAccessories       = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NIA;
+	SizeOfEvents                   = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NE;
+	SizeOfDenseOutputIndex         = __MPGOS_PERTHREAD_NT;
+	SizeOfDenseOutputTimeInstances = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_ND0;
+	SizeOfDenseOutputStates        = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_SD * __MPGOS_PERTHREAD_ND0;
+
+	GlobalMemoryRequired = sizeof(__MPGOS_PERTHREAD_PRECISION) * ( SizeOfTimeDomain + \
 												 SizeOfActualState + \
 												 SizeOfActualTime + \
 												 SizeOfControlParameters + \
@@ -373,18 +382,18 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 												 SizeOfAccessories + \
 												 SizeOfDenseOutputTimeInstances + \
 												 SizeOfDenseOutputStates + \
-												 2*SD + NE) + \
+												 2*__MPGOS_PERTHREAD_SD + __MPGOS_PERTHREAD_NE) + \
 						   sizeof(int) * ( SizeOfIntegerSharedParameters + \
 										   SizeOfIntegerAccessories + \
 										   SizeOfDenseOutputIndex + \
-										   NE);
-	
+										   __MPGOS_PERTHREAD_NE);
+
 	cudaMemGetInfo( &GlobalMemoryFree, &GlobalMemoryTotal );
 	std::cout << "   Required global memory:       " << GlobalMemoryRequired/1024/1024 << " Mb" << std::endl;
 	std::cout << "   Available free global memory: " << GlobalMemoryFree/1024/1024     << " Mb" << std::endl;
 	std::cout << "   Total global memory:          " << GlobalMemoryTotal/1024/1024    << " Mb" << std::endl;
 	std::cout << "   Keep in mind that the real global memory usage can be higher according to the amount of register spilling!" << std::endl;
-	
+
 	if ( GlobalMemoryRequired >= GlobalMemoryFree )
 	{
         std::cout << std::endl;
@@ -395,40 +404,40 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
         exit(EXIT_FAILURE);
     }
 	std::cout << std::endl;
-	
-	h_TimeDomain               = AllocateHostPinnedMemory<Precision>( SizeOfTimeDomain );
-	h_ActualState              = AllocateHostPinnedMemory<Precision>( SizeOfActualState );
-	h_ActualTime               = AllocateHostPinnedMemory<Precision>( SizeOfActualTime );
-	h_ControlParameters        = AllocateHostPinnedMemory<Precision>( SizeOfControlParameters );
-	h_SharedParameters         = AllocateHostPinnedMemory<Precision>( SizeOfSharedParameters );
+
+	h_TimeDomain               = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfTimeDomain );
+	h_ActualState              = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfActualState );
+	h_ActualTime               = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfActualTime );
+	h_ControlParameters        = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfControlParameters );
+	h_SharedParameters         = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfSharedParameters );
 	h_IntegerSharedParameters  = AllocateHostPinnedMemory<int>( SizeOfIntegerSharedParameters );
-	h_Accessories              = AllocateHostPinnedMemory<Precision>( SizeOfAccessories );
+	h_Accessories              = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfAccessories );
 	h_IntegerAccessories       = AllocateHostPinnedMemory<int>( SizeOfIntegerAccessories );
 	h_DenseOutputIndex         = AllocateHostPinnedMemory<int>( SizeOfDenseOutputIndex );
-	h_DenseOutputTimeInstances = AllocateHostPinnedMemory<Precision>( SizeOfDenseOutputTimeInstances );
-	h_DenseOutputStates        = AllocateHostPinnedMemory<Precision>( SizeOfDenseOutputStates );
-	
-	GlobalVariables.d_TimeDomain               = AllocateDeviceMemory<Precision>( SizeOfTimeDomain );
-	GlobalVariables.d_ActualState              = AllocateDeviceMemory<Precision>( SizeOfActualState );
-	GlobalVariables.d_ActualTime               = AllocateDeviceMemory<Precision>( SizeOfActualTime );
-	GlobalVariables.d_ControlParameters        = AllocateDeviceMemory<Precision>( SizeOfControlParameters );
-	GlobalVariables.d_SharedParameters         = AllocateDeviceMemory<Precision>( SizeOfSharedParameters );
+	h_DenseOutputTimeInstances = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputTimeInstances );
+	h_DenseOutputStates        = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputStates );
+
+	GlobalVariables.d_TimeDomain               = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfTimeDomain );
+	GlobalVariables.d_ActualState              = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfActualState );
+	GlobalVariables.d_ActualTime               = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfActualTime );
+	GlobalVariables.d_ControlParameters        = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfControlParameters );
+	GlobalVariables.d_SharedParameters         = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfSharedParameters );
 	GlobalVariables.d_IntegerSharedParameters  = AllocateDeviceMemory<int>( SizeOfIntegerSharedParameters );
-	GlobalVariables.d_Accessories              = AllocateDeviceMemory<Precision>( SizeOfAccessories );
+	GlobalVariables.d_Accessories              = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfAccessories );
 	GlobalVariables.d_IntegerAccessories       = AllocateDeviceMemory<int>( SizeOfIntegerAccessories );
-	GlobalVariables.d_RelativeTolerance        = AllocateDeviceMemory<Precision>( SD );
-	GlobalVariables.d_AbsoluteTolerance        = AllocateDeviceMemory<Precision>( SD );
-	GlobalVariables.d_EventTolerance           = AllocateDeviceMemory<Precision>( NE );
-	GlobalVariables.d_EventDirection           = AllocateDeviceMemory<int>( NE );
+	GlobalVariables.d_RelativeTolerance        = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( __MPGOS_PERTHREAD_SD );
+	GlobalVariables.d_AbsoluteTolerance        = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( __MPGOS_PERTHREAD_SD );
+	GlobalVariables.d_EventTolerance           = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( __MPGOS_PERTHREAD_NE );
+	GlobalVariables.d_EventDirection           = AllocateDeviceMemory<int>( __MPGOS_PERTHREAD_NE );
 	GlobalVariables.d_DenseOutputIndex         = AllocateDeviceMemory<int>( SizeOfDenseOutputIndex );
-	GlobalVariables.d_DenseOutputTimeInstances = AllocateDeviceMemory<Precision>( SizeOfDenseOutputTimeInstances );
-	GlobalVariables.d_DenseOutputStates        = AllocateDeviceMemory<Precision>( SizeOfDenseOutputStates );
-	
-	
+	GlobalVariables.d_DenseOutputTimeInstances = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputTimeInstances );
+	GlobalVariables.d_DenseOutputStates        = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputStates );
+
+
 	// SHARED MEMORY MANAGEMENT
 	std::cout << "SHARED MEMORY MANAGEMENT:" << std::endl;
-	
-	switch (Algorithm)
+
+	switch (__MPGOS_PERTHREAD_ALGORITHM)
 	{
 		case RK4:
 			SharedMemoryUsage.IsAdaptive = 0;
@@ -437,28 +446,28 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 			SharedMemoryUsage.IsAdaptive = 1;
 			break;
 	}
-	
+
 	SharedMemoryUsage.PreferSharedMemory = 1; // Default: ON
-	SharedMemoryRequiredSharedVariables  = sizeof(Precision)*(NSP) + sizeof(int)*(NISP);
+	SharedMemoryRequiredSharedVariables  = sizeof(__MPGOS_PERTHREAD_PRECISION)*(__MPGOS_PERTHREAD_NSP) + sizeof(int)*(__MPGOS_PERTHREAD_NISP);
 	DynamicSharedMemoryRequired          = SharedMemoryUsage.PreferSharedMemory * SharedMemoryRequiredSharedVariables;
-	
-	StaticSharedMemoryRequired           = sizeof(Precision)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : SD ) + \
-										   sizeof(Precision)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : SD ) + \
-										   sizeof(Precision)*( NE==0 ? 1 : NE ) + \
-										   sizeof(int)*( NE==0 ? 1 : NE );
-	
+
+	StaticSharedMemoryRequired           = sizeof(__MPGOS_PERTHREAD_PRECISION)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : __MPGOS_PERTHREAD_SD ) + \
+										   sizeof(__MPGOS_PERTHREAD_PRECISION)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : __MPGOS_PERTHREAD_SD ) + \
+										   sizeof(__MPGOS_PERTHREAD_PRECISION)*( __MPGOS_PERTHREAD_NE==0 ? 1 : __MPGOS_PERTHREAD_NE ) + \
+										   sizeof(int)*( __MPGOS_PERTHREAD_NE==0 ? 1 : __MPGOS_PERTHREAD_NE );
+
 	SharedMemoryRequiredUpperLimit       = StaticSharedMemoryRequired + SharedMemoryRequiredSharedVariables;
 	SharedMemoryRequired                 = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
 	SharedMemoryAvailable                = SelectedDeviceProperties.sharedMemPerBlock;
-	
+
 	std::cout << "   Required shared memory per block for managable variables:" << std::endl;
 	std::cout << "    Shared memory required by shared variables:           " << std::setw(6) << SharedMemoryRequiredSharedVariables << " b (" << ( (SharedMemoryUsage.PreferSharedMemory == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
 	std::cout << "   Upper limit of possible shared memory usage per block: " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + PreferSharedMemory is ON)" << std::endl;
 	std::cout << "   Actual shared memory required per block (estimated):   " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
 	std::cout << "   Available shared memory per block:                     " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
-	
+
 	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired << std::endl;
-	
+
 	if ( SharedMemoryRequired >= SharedMemoryAvailable )
 	{
         std::cout << std::endl;
@@ -467,11 +476,11 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 		std::cout << "            Turn OFF PreferSharedMemory!" << std::endl;
     }
 	std::cout << std::endl;
-	
-	
+
+
 	// DEFAULT VALUES OF SOLVER OPTIONS
 	std::cout << "DEFAULT SOLVER OPTIONS:" << std::endl;
-	
+
 	SolverOptions.InitialTimeStep            = 1e-2;
 	SolverOptions.MaximumTimeStep            = 1.0e6;
 	SolverOptions.MinimumTimeStep            = 1.0e-12;
@@ -479,23 +488,23 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 	SolverOptions.TimeStepShrinkLimit        = 0.1;
 	SolverOptions.DenseOutputMinimumTimeStep = 0.0;
 	SolverOptions.DenseOutputSaveFrequency   = 1;
-	
-	Precision DefaultAlgorithmTolerances = 1e-8;
-	for (int i=0; i<SD; i++)
+
+	__MPGOS_PERTHREAD_PRECISION DefaultAlgorithmTolerances = 1e-8;
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 	{
-		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance + i, &DefaultAlgorithmTolerances, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance + i, &DefaultAlgorithmTolerances, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance + i, &DefaultAlgorithmTolerances, sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance + i, &DefaultAlgorithmTolerances, sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 	}
-	
-	Precision DefaultEventTolerance = 1e-6;
+
+	__MPGOS_PERTHREAD_PRECISION DefaultEventTolerance = 1e-6;
 	int       DefaultEventDirection = 0;
-	for (int i=0; i<NE; i++)
+	for (int i=0; i<__MPGOS_PERTHREAD_NE; i++)
 	{
-		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance   + i, &DefaultEventTolerance, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance   + i, &DefaultEventTolerance, sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 		gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection   + i, &DefaultEventDirection, sizeof(int),       cudaMemcpyHostToDevice, Stream) );
 	}
-	
-	std::cout << "   Active threads:                           " << std::setw(6) << NT << " (default: total number of threads) -> SolverOption: ActiveNumberOfThreads" << std::endl;
+
+	std::cout << "   Active threads:                           " << std::setw(6) << __MPGOS_PERTHREAD_NT << " (default: total number of threads) -> SolverOption: ActiveNumberOfThreads" << std::endl;
 	std::cout << "   BlockSize (threads per block):            " << std::setw(6) << ThreadConfiguration.BlockSize << " (default: warp size)               -> SolverOption: ThreadsPerBlock" << std::endl;
 	std::cout << "   Initial time step:                        " << std::setw(6) << SolverOptions.InitialTimeStep << std::endl;
 	std::cout << "   Maximum time step:                        " << std::setw(6) << SolverOptions.MaximumTimeStep << std::endl;
@@ -508,7 +517,7 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 	std::cout << "   Algorithm relative tolerance (all comp.): " << std::setw(6) << 1e-8 << std::endl;
 	std::cout << "   Event absolute tolerance:                 " << std::setw(6) << 1e-6 << std::endl;
 	std::cout << "   Event direction of detection:             " << std::setw(6) << 0 << std::endl;
-	
+
 	std::cout << std::endl;
 	std::cout << "---------------------------------------------------" << std::endl;
 	std::cout << "Object for Parameters scan is successfully created!" << std::endl;
@@ -518,14 +527,13 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::ProblemSolv
 }
 
 // DESTRUCTOR
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::~ProblemSolver()
+~ProblemSolver()
 {
     gpuErrCHK( cudaSetDevice(Device) );
-	
+
 	gpuErrCHK( cudaStreamDestroy(Stream) );
 	gpuErrCHK( cudaEventDestroy(Event) );
-	
+
 	gpuErrCHK( cudaFreeHost(h_TimeDomain) );
 	gpuErrCHK( cudaFreeHost(h_ActualState) );
 	gpuErrCHK( cudaFreeHost(h_ActualTime) );
@@ -537,7 +545,7 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::~ProblemSol
 	gpuErrCHK( cudaFreeHost(h_DenseOutputIndex) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputTimeInstances) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputStates) );
-	
+
 	gpuErrCHK( cudaFree(GlobalVariables.d_TimeDomain) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_ActualState) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_ActualTime) );
@@ -553,7 +561,7 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::~ProblemSol
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputIndex) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputTimeInstances) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputStates) );
-	
+
 	std::cout << "--------------------------------------" << std::endl;
 	std::cout << "Object for Parameters scan is deleted!" << std::endl;
 	std::cout << "Every memory have been deallocated!" << std::endl;
@@ -562,41 +570,39 @@ ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::~ProblemSol
 }
 
 // BOUND CHECK, set/get host, options
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::BoundCheck(std::string Function, std::string Variable, int Value, int LowerLimit, int UpperLimit)
+void BoundCheck(std::string Function, std::string Variable, int Value, int LowerLimit, int UpperLimit)
 {
 	if ( ( Value < LowerLimit ) || ( Value > UpperLimit ) )
 	{
         std::cerr << "ERROR: In solver member function " << Function << "!" << std::endl;
 		std::cerr << "       Option: " << Variable << std::endl;
-		
+
 		if ( LowerLimit>UpperLimit )
 			std::cerr << "       Acceptable index: none" << std::endl;
 		else
 			std::cerr << "       Acceptable index: " << LowerLimit << "-" << UpperLimit << std::endl;
-		
+
 		std::cerr << "       Current index:    " << Value << std::endl;
         exit(EXIT_FAILURE);
     }
 }
 
 // SHARED MEMORY CHECK
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SharedMemoryCheck()
+void SharedMemoryCheck()
 {
 	std::cout << "SHARED MEMORY MANAGEMENT CHANGED BY SOLVER OPTION:" << std::endl;
-	
+
 	DynamicSharedMemoryRequired = SharedMemoryUsage.PreferSharedMemory * SharedMemoryRequiredSharedVariables;
 	SharedMemoryRequired        = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
-	
+
 	std::cout << "   Required shared memory per block for managable variables:" << std::endl;
 	std::cout << "    Shared memory required by shared variables:           " << std::setw(6) << SharedMemoryRequiredSharedVariables << " b (" << ( (SharedMemoryUsage.PreferSharedMemory == 0) ? "OFF" : "ON " ) << " -> SolverOption)" << std::endl;
 	std::cout << "   Upper limit of possible shared memory usage per block: " << std::setw(6) << SharedMemoryRequiredUpperLimit << " b (Internals + PreferSharedMemory is ON)" << std::endl;
 	std::cout << "   Actual shared memory required per block (estimated):   " << std::setw(6) << SharedMemoryRequired << " b" << std::endl;
 	std::cout << "   Available shared memory per block:                     " << std::setw(6) << SharedMemoryAvailable << " b" << std::endl << std::endl;
-	
+
 	std::cout << "   Number of possible blocks per streaming multiprocessor: " << SharedMemoryAvailable/SharedMemoryRequired << std::endl;
-	
+
 	if ( SharedMemoryRequired >= SharedMemoryAvailable )
 	{
         std::cout << std::endl;
@@ -608,54 +614,52 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Shared
 }
 
 // OPTION, single input argument
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, T Value)
+void SolverOption(ListOfSolverOptions Option, __MPGOS_PERTHREAD_PRECISION Value)
 {
 	switch (Option)
 	{
 		case ThreadsPerBlock:
 			ThreadConfiguration.BlockSize = (int)Value;
-			ThreadConfiguration.GridSize  = NT/ThreadConfiguration.BlockSize + (NT % ThreadConfiguration.BlockSize == 0 ? 0:1);
+			ThreadConfiguration.GridSize  = __MPGOS_PERTHREAD_NT/ThreadConfiguration.BlockSize + (__MPGOS_PERTHREAD_NT % ThreadConfiguration.BlockSize == 0 ? 0:1);
 			break;
-		
+
 		case InitialTimeStep:
-			SolverOptions.InitialTimeStep = (Precision)Value;
+			SolverOptions.InitialTimeStep = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case ActiveNumberOfThreads:
 			ThreadConfiguration.NumberOfActiveThreads = (int)Value;
 			break;
-		
+
 		case MaximumTimeStep:
-			SolverOptions.MaximumTimeStep = (Precision)Value;
+			SolverOptions.MaximumTimeStep = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case MinimumTimeStep:
-			SolverOptions.MinimumTimeStep = (Precision)Value;
+			SolverOptions.MinimumTimeStep = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case TimeStepGrowLimit:
-			SolverOptions.TimeStepGrowLimit = (Precision)Value;
+			SolverOptions.TimeStepGrowLimit = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case TimeStepShrinkLimit:
-			SolverOptions.TimeStepShrinkLimit = (Precision)Value;
+			SolverOptions.TimeStepShrinkLimit = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case DenseOutputMinimumTimeStep:
-			SolverOptions.DenseOutputMinimumTimeStep = (Precision)Value;
+			SolverOptions.DenseOutputMinimumTimeStep = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case DenseOutputSaveFrequency:
 			SolverOptions.DenseOutputSaveFrequency = (int)Value;
 			break;
-		
+
 		case PreferSharedMemory:
 			SharedMemoryUsage.PreferSharedMemory = (int)Value;
 			SharedMemoryCheck();
 			break;
-		
+
 		default:
 			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
 			std::cerr << "       Option: " << SolverOptionsToString(Option) << std::endl;
@@ -665,35 +669,33 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solver
 }
 
 // OPTION, double input argument
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SolverOption(ListOfSolverOptions Option, int Index, T Value)
+void SolverOption(ListOfSolverOptions Option, int Index, __MPGOS_PERTHREAD_PRECISION Value)
 {
-	Precision PValue = (Precision)Value;
+	__MPGOS_PERTHREAD_PRECISION PValue = (__MPGOS_PERTHREAD_PRECISION)Value;
 	int       IValue = (int)Value;
-	
+
 	switch (Option)
 	{
 		case RelativeTolerance:
-			BoundCheck("SolverOption", "RelativeTolerance", Index, 0, SD-1);
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			BoundCheck("SolverOption", "RelativeTolerance", Index, 0, __MPGOS_PERTHREAD_SD-1);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_RelativeTolerance+Index, &PValue, sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case AbsoluteTolerance:
-			BoundCheck("SolverOption", "AbsoluteTolerance", Index, 0, SD-1);
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			BoundCheck("SolverOption", "AbsoluteTolerance", Index, 0, __MPGOS_PERTHREAD_SD-1);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_AbsoluteTolerance+Index, &PValue, sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case EventTolerance:
-			BoundCheck("SolverOption", "EventTolerance", Index, 0, NE-1);
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance+Index, &PValue, sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			BoundCheck("SolverOption", "EventTolerance", Index, 0, __MPGOS_PERTHREAD_NE-1);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventTolerance+Index, &PValue, sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case EventDirection:
-			BoundCheck("SolverOption", "EventDirection", Index, 0, NE-1);
+			BoundCheck("SolverOption", "EventDirection", Index, 0, __MPGOS_PERTHREAD_NE-1);
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		default:
 			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
 			std::cerr << "       Option: " << SolverOptionsToString(Option) << std::endl;
@@ -703,46 +705,44 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solver
 }
 
 // SETHOST, Unit scope and DenseTime
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, T Value)
+void SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, __MPGOS_PERTHREAD_PRECISION Value)
 {
-	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
-	
-	int idx = ProblemNumber + SerialNumber*NT;
-	
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
+
+	int idx = ProblemNumber + SerialNumber*__MPGOS_PERTHREAD_NT;
+
 	switch (Variable)
 	{
 		case TimeDomain:
 			BoundCheck("SetHost", "TimeDomain", SerialNumber, 0, 1 );
-			h_TimeDomain[idx] = (Precision)Value;
+			h_TimeDomain[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case ActualState:
-			BoundCheck("SetHost", "ActualState", SerialNumber, 0, SD-1 );
-			h_ActualState[idx] = (Precision)Value;
+			BoundCheck("SetHost", "ActualState", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
+			h_ActualState[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case ControlParameters:
-			BoundCheck("SetHost", "ControlParameters", SerialNumber, 0, NCP-1 );
-			h_ControlParameters[idx] = (Precision)Value;
+			BoundCheck("SetHost", "ControlParameters", SerialNumber, 0, __MPGOS_PERTHREAD_NCP-1 );
+			h_ControlParameters[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case Accessories:
-			BoundCheck("SetHost", "Accessories", SerialNumber, 0, NA-1 );
-			h_Accessories[idx] = (Precision)Value;
+			BoundCheck("SetHost", "Accessories", SerialNumber, 0, __MPGOS_PERTHREAD_NA-1 );
+			h_Accessories[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case IntegerAccessories:
-			BoundCheck("SetHost", "IntegerAccessories", SerialNumber, 0, NIA-1 );
+			BoundCheck("SetHost", "IntegerAccessories", SerialNumber, 0, __MPGOS_PERTHREAD_NIA-1 );
 			h_IntegerAccessories[idx] = (int)Value;
 			break;
-		
+
 		case DenseTime:
-			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, NDO-1 );
-			h_DenseOutputTimeInstances[idx] = (Precision)Value;
+			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, __MPGOS_PERTHREAD_ND0-1 );
+			h_DenseOutputTimeInstances[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		default:
 			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -752,25 +752,23 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 }
 
 // SETHOST, System scope
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, T Value)
+void SetHost(int ProblemNumber, ListOfVariables Variable, __MPGOS_PERTHREAD_PRECISION Value)
 {
-	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
-	
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
+
 	int idx = ProblemNumber;
-	
+
 	switch (Variable)
 	{
 		case ActualTime:
-			h_ActualTime[idx] = (Precision)Value;
+			h_ActualTime[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case DenseIndex:
-			BoundCheck("SetHost", "DenseIndex-Value", (int)Value, 0, NDO-1 );
+			BoundCheck("SetHost", "DenseIndex-Value", (int)Value, 0, __MPGOS_PERTHREAD_ND0-1 );
 			h_DenseOutputIndex[idx] = (int)Value;
 			break;
-		
+
 		default:
 			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -780,22 +778,20 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 }
 
 // SETHOST, Global scope
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(ListOfVariables Variable, int SerialNumber, T Value)
+void SetHost(ListOfVariables Variable, int SerialNumber, __MPGOS_PERTHREAD_PRECISION Value)
 {
 	switch (Variable)
 	{
 		case SharedParameters:
-			BoundCheck("SetHost", "SharedParameters", SerialNumber, 0, NSP-1 );
-			h_SharedParameters[SerialNumber] = (Precision)Value;
+			BoundCheck("SetHost", "SharedParameters", SerialNumber, 0, __MPGOS_PERTHREAD_NSP-1 );
+			h_SharedParameters[SerialNumber] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		case IntegerSharedParameters:
-			BoundCheck("SetHost", "IntegerSharedParameters", SerialNumber, 0, NISP-1 );
+			BoundCheck("SetHost", "IntegerSharedParameters", SerialNumber, 0, __MPGOS_PERTHREAD_NISP-1 );
 			h_IntegerSharedParameters[SerialNumber] = (int)Value;
 			break;
-		
+
 		default:
 			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -805,22 +801,20 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 }
 
 // SETHOST, DenseState
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber, T Value)
+void SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber, __MPGOS_PERTHREAD_PRECISION Value)
 {
-	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
-	
-	int idx = ProblemNumber + SerialNumber*NT + TimeStepNumber*NT*SD;
-	
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
+
+	int idx = ProblemNumber + SerialNumber*__MPGOS_PERTHREAD_NT + TimeStepNumber*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
+
 	switch (Variable)
 	{
 		case DenseState:
-			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, SD-1 );
-			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, NDO-1 );
-			h_DenseOutputStates[idx] = (Precision)Value;
+			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
+			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_ND0-1 );
+			h_DenseOutputStates[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
-		
+
 		default:
 			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -830,65 +824,64 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SetHos
 }
 
 // SYNCHRONISE, Host -> Device
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromHostToDevice(ListOfVariables Variable)
+void SynchroniseFromHostToDevice(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
-	
+
 	switch (Variable)
 	{
 		case TimeDomain:
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case ActualState:
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualState, h_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualState, h_ActualState, SizeOfActualState*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case ActualTime:
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualTime, h_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualTime, h_ActualTime, SizeOfActualTime*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case ControlParameters:
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case SharedParameters:
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_SharedParameters, h_SharedParameters, SizeOfSharedParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_SharedParameters, h_SharedParameters, SizeOfSharedParameters*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case IntegerSharedParameters:
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_IntegerSharedParameters, h_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case Accessories:
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_Accessories, h_Accessories, SizeOfAccessories*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_Accessories, h_Accessories, SizeOfAccessories*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case IntegerAccessories:
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_IntegerAccessories, h_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case DenseOutput:
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		case All:
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualState, h_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualTime, h_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_SharedParameters, h_SharedParameters, SizeOfSharedParameters*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_Accessories, h_Accessories, SizeOfAccessories*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_TimeDomain, h_TimeDomain, SizeOfTimeDomain*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualState, h_ActualState, SizeOfActualState*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ActualTime, h_ActualTime, SizeOfActualTime*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_ControlParameters, h_ControlParameters, SizeOfControlParameters*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_SharedParameters, h_SharedParameters, SizeOfSharedParameters*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_Accessories, h_Accessories, SizeOfAccessories*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_IntegerSharedParameters, h_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_IntegerAccessories, h_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
-		
+
 		default:
 			std::cerr << "ERROR: In solver member function SynchroniseFromHostToDevice!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -898,65 +891,64 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Synchr
 }
 
 // SYNCHRONISE, Device -> Host
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseFromDeviceToHost(ListOfVariables Variable)
+void SynchroniseFromDeviceToHost(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
-	
+
 	switch (Variable)
 	{
 		case TimeDomain:
-			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, GlobalVariables.d_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, GlobalVariables.d_TimeDomain, SizeOfTimeDomain*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		case ActualState:
-			gpuErrCHK( cudaMemcpyAsync(h_ActualState, GlobalVariables.d_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ActualState, GlobalVariables.d_ActualState, SizeOfActualState*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		case ActualTime:
-			gpuErrCHK( cudaMemcpyAsync(h_ActualTime, GlobalVariables.d_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ActualTime, GlobalVariables.d_ActualTime, SizeOfActualTime*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		case ControlParameters:
-			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, GlobalVariables.d_ControlParameters, SizeOfControlParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, GlobalVariables.d_ControlParameters, SizeOfControlParameters*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		case SharedParameters:
-			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, GlobalVariables.d_SharedParameters, SizeOfSharedParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, GlobalVariables.d_SharedParameters, SizeOfSharedParameters*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		case IntegerSharedParameters:
 			gpuErrCHK( cudaMemcpyAsync(h_IntegerSharedParameters, GlobalVariables.d_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		case Accessories:
-			gpuErrCHK( cudaMemcpyAsync(h_Accessories, GlobalVariables.d_Accessories, SizeOfAccessories*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_Accessories, GlobalVariables.d_Accessories, SizeOfAccessories*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		case IntegerAccessories:
 			gpuErrCHK( cudaMemcpyAsync(h_IntegerAccessories, GlobalVariables.d_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		case DenseOutput:
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, GlobalVariables.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, GlobalVariables.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, GlobalVariables.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		case All:
-			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, GlobalVariables.d_TimeDomain, SizeOfTimeDomain*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_ActualState, GlobalVariables.d_ActualState, SizeOfActualState*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_ActualTime, GlobalVariables.d_ActualTime, SizeOfActualTime*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, GlobalVariables.d_ControlParameters, SizeOfControlParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, GlobalVariables.d_SharedParameters, SizeOfSharedParameters*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_Accessories, GlobalVariables.d_Accessories, SizeOfAccessories*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_TimeDomain, GlobalVariables.d_TimeDomain, SizeOfTimeDomain*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ActualState, GlobalVariables.d_ActualState, SizeOfActualState*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ActualTime, GlobalVariables.d_ActualTime, SizeOfActualTime*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_ControlParameters, GlobalVariables.d_ControlParameters, SizeOfControlParameters*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_SharedParameters, GlobalVariables.d_SharedParameters, SizeOfSharedParameters*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_Accessories, GlobalVariables.d_Accessories, SizeOfAccessories*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_IntegerSharedParameters, GlobalVariables.d_IntegerSharedParameters, SizeOfIntegerSharedParameters*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_IntegerAccessories, GlobalVariables.d_IntegerAccessories, SizeOfIntegerAccessories*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, GlobalVariables.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
-			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, GlobalVariables.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(Precision), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, GlobalVariables.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
-		
+
 		default:
 			std::cerr << "ERROR in solver member function SynchroniseFromDeviceToHost:" << std::endl << "    "\
 			          << "Invalid option for variable selection!" << std::endl;
@@ -965,40 +957,38 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Synchr
 }
 
 // GETHOST, Unit scope and DenseTime
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber)
+__MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber)
 {
-	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
-	
-	int idx = ProblemNumber + SerialNumber*NT;
-	
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
+
+	int idx = ProblemNumber + SerialNumber*__MPGOS_PERTHREAD_NT;
+
 	switch (Variable)
 	{
 		case TimeDomain:
 			BoundCheck("SetHost", "TimeDomain", SerialNumber, 0, 1 );
-			return (T)h_TimeDomain[idx];
-		
+			return (__MPGOS_PERTHREAD_PRECISION)h_TimeDomain[idx];
+
 		case ActualState:
-			BoundCheck("SetHost", "ActualState", SerialNumber, 0, SD-1 );
-			return (T)h_ActualState[idx];
-		
+			BoundCheck("SetHost", "ActualState", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
+			return (__MPGOS_PERTHREAD_PRECISION)h_ActualState[idx];
+
 		case ControlParameters:
-			BoundCheck("SetHost", "ControlParameters", SerialNumber, 0, NCP-1 );
-			return (T)h_ControlParameters[idx];
-		
+			BoundCheck("SetHost", "ControlParameters", SerialNumber, 0, __MPGOS_PERTHREAD_NCP-1 );
+			return (__MPGOS_PERTHREAD_PRECISION)h_ControlParameters[idx];
+
 		case Accessories:
-			BoundCheck("SetHost", "Accessories", SerialNumber, 0, NA-1 );
-			return (T)h_Accessories[idx];
-		
+			BoundCheck("SetHost", "Accessories", SerialNumber, 0, __MPGOS_PERTHREAD_NA-1 );
+			return (__MPGOS_PERTHREAD_PRECISION)h_Accessories[idx];
+
 		case IntegerAccessories:
-			BoundCheck("SetHost", "IntegerAccessories", SerialNumber, 0, NIA-1 );
-			return (T)h_IntegerAccessories[idx];
-		
+			BoundCheck("SetHost", "IntegerAccessories", SerialNumber, 0, __MPGOS_PERTHREAD_NIA-1 );
+			return (__MPGOS_PERTHREAD_PRECISION)h_IntegerAccessories[idx];
+
 		case DenseTime:
-			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, NDO-1 );
-			return (T)h_DenseOutputTimeInstances[idx];
-		
+			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, __MPGOS_PERTHREAD_ND0-1 );
+			return (__MPGOS_PERTHREAD_PRECISION)h_DenseOutputTimeInstances[idx];
+
 		default:
 			std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -1008,22 +998,20 @@ T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(i
 }
 
 // GETHOST, System scope
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable)
+__MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable)
 {
-	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
-	
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
+
 	int idx = ProblemNumber;
-	
+
 	switch (Variable)
 	{
 		case ActualTime:
-			return (T)h_ActualTime[idx];
-		
+			return (__MPGOS_PERTHREAD_PRECISION)h_ActualTime[idx];
+
 		case DenseIndex:
-			return (T)h_DenseOutputIndex[idx];
-		
+			return (__MPGOS_PERTHREAD_PRECISION)h_DenseOutputIndex[idx];
+
 		default:
 				std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 				std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -1033,20 +1021,18 @@ T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(i
 }
 
 // GETHOST, Global scope
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(ListOfVariables Variable, int SerialNumber)
+__MPGOS_PERTHREAD_PRECISION GetHost(ListOfVariables Variable, int SerialNumber)
 {
 	switch (Variable)
 	{
 		case SharedParameters:
-			BoundCheck("SetHost", "SharedParameters", SerialNumber, 0, NSP-1 );
-			return (T)h_SharedParameters[SerialNumber];
-		
+			BoundCheck("SetHost", "SharedParameters", SerialNumber, 0, __MPGOS_PERTHREAD_NSP-1 );
+			return (__MPGOS_PERTHREAD_PRECISION)h_SharedParameters[SerialNumber];
+
 		case IntegerSharedParameters:
-			BoundCheck("SetHost", "IntegerSharedParameters", SerialNumber, 0, NISP-1 );
-			return (T)h_IntegerSharedParameters[SerialNumber];
-		
+			BoundCheck("SetHost", "IntegerSharedParameters", SerialNumber, 0, __MPGOS_PERTHREAD_NISP-1 );
+			return (__MPGOS_PERTHREAD_PRECISION)h_IntegerSharedParameters[SerialNumber];
+
 		default:
 				std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 				std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -1056,21 +1042,19 @@ T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(L
 }
 
 // GETHOST, DenseState
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber)
+__MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber)
 {
-	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, NT-1 );
-	
-	int idx = ProblemNumber + SerialNumber*NT + TimeStepNumber*NT*SD;
-	
+	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
+
+	int idx = ProblemNumber + SerialNumber*__MPGOS_PERTHREAD_NT + TimeStepNumber*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
+
 	switch (Variable)
 	{
 		case DenseState:
-			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, SD-1 );
-			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, NDO-1 );
-			return (T)h_DenseOutputStates[idx];
-		
+			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
+			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_ND0-1 );
+			return (__MPGOS_PERTHREAD_PRECISION)h_DenseOutputStates[idx];
+
 		default:
 				std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
 				std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -1080,18 +1064,16 @@ T ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::GetHost(i
 }
 
 // WRITE TO FILE, General
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-template <typename T>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::WriteToFileGeneral(std::string FileName, int NumberOfRows, int NumberOfColumns, T* Data)
+void WriteToFileGeneral(std::string FileName, int NumberOfRows, int NumberOfColumns, __MPGOS_PERTHREAD_PRECISION* Data)
 {
 	std::ofstream DataFile;
 	DataFile.open (FileName);
-	
+
 	// Make it depend on type
 	int Width = 18;
 	DataFile.precision(10);
 	DataFile.flags(std::ios::scientific);
-	
+
 	int idx;
 	for (int i=0; i<NumberOfRows; i++)
 	{
@@ -1104,76 +1086,75 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::WriteT
 		}
 		DataFile << '\n';
 	}
-	
+
 	DataFile.close();
 }
 
 // PRINT, General
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(ListOfVariables Variable)
+void Print(ListOfVariables Variable)
 {
 	std::string FileName;
 	int NumberOfRows;
 	int NumberOfColumns;
-	
+
 	switch (Variable)
 	{
 		case TimeDomain:
 			FileName = "TimeDomainInSolverObject.txt";
-			NumberOfRows = NT;
+			NumberOfRows = __MPGOS_PERTHREAD_NT;
 			NumberOfColumns = 2;
 			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_TimeDomain);
 			break;
-		
+
 		case ActualState:
 			FileName = "ActualStateInSolverObject.txt";
-			NumberOfRows = NT;
-			NumberOfColumns = SD;
+			NumberOfRows = __MPGOS_PERTHREAD_NT;
+			NumberOfColumns = __MPGOS_PERTHREAD_SD;
 			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_ActualState);
 			break;
-		
+
 		case ActualTime:
 			FileName = "ActualTimeInSolverObject.txt";
-			NumberOfRows = NT;
+			NumberOfRows = __MPGOS_PERTHREAD_NT;
 			NumberOfColumns = 1;
 			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_ActualTime);
 			break;
-		
+
 		case ControlParameters:
 			FileName = "ControlParametersInSolverObject.txt";
-			NumberOfRows = NT;
-			NumberOfColumns = NCP;
+			NumberOfRows = __MPGOS_PERTHREAD_NT;
+			NumberOfColumns = __MPGOS_PERTHREAD_NCP;
 			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_ControlParameters);
 			break;
-		
+
 		case SharedParameters:
 			FileName = "SharedParametersInSolverObject.txt";
-			NumberOfRows = NSP;		
+			NumberOfRows = __MPGOS_PERTHREAD_NSP;
 			NumberOfColumns = 1;
 			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_SharedParameters);
 			break;
-		
+
 		case IntegerSharedParameters:
 			FileName = "IntegerSharedParametersInSolverObject.txt";
-			NumberOfRows = NISP;		
+			NumberOfRows = __MPGOS_PERTHREAD_NISP;
 			NumberOfColumns = 1;
 			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_IntegerSharedParameters);
 			break;
-		
+
 		case Accessories:
 			FileName = "AccessoriesInSolverObject.txt";
-			NumberOfRows = NT;
-			NumberOfColumns = NA;
+			NumberOfRows = __MPGOS_PERTHREAD_NT;
+			NumberOfColumns = __MPGOS_PERTHREAD_NA;
 			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_Accessories);
 			break;
-		
+
 		case IntegerAccessories:
 			FileName = "IntegerAccessoriesInSolverObject.txt";
-			NumberOfRows = NT;
-			NumberOfColumns = NIA;
+			NumberOfRows = __MPGOS_PERTHREAD_NT;
+			NumberOfColumns = __MPGOS_PERTHREAD_NIA;
 			WriteToFileGeneral(FileName, NumberOfRows, NumberOfColumns, h_IntegerAccessories);
 			break;
-		
+
 		default :
 			std::cerr << "ERROR: In solver member function Print!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -1183,11 +1164,10 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 }
 
 // PRINT, DenseOutput
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(ListOfVariables Variable, int ThreadID)
+void Print(ListOfVariables Variable, int ThreadID)
 {
-	BoundCheck("Print", "Thread", ThreadID, 0, NT-1 );
-	
+	BoundCheck("Print", "Thread", ThreadID, 0, __MPGOS_PERTHREAD_NT-1 );
+
 	if ( Variable != DenseOutput )
 	{
         std::cerr << "ERROR: In solver member function Print!" << std::endl;
@@ -1195,119 +1175,115 @@ void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Print(
 		std::cerr << "       This option needs different argument configuration or not applicable!" << std::endl;
 		exit(EXIT_FAILURE);
     }
-	
+
 	std::ofstream DataFile;
 	std::string FileName = "DenseOutput_" + std::to_string(ThreadID) + ".txt";
 	DataFile.open ( FileName.c_str() );
-	
+
 	int Width = 18;
 	DataFile.precision(10);
 	DataFile.flags(std::ios::scientific);
-	
+
 	int idx;
 	DataFile << "ControlParameters:\n";
-	for (int i=0; i<NCP; i++)
+	for (int i=0; i<__MPGOS_PERTHREAD_NCP; i++)
 	{
-		idx = ThreadID + i*NT;
+		idx = ThreadID + i*__MPGOS_PERTHREAD_NT;
 		DataFile.width(Width); DataFile << h_ControlParameters[idx];
-		if ( i<(NCP-1) )
+		if ( i<(__MPGOS_PERTHREAD_NCP-1) )
 			DataFile << ',';
 	}
 	DataFile << '\n';
-	
+
 	DataFile << "SharedParameters:\n";
-	for (int i=0; i<NSP; i++)
+	for (int i=0; i<__MPGOS_PERTHREAD_NSP; i++)
 	{
 		DataFile.width(Width); DataFile << h_SharedParameters[i];
-		if ( i<(NSP-1) )
+		if ( i<(__MPGOS_PERTHREAD_NSP-1) )
 			DataFile << ',';
 	}
 	DataFile << '\n';
-	
+
 	DataFile << "IntegerSharedParameters:\n";
-	for (int i=0; i<NISP; i++)
+	for (int i=0; i<__MPGOS_PERTHREAD_NISP; i++)
 	{
 		DataFile.width(Width); DataFile << h_IntegerSharedParameters[i];
-		if ( i<(NISP-1) )
+		if ( i<(__MPGOS_PERTHREAD_NISP-1) )
 			DataFile << ',';
 	}
 	DataFile << '\n';
-	
+
 	DataFile << "Accessories:\n";
-	for (int i=0; i<NA; i++)
+	for (int i=0; i<__MPGOS_PERTHREAD_NA; i++)
 	{
-		idx = ThreadID + i*NT;
+		idx = ThreadID + i*__MPGOS_PERTHREAD_NT;
 		DataFile.width(Width); DataFile << h_Accessories[idx];
-		if ( i<(NA-1) )
+		if ( i<(__MPGOS_PERTHREAD_NA-1) )
 			DataFile << ',';
 	}
 	DataFile << '\n';
-	
+
 	DataFile << "IntegerAccessories:\n";
-	for (int i=0; i<NIA; i++)
+	for (int i=0; i<__MPGOS_PERTHREAD_NIA; i++)
 	{
-		idx = ThreadID + i*NT;
+		idx = ThreadID + i*__MPGOS_PERTHREAD_NT;
 		DataFile.width(Width); DataFile << h_IntegerAccessories[idx];
-		if ( i<(NIA-1) )
+		if ( i<(__MPGOS_PERTHREAD_NIA-1) )
 			DataFile << ',';
 	}
 	DataFile << "\n\n";
-	
+
 	DataFile << "Time series:\n";
-	if ( NDO > 0 )
+	if ( __MPGOS_PERTHREAD_ND0 > 0 )
 	{
 		for (int i=0; i<(h_DenseOutputIndex[ThreadID]); i++)
 		{
-			idx = ThreadID + i*NT;
+			idx = ThreadID + i*__MPGOS_PERTHREAD_NT;
 			DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx] << ',';
-			
-			for (int j=0; j<SD; j++)
+
+			for (int j=0; j<__MPGOS_PERTHREAD_SD; j++)
 			{
-				idx = ThreadID + j*NT + i*NT*SD;
+				idx = ThreadID + j*__MPGOS_PERTHREAD_NT + i*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
 				DataFile.width(Width); DataFile << h_DenseOutputStates[idx];
-				if ( j<(SD-1) )
+				if ( j<(__MPGOS_PERTHREAD_SD-1) )
 					DataFile << ',';
 			}
 			DataFile << '\n';
 		}
 	}
-	
+
 	DataFile.close();
 }
 
 // SOLVE
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::Solve()
+void Solve()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
-	
-	SingleSystem_PerThread<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision><<<ThreadConfiguration.GridSize, ThreadConfiguration.BlockSize, DynamicSharedMemoryRequired, Stream>>> (ThreadConfiguration, GlobalVariables, SharedMemoryUsage, SolverOptions);
+
+	SingleSystem_PerThread<<<ThreadConfiguration.GridSize, ThreadConfiguration.BlockSize, DynamicSharedMemoryRequired, Stream>>> (ThreadConfiguration, GlobalVariables, SharedMemoryUsage, SolverOptions);
 }
 
 // SYNCHRONISE DEVICE
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseDevice()
+void SynchroniseDevice()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
-	
+
 	gpuErrCHK( cudaDeviceSynchronize() );
 }
 
 // INSERT SYNCHRONISATION POINT
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::InsertSynchronisationPoint()
+void InsertSynchronisationPoint()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
-	
+
 	gpuErrCHK( cudaEventRecord(Event, Stream) );
 }
 
 // SYNCHRONISE SOLVER
-template <int NT, int SD, int NCP, int NSP, int NISP, int NE, int NA, int NIA, int NDO, Algorithms Algorithm, class Precision>
-void ProblemSolver<NT,SD,NCP,NSP,NISP,NE,NA,NIA,NDO,Algorithm,Precision>::SynchroniseSolver()
+void SynchroniseSolver()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
-	
+
 	gpuErrCHK( cudaEventSynchronize(Event) );
 }
 
@@ -1317,11 +1293,11 @@ template <class DataType>
 DataType* AllocateDeviceMemory(int N)
 {
     cudaError_t Error = cudaSuccess;
-	
+
 	DataType* MemoryAddressInDevice = NULL;
-	
+
 	Error = cudaMalloc((void**)&MemoryAddressInDevice, N * sizeof(DataType));
-    
+
 	if (Error != cudaSuccess)
     {
         std::cerr << "Failed to allocate Memory on the DEVICE!\n";
@@ -1334,11 +1310,11 @@ template <class DataType>
 DataType* AllocateHostPinnedMemory(int N)
 {
     cudaError_t Error = cudaSuccess;
-	
+
 	DataType* MemoryAddressInHost = NULL;
-	
+
 	Error = cudaMallocHost((void**)&MemoryAddressInHost, N * sizeof(DataType));
-    
+
 	if (Error != cudaSuccess)
     {
         std::cerr << "Failed to allocate Pinned Memory on the HOST!\n";
