@@ -2,35 +2,27 @@
 #define SINGLESYSTEM_PERTHREAD_EVENTHANDLING_H
 
 
-template <int NE, class Precision>
-__forceinline__ __device__ void PerThread_EventTimeStepControl(\
-			int        tid, \
-			int&       r_UpdateStep, \
-			int        r_TerminateSimulation, \
-			Precision* r_ActualEventValue, \
-			Precision* r_NextEventValue, \
-			Precision* s_EventTolerance, \
-			int*       s_EventDirection, \
-			Precision  r_TimeStep, \
-			Precision& r_NewTimeStep, \
-			Precision  MinimumTimeStep)
+__forceinline__ __device__ void PerThread_EventTimeStepControl(int tid, \
+			RegisterStruct& r, \
+			SharedStruct s, \
+			__MPGOS_PERTHREAD_PRECISION MinimumTimeStep)
 {
-	Precision EventTimeStep = r_TimeStep;
+	__MPGOS_PERTHREAD_PRECISION EventTimeStep = r.TimeStep;
 	int       IsCorrected   = 0;
-	
-	if ( ( r_UpdateStep == 1 ) && ( r_TerminateSimulation == 0 ) )
+
+	if ( ( r.UpdateStep == 1 ) && ( r.TerminateSimulation == 0 ) )
 	{
-		for (int i=0; i<NE; i++)
+		for (int i=0; i<__MPGOS_PERTHREAD_NE; i++)
 		{
-			if ( ( ( r_ActualEventValue[i] >  s_EventTolerance[i] ) && ( r_NextEventValue[i] < -s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
-				 ( ( r_ActualEventValue[i] < -s_EventTolerance[i] ) && ( r_NextEventValue[i] >  s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
+			if ( ( ( r.ActualEventValue[i] >  s.EventTolerance[i] ) && ( r.NextEventValue[i] < -s.EventTolerance[i] ) && ( s.EventDirection[i] <= 0 ) ) || \
+				 ( ( r.ActualEventValue[i] < -s.EventTolerance[i] ) && ( r.NextEventValue[i] >  s.EventTolerance[i] ) && ( s.EventDirection[i] >= 0 ) ) )
 			{
-				EventTimeStep = MPGOS::FMIN( EventTimeStep, -r_ActualEventValue[i] / (r_NextEventValue[i]-r_ActualEventValue[i]) * r_TimeStep );
+				EventTimeStep = MPGOS::FMIN( EventTimeStep, -r.ActualEventValue[i] / (r.NextEventValue[i]-r.ActualEventValue[i]) * r.TimeStep );
 				IsCorrected   = 1;
 			}
 		}
 	}
-	
+
 	if ( IsCorrected == 1 )
 	{
 		if ( EventTimeStep < MinimumTimeStep )
@@ -38,8 +30,8 @@ __forceinline__ __device__ void PerThread_EventTimeStepControl(\
 			printf("Warning: Event cannot be detected without reducing the step size below the minimum! Event detection omitted!, (thread id: %d)\n", tid);
 		} else
 		{
-			r_NewTimeStep = EventTimeStep;
-			r_UpdateStep  = 0;
+			r.NewTimeStep = EventTimeStep;
+			r.UpdateStep  = 0;
 		}
 	}
 }
