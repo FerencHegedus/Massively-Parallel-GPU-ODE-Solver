@@ -4,8 +4,8 @@ IF EXIST "Poincare.exe" del Poincare.exe
 
 ECHO Compiling ...
 
-set SRC_DIR=D:\05_Research\ParametricODESolver\Massively-Parallel-GPU-ODE-Solver_TestOnWindows\SourceCodes\
-set CPL_OPT=-O3 --ptxas-options=-v --gpu-architecture=sm_52 -lineinfo -w -maxrregcount=80
+set SRC_DIR=C:\Users\nnagy\Documents\Egyetem\HDS\MPGOS\SourceCodes\
+set CPL_OPT=-O3 --ptxas-options=-v --gpu-architecture=sm_61 -lineinfo -w -maxrregcount=80
 
 nvcc -o	Poincare.exe Poincare.cu -I%SRC_DIR% %CPL_OPT%
 
