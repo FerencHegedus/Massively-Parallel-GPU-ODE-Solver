@@ -3,289 +3,160 @@
 
 
 // RK4 ------------------------------------------------------------------------
-template <int NT, int SD, class Precision>
-__forceinline__ __device__ void PerThread_Stepper_RK4(\
-			int        tid, \
-			Precision  r_ActualTime, \
-			Precision  r_TimeStep, \
-			Precision* r_ActualState, \
-			Precision* r_NextState, \
-			Precision* r_Error, \
-			int&       r_IsFinite, \
-			Precision* r_ControlParameters, \
-			Precision* gs_SharedParameters, \
-			int*       gs_IntegerSharedParameters, \
-			Precision* r_Accessories, \
-			int*       r_IntegerAccessories)
+__forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct r, SharedStruct s)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
-	Precision X[SD];
-	Precision k1[SD];
-	
-	Precision T;
-	Precision dTp2 = static_cast<Precision>(0.5)     * r_TimeStep;
-	Precision dTp6 = static_cast<Precision>(1.0/6.0) * r_TimeStep;
-	
-	
+	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
+	__MPGOS_PERTHREAD_PRECISION k1[__MPGOS_PERTHREAD_SD];
+
+	__MPGOS_PERTHREAD_PRECISION T;
+	__MPGOS_PERTHREAD_PRECISION dTp2 = static_cast<__MPGOS_PERTHREAD_PRECISION>(0.5)     * r.TimeStep;
+	__MPGOS_PERTHREAD_PRECISION dTp6 = static_cast<__MPGOS_PERTHREAD_PRECISION>(1.0/6.0) * r.TimeStep;
+
+
 	// K1 ---------------------------------------------------------------------
-	PerThread_OdeFunction(\
-		tid, \
-		NT, \
-		r_NextState, \
-		r_ActualState, \
-		r_ActualTime, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,r.NextState,r.ActualState, r.ActualTime,r,s);
+
 	// K2 ---------------------------------------------------------------------
-	T  = r_ActualTime + dTp2;
-	
+	T  = r.ActualTime + dTp2;
+
 	#pragma unroll
-	for (int i=0; i<SD; i++)
-		X[i] = r_ActualState[i] + r_NextState[i] * dTp2;
-	
-	PerThread_OdeFunction(\
-		tid, \
-		NT, \
-		k1, \
-		X, \
-		T, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+		X[i] = r.ActualState[i] + r.NextState[i] * dTp2;
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,s);
+
 	// K3 ---------------------------------------------------------------------
 	#pragma unroll
-	for (int i=0; i<SD; i++)
-	{	
-		r_NextState[i] = r_NextState[i] + static_cast<Precision>(2.0)*k1[i];
-		X[i] = r_ActualState[i] + k1[i] * dTp2;
-	}
-	
-	PerThread_OdeFunction(\
-		tid, \
-		NT, \
-		k1, \
-		X, \
-		T, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
-	// K4 ---------------------------------------------------------------------
-	T = r_ActualTime + r_TimeStep;
-	
-	#pragma unroll
-	for (int i=0; i<SD; i++)
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 	{
-		r_NextState[i] = r_NextState[i] + static_cast<Precision>(2.0)*k1[i];
-		X[i] = r_ActualState[i] + k1[i] * r_TimeStep;
+		r.NextState[i] = r.NextState[i] + static_cast<__MPGOS_PERTHREAD_PRECISION>(2.0)*k1[i];
+		X[i] = r.ActualState[i] + k1[i] * dTp2;
 	}
-	
-	PerThread_OdeFunction(\
-		tid, \
-		NT, \
-		k1, \
-		X, \
-		T, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,s);
+
+
+	// K4 ---------------------------------------------------------------------
+	T = r.ActualTime + r.TimeStep;
+
+	#pragma unroll
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+	{
+		r.NextState[i] = r.NextState[i] + static_cast<__MPGOS_PERTHREAD_PRECISION>(2.0)*k1[i];
+		X[i] = r.ActualState[i] + k1[i] * r.TimeStep;
+	}
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,s);
+
+
 	// NEW STATE --------------------------------------------------------------
 	#pragma unroll
-	for (int i=0; i<SD; i++)
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 	{
-		r_NextState[i] = r_ActualState[i] + dTp6 * ( r_NextState[i] + k1[i] );
-		
-		if ( isfinite( r_NextState[i] ) == 0 )
-			r_IsFinite = 0;
+		r.NextState[i] = r.ActualState[i] + dTp6 * ( r.NextState[i] + k1[i] );
+
+		if ( isfinite( r.NextState[i] ) == 0 )
+			r.IsFinite = 0;
 	}
 }
 
 
 // RKCK 45 --------------------------------------------------------------------
-template <int NT, int SD, class Precision>
-__forceinline__ __device__ void PerThread_Stepper_RKCK45(\
-			int        tid, \
-			Precision  r_ActualTime, \
-			Precision  r_TimeStep, \
-			Precision* r_ActualState, \
-			Precision* r_NextState, \
-			Precision* r_Error, \
-			int&       r_IsFinite, \
-			Precision* r_ControlParameters, \
-			Precision* gs_SharedParameters, \
-			int*       gs_IntegerSharedParameters, \
-			Precision* r_Accessories, \
-			int*       r_IntegerAccessories)
+__forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct r, SharedStruct s)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
-	Precision X[SD];
-	Precision T;
-	
-	Precision k1[SD];
-	Precision k2[SD];
-	Precision k3[SD];
-	Precision k4[SD];
-	Precision k5[SD];
-	Precision k6[SD];
-	
-	
+	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
+	__MPGOS_PERTHREAD_PRECISION T;
+
+	__MPGOS_PERTHREAD_PRECISION k1[__MPGOS_PERTHREAD_SD];
+	__MPGOS_PERTHREAD_PRECISION k2[__MPGOS_PERTHREAD_SD];
+	__MPGOS_PERTHREAD_PRECISION k3[__MPGOS_PERTHREAD_SD];
+	__MPGOS_PERTHREAD_PRECISION k4[__MPGOS_PERTHREAD_SD];
+	__MPGOS_PERTHREAD_PRECISION k5[__MPGOS_PERTHREAD_SD];
+	__MPGOS_PERTHREAD_PRECISION k6[__MPGOS_PERTHREAD_SD];
+
+
 	// K1 ---------------------------------------------------------------------
-	PerThread_OdeFunction(\
-		tid, \
-		NT, \
-		k1, \
-		r_ActualState, \
-		r_ActualTime, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,r.ActualState,r.ActualTime,r,s);
+
 	// K2 ---------------------------------------------------------------------
-	T = r_ActualTime + r_TimeStep * static_cast<Precision>(1.0/5.0);
-	
+	T = r.ActualTime + r.TimeStep * static_cast<__MPGOS_PERTHREAD_PRECISION>(1.0/5.0);
+
 	#pragma unroll
-	for (int i=0; i<SD; i++)
-		X[i] = r_ActualState[i] + r_TimeStep * ( static_cast<Precision>(1.0/5.0) * k1[i] );
-	
-	PerThread_OdeFunction(\
-		tid, \
-		NT, \
-		k2, \
-		X, \
-		T, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+		X[i] = r.ActualState[i] + r.TimeStep * ( static_cast<__MPGOS_PERTHREAD_PRECISION>(1.0/5.0) * k1[i] );
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k2,X,T,r,s);
+
 	// K3 ---------------------------------------------------------------------
-	T = r_ActualTime + r_TimeStep * static_cast<Precision>(3.0/10.0);
-	
+	T = r.ActualTime + r.TimeStep * static_cast<__MPGOS_PERTHREAD_PRECISION>(3.0/10.0);
+
 	#pragma unroll
-	for (int i=0; i<SD; i++)
-		X[i] = r_ActualState[i] + r_TimeStep * ( static_cast<Precision>(3.0/40.0) * k1[i] + \
-	                                             static_cast<Precision>(9.0/40.0) * k2[i] );
-	
-	PerThread_OdeFunction(tid, \
-		NT, \
-		k3, \
-		X, \
-		T, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+		X[i] = r.ActualState[i] + r.TimeStep * ( static_cast<__MPGOS_PERTHREAD_PRECISION>(3.0/40.0) * k1[i] + \
+	                                             static_cast<__MPGOS_PERTHREAD_PRECISION>(9.0/40.0) * k2[i] );
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k3,X,T,r,s);
+
+
 	// K4 ---------------------------------------------------------------------
-	T = r_ActualTime + r_TimeStep * static_cast<Precision>(3.0/5.0);
-	
+	T = r.ActualTime + r.TimeStep * static_cast<__MPGOS_PERTHREAD_PRECISION>(3.0/5.0);
+
 	#pragma unroll
-	for (int i=0; i<SD; i++)
-		X[i] = r_ActualState[i] + r_TimeStep * ( static_cast<Precision>(3.0/10.0)  * k1[i] + \
-	                                             static_cast<Precision>(-9.0/10.0) * k2[i] + \
-												 static_cast<Precision>(6.0/5.0)   * k3[i] );
-	
-	PerThread_OdeFunction(\
-		tid, \
-		NT, \
-		k4, \
-		X, \
-		T, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+		X[i] = r.ActualState[i] + r.TimeStep * ( static_cast<__MPGOS_PERTHREAD_PRECISION>(3.0/10.0)  * k1[i] + \
+	                                             static_cast<__MPGOS_PERTHREAD_PRECISION>(-9.0/10.0) * k2[i] + \
+												 static_cast<__MPGOS_PERTHREAD_PRECISION>(6.0/5.0)   * k3[i] );
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k4,X,T,r,s);
+
+
 	// K5 ---------------------------------------------------------------------
-	T = r_ActualTime + r_TimeStep;
-	
+	T = r.ActualTime + r.TimeStep;
+
 	#pragma unroll
-	for (int i=0; i<SD; i++)
-		X[i] = r_ActualState[i] + r_TimeStep * ( static_cast<Precision>(-11.0/54.0) * k1[i] + \
-	                                             static_cast<Precision>(5.0/2.0)    * k2[i] + \
-												 static_cast<Precision>(-70.0/27.0) * k3[i] + \
-												 static_cast<Precision>(35.0/27.0)  * k4[i] );
-	
-	PerThread_OdeFunction(\
-		tid, \
-		NT, \
-		k5, \
-		X, \
-		T, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+		X[i] = r.ActualState[i] + r.TimeStep * ( static_cast<__MPGOS_PERTHREAD_PRECISION>(-11.0/54.0) * k1[i] + \
+	                                             static_cast<__MPGOS_PERTHREAD_PRECISION>(5.0/2.0)    * k2[i] + \
+												 static_cast<__MPGOS_PERTHREAD_PRECISION>(-70.0/27.0) * k3[i] + \
+												 static_cast<__MPGOS_PERTHREAD_PRECISION>(35.0/27.0)  * k4[i] );
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k5,X,T,r,s);
+
+
 	// K6 ---------------------------------------------------------------------
-	T = r_ActualTime + r_TimeStep * static_cast<Precision>(7.0/8.0);
-	
+	T = r.ActualTime + r.TimeStep * static_cast<__MPGOS_PERTHREAD_PRECISION>(7.0/8.0);
+
 	#pragma unroll
-	for (int i=0; i<SD; i++)
-		X[i] = r_ActualState[i] + r_TimeStep * ( static_cast<Precision>(1631.0/55296.0)   * k1[i] + \
-	                                             static_cast<Precision>(175.0/512.0)      * k2[i] + \
-												 static_cast<Precision>(575.0/13824.0)    * k3[i] + \
-												 static_cast<Precision>(44275.0/110592.0) * k4[i] + \
-												 static_cast<Precision>(253.0/4096.0)     * k5[i] );
-	
-	PerThread_OdeFunction(\
-		tid, \
-		NT, \
-		k6, \
-		X, \
-		T, \
-		r_ControlParameters, \
-		gs_SharedParameters, \
-		gs_IntegerSharedParameters, \
-		r_Accessories, \
-		r_IntegerAccessories);
-	
-	
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+		X[i] = r.ActualState[i] + r.TimeStep * ( static_cast<__MPGOS_PERTHREAD_PRECISION>(1631.0/55296.0)   * k1[i] + \
+	                                             static_cast<__MPGOS_PERTHREAD_PRECISION>(175.0/512.0)      * k2[i] + \
+												 static_cast<__MPGOS_PERTHREAD_PRECISION>(575.0/13824.0)    * k3[i] + \
+												 static_cast<__MPGOS_PERTHREAD_PRECISION>(44275.0/110592.0) * k4[i] + \
+												 static_cast<__MPGOS_PERTHREAD_PRECISION>(253.0/4096.0)     * k5[i] );
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k6,X,T,r,s);
+
+
 	// NEW STATE AND ERROR ----------------------------------------------------
 	#pragma unroll
-	for (int i=0; i<SD; i++)
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 	{
-		r_NextState[i] = r_ActualState[i] + r_TimeStep * ( static_cast<Precision>(37.0/378.0)   * k1[i] + \
-		                                                   static_cast<Precision>(250.0/621.0)  * k3[i] + \
-														   static_cast<Precision>(125.0/594.0)  * k4[i] + \
-														   static_cast<Precision>(512.0/1771.0) * k6[i] );
-		
-		r_Error[i] = static_cast<Precision>(  37.0/378.0  -  2825.0/27648.0 ) * k1[i] + \
-		             static_cast<Precision>( 250.0/621.0  - 18575.0/48384.0 ) * k3[i] + \
-					 static_cast<Precision>( 125.0/594.0  - 13525.0/55296.0 ) * k4[i] + \
-					 static_cast<Precision>(   0.0        -   277.0/14336.0 ) * k5[i] + \
-					 static_cast<Precision>( 512.0/1771.0 -     1.0/4.0     ) * k6[i];
-		r_Error[i] = r_TimeStep * abs( r_Error[i] ) + 1e-18;
-		
-		if ( ( isfinite( r_NextState[i] ) == 0 ) || ( isfinite( r_Error[i] ) == 0 ) )
-			r_IsFinite = 0;
+		r.NextState[i] = r.ActualState[i] + r.TimeStep * ( static_cast<__MPGOS_PERTHREAD_PRECISION>(37.0/378.0)   * k1[i] + \
+		                                                   static_cast<__MPGOS_PERTHREAD_PRECISION>(250.0/621.0)  * k3[i] + \
+														   static_cast<__MPGOS_PERTHREAD_PRECISION>(125.0/594.0)  * k4[i] + \
+														   static_cast<__MPGOS_PERTHREAD_PRECISION>(512.0/1771.0) * k6[i] );
+
+		r.Error[i] = static_cast<__MPGOS_PERTHREAD_PRECISION>(  37.0/378.0  -  2825.0/27648.0 ) * k1[i] + \
+		             static_cast<__MPGOS_PERTHREAD_PRECISION>( 250.0/621.0  - 18575.0/48384.0 ) * k3[i] + \
+					 static_cast<__MPGOS_PERTHREAD_PRECISION>( 125.0/594.0  - 13525.0/55296.0 ) * k4[i] + \
+					 static_cast<__MPGOS_PERTHREAD_PRECISION>(   0.0        -   277.0/14336.0 ) * k5[i] + \
+					 static_cast<__MPGOS_PERTHREAD_PRECISION>( 512.0/1771.0 -     1.0/4.0     ) * k6[i];
+		r.Error[i] = r.TimeStep * abs( r.Error[i] ) + 1e-18;
+
+		if ( ( isfinite( r.NextState[i] ) == 0 ) || ( isfinite( r.Error[i] ) == 0 ) )
+			r.IsFinite = 0;
 	}
 }
 

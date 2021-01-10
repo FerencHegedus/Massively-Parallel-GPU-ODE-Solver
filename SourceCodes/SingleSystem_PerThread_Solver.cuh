@@ -1,12 +1,6 @@
 #ifndef SINGLESYSTEM_PERTHREAD_SOLVER_H
 #define SINGLESYSTEM_PERTHREAD_SOLVER_H
 
-#include "MPGOS_Overloaded_MathFunction.cuh"
-#include "SingleSystem_PerThread_DenseOutput.cuh"
-#include "SingleSystem_PerThread_ExplicitRungeKutta_Steppers.cuh"
-#include "SingleSystem_PerThread_ExplicitRungeKutta_ErrorControllers.cuh"
-#include "SingleSystem_PerThread_EventHandling.cuh"
-
 struct RegisterStruct
 {
 	__MPGOS_PERTHREAD_PRECISION TimeDomain[2];
@@ -56,6 +50,12 @@ struct SharedStruct
 		__shared__ int EventDirection[__MPGOS_PERTHREAD_NE];
 	#endif
 };
+
+#include "MPGOS_Overloaded_MathFunction.cuh"
+#include "SingleSystem_PerThread_DenseOutput.cuh"
+#include "SingleSystem_PerThread_ExplicitRungeKutta_Steppers.cuh"
+#include "SingleSystem_PerThread_ExplicitRungeKutta_ErrorControllers.cuh"
+#include "SingleSystem_PerThread_EventHandling.cuh"
 
 __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfiguration, Struct_GlobalVariables GlobalVariables, Struct_SharedMemoryUsage SharedMemoryUsage, Struct_SolverOptions SolverOptions)
 {
