@@ -179,7 +179,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			// NEW EVENT VALUE AND TIME STEP CONTROL---------------------------
 			#if __MPGOS_PERTHREAD_NE > 0
 			r.NewTimeStepTmp = r.ActualTime+r.TimeStep;
-			PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r,s,SharedParameters,IntegerSharedParameters);
+			PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r,SharedParameters,IntegerSharedParameters);
 			PerThread_EventTimeStepControl(tid,r,s,SolverOptions.MinimumTimeStep);
 			#endif
 
@@ -204,7 +204,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 						}
 					}
 
-					PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r,s,SharedParameters,IntegerSharedParameters);
+					PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r,SharedParameters,IntegerSharedParameters);
 
 					for (int i=0; i<__MPGOS_PERTHREAD_NE; i++)
 						r.ActualEventValue[i] = r.NextEventValue[i];
