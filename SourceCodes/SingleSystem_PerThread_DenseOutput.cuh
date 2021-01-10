@@ -2,59 +2,46 @@
 #define SINGLESYSTEM_PERTHREAD_DENSEOUTPUT_H
 
 
-template <int NT, int SD, int NDO, class Precision>
+
 __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 			int        tid, \
-			int        r_UpdateDenseOutput, \
-			int&       r_DenseOutputIndex, \
-			Precision* d_DenseOutputTimeInstances, \
-			Precision  r_ActualTime, \
-			Precision* d_DenseOutputStates, \
-			Precision* r_ActualState, \
-			int&       r_NumberOfSkippedStores, \
-			Precision& r_DenseOutputActualTime, \
-			Precision  DenseOutputMinimumTimeStep, \
-			Precision  UpperTimeDomain)
+			RegisterStruct &r, \
+			__MPGOS_PERTHREAD_PRECISION* d_DenseOutputTimeInstances, \
+			__MPGOS_PERTHREAD_PRECISION* d_DenseOutputStates, \
+			__MPGOS_PERTHREAD_PRECISION  DenseOutputMinimumTimeStep)
 {
-	if ( r_UpdateDenseOutput == 1 )
+	if ( r.UpdateDenseOutput == 1 )
 	{
-		d_DenseOutputTimeInstances[tid + r_DenseOutputIndex*NT] = r_ActualTime;
-		
-		int DenseOutputStateIndex = tid + r_DenseOutputIndex*NT*SD;
-		for (int i=0; i<SD; i++)
+		d_DenseOutputTimeInstances[tid + r.DenseOutputIndex*__MPGOS_PERTHREAD_NT] = r.ActualTime;
+
+		int DenseOutputStateIndex = tid + r.DenseOutputIndex*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
+		for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 		{
-			d_DenseOutputStates[DenseOutputStateIndex] = r_ActualState[i];
-			DenseOutputStateIndex += NT;
+			d_DenseOutputStates[DenseOutputStateIndex] = r.ActualState[i];
+			DenseOutputStateIndex += __MPGOS_PERTHREAD_NT;
 		}
-		
-		r_DenseOutputIndex++;
-		r_NumberOfSkippedStores = 0;
-		r_DenseOutputActualTime = MPGOS::FMIN(r_ActualTime+DenseOutputMinimumTimeStep, UpperTimeDomain);
+
+		r.DenseOutputIndex++;
+		r.NumberOfSkippedStores = 0;
+		r.DenseOutputActualTime = MPGOS::FMIN(r.ActualTime+DenseOutputMinimumTimeStep, r.TimeDomain[1]);
 	}
-	
-	if ( r_UpdateDenseOutput == 0 )
-		r_NumberOfSkippedStores++;
+
+	if ( r.UpdateDenseOutput == 0 )
+		r.NumberOfSkippedStores++;
 }
 
 
-template <int NDO, class Precision>
 __forceinline__ __device__ void PerThread_DenseOutputStorageCondition(\
-			Precision r_ActualTime, \
-			Precision r_DenseOutputActualTime, \
-			int       r_DenseOutputIndex, \
-			int       r_NumberOfSkippedStores, \
-			int       r_EndTimeDomainReached, \
-			int       r_UserDefinedTermination, \
-			int&      r_UpdateDenseOutput, \
-			Struct_SolverOptions<Precision> SolverOptions)
+			RegisterStruct &r, \
+			Struct_SolverOptions<__MPGOS_PERTHREAD_PRECISION> SolverOptions)
 {
-	if ( ( r_DenseOutputIndex < NDO ) && ( r_DenseOutputActualTime < r_ActualTime ) && ( r_NumberOfSkippedStores >= (SolverOptions.DenseOutputSaveFrequency-1) ) )
-		r_UpdateDenseOutput = 1;
+	if ( ( r.DenseOutputIndex < __MPGOS_PERTHREAD_NDO ) && ( r.DenseOutputActualTime < r.ActualTime ) && ( r.NumberOfSkippedStores >= (SolverOptions.DenseOutputSaveFrequency-1) ) )
+		r.UpdateDenseOutput = 1;
 	else
-		r_UpdateDenseOutput = 0;
-	
-	if ( ( r_DenseOutputIndex < NDO ) && ( ( r_EndTimeDomainReached == 1 ) || ( r_UserDefinedTermination == 1 ) ) )
-		r_UpdateDenseOutput = 1;
+		r.UpdateDenseOutput = 0;
+
+	if ( ( r.DenseOutputIndex < __MPGOS_PERTHREAD_NDO ) && ( ( r.EndTimeDomainReached == 1 ) || ( r.UserDefinedTermination == 1 ) ) )
+		r.UpdateDenseOutput = 1;
 }
 
 #endif
