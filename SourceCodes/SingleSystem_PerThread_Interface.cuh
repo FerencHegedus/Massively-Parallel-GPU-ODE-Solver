@@ -21,18 +21,6 @@
 	}                                                                                            \
 }
 
-#define __MPGOS_PERTHREAD_NT 1
-#define __MPGOS_PERTHREAD_SD 1
-#define __MPGOS_PERTHREAD_NCP 0
-#define __MPGOS_PERTHREAD_NSP 0
-#define __MPGOS_PERTHREAD_NISP 0
-#define __MPGOS_PERTHREAD_NE 0
-#define __MPGOS_PERTHREAD_NA 0
-#define __MPGOS_PERTHREAD_NIA 0
-#define __MPGOS_PERTHREAD_NDO 0
-#define __MPGOS_PERTHREAD_ALGORITHM RK4
-#define __MPGOS_PERTHREAD_PRECISION double
-
 template <class DataType>
 DataType* AllocateHostMemory(int);
 
@@ -79,6 +67,23 @@ std::string VariablesToString(ListOfVariables);
 void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
+
+#define __MPGOS_PERTHREAD_NT 1
+#define __MPGOS_PERTHREAD_SD 1
+#define __MPGOS_PERTHREAD_NCP 0
+#define __MPGOS_PERTHREAD_NSP 0
+#define __MPGOS_PERTHREAD_NISP 0
+#define __MPGOS_PERTHREAD_NE 0
+#define __MPGOS_PERTHREAD_NA 0
+#define __MPGOS_PERTHREAD_NIA 0
+#define __MPGOS_PERTHREAD_NDO 0
+#define __MPGOS_PERTHREAD_ALGORITHM RK4
+#define __MPGOS_PERTHREAD_PRECISION double
+#if __MPGOS_PERTHREAD_ALGORITHM == RK4
+	__MPGOS_PERTHREAD_ADAPTIVE false
+#elif
+	__MPGOS_PERTHREAD_ADAPTIVE true
+#endif
 
 // Interface with the kernel
 struct Struct_ThreadConfiguration
