@@ -260,9 +260,9 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 
 				#if __MPGOS_PERTHREAD_NDO > 0
 					PerThread_DenseOutputStorageCondition(r,SolverOptions);
-					PerThread_StoreDenseOutput(tid,r,
+					PerThread_StoreDenseOutput(tid,r, \
 						GlobalVariables.d_DenseOutputTimeInstances, \
-						GlobalVariables.d_DenseOutputStates,
+						GlobalVariables.d_DenseOutputStates, \
 						SolverOptions.DenseOutputMinimumTimeStep);
 				#endif
 

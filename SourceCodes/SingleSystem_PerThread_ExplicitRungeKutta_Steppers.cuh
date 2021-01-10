@@ -3,7 +3,7 @@
 
 
 // RK4 ------------------------------------------------------------------------
-__forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct r, SharedStruct s)
+__forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r, SharedStruct s)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
@@ -63,7 +63,7 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct r,
 
 
 // RKCK 45 --------------------------------------------------------------------
-__forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct r, SharedStruct s)
+__forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct &r, SharedStruct s)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
