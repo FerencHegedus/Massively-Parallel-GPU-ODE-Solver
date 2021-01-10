@@ -4,10 +4,10 @@ global k B
 ThreadID = 0;
 
 
-k  = dlmread( strcat('tid_',num2str(ThreadID),'.txt'), ',', [1 0 1 0]);
-B  = dlmread( strcat('tid_',num2str(ThreadID),'.txt'), ',', [3 0 3 0]);
+k  = dlmread( strcat('DenseOutput_',num2str(ThreadID),'.txt'), ',', [1 0 1 0]);
+B  = dlmread( strcat('DenseOutput_',num2str(ThreadID),'.txt'), ',', [3 0 3 0]);
 
-Data  = dlmread( strcat('tid_',num2str(ThreadID),'.txt'), ',', 12, 0);
+Data  = dlmread( strcat('DenseOutput_',num2str(ThreadID),'.txt'), ',', 12, 0);
 
 TimeDomain=[0 2*pi];
 InitialCondition=[Data(1,2) Data(1,3)];

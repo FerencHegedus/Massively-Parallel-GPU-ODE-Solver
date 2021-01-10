@@ -40,7 +40,7 @@ enum Algorithms{ RK4, RKCK45 };
 #endif
 
 #ifndef __MPGOS_PERTHREAD_ALGORITHM
-	#define __MPGOS_PERTHREAD_ALGORITHM RK4
+	#define __MPGOS_PERTHREAD_ALGORITHM 0
 #endif
 
 #ifndef __MPGOS_PERTHREAD_PRECISION

@@ -2,77 +2,65 @@
 #define T1_PERTHREAD_SYSTEMDEFINITION_H
 
 // SYSTEM
-template <class Precision>
-__forceinline__ __device__ void PerThread_OdeFunction(\
-			int tid, int NT, \
-			Precision*    F, Precision*    X, Precision     T, \
-			Precision* cPAR, Precision* sPAR, int*      sPARi, Precision* ACC, int* ACCi)
+__forceinline__ __device__ void PerThread_OdeFunction(int tid, int NT, \
+			double*    F, double*    X, double     T, \
+			RegisterStruct r, double * s, int * si)
 {
 	F[0] = X[1];
-	F[1] = X[0] - X[0]*X[0]*X[0] - cPAR[0]*X[1] + sPAR[0]*cos(T);
+	F[1] = X[0] - X[0]*X[0]*X[0] - r.ControlParameters[0]*X[1] + s[0]*cos(T);
 }
 
 // EVENTS
-template <class Precision>
 __forceinline__ __device__ void PerThread_EventFunction(\
-			int tid, int NT, Precision* EF, \
-			Precision     T, Precision    dT, Precision*    TD, Precision*   X, \
-			Precision* cPAR, Precision* sPAR,       int* sPARi, Precision* ACC, int* ACCi)
+			int tid, int NT, \
+			RegisterStruct &r, double * s, int * si)
 {
-	EF[0] = X[1];
-	EF[1] = X[0];
+	r.ActualEventValue[0] = r.ActualState[1];
+	r.ActualEventValue[1] = r.ActualState[0];
 }
 
-template <class Precision>
 __forceinline__ __device__ void PerThread_ActionAfterEventDetection(\
-			int tid, int NT, int IDX, int& UDT, \
-			Precision    &T, Precision   &dT, Precision*    TD, Precision*   X, \
-			Precision* cPAR, Precision* sPAR, int*       sPARi, Precision* ACC, int* ACCi)
-{	
-	if ( X[0] > ACC[0] )
-		ACC[0] = X[0];
-	
+			int tid, int NT, int IDX, \
+			RegisterStruct &r, double * s, int * si)
+{
+	if ( r.ActualState[0] > r.Accessories[0] )
+		r.Accessories[0] = r.ActualState[0];
+
 	if ( IDX == 1 )
-		ACCi[0]++;
-	
-	if ( (IDX ==1 ) && ( ACCi[0] == 2 ) )
-		ACC[1] = X[1];
+		r.IntegerAccessories[0]++;
+
+	if ( (IDX ==1 ) && ( r.IntegerAccessories[0] == 2 ) )
+		r.Accessories[1] = r.ActualState[1];
 }
 
 // ACCESSORIES
-template <class Precision>
 __forceinline__ __device__ void PerThread_ActionAfterSuccessfulTimeStep(\
-			int tid, int NT, int& UDT, \
-			Precision&    T, Precision&   dT, Precision*    TD, Precision*   X, \
-			Precision* cPAR, Precision* sPAR, int*       sPARi, Precision* ACC, int* ACCi)
+	int tid, int NT, \
+	RegisterStruct &r, double * s, int * si)
 {
-	if ( X[0] > ACC[2] )
-		ACC[2] = X[0];
+	if ( r.ActualState[0] > r.Accessories[2] )
+		r.Accessories[2] = r.ActualState[0];
 }
 
-template <class Precision>
 __forceinline__ __device__ void PerThread_Initialization(\
-			int tid, int NT, int& DOIDX, \
-			Precision&    T, Precision&   dT, Precision*    TD, Precision*   X, \
-			Precision* cPAR, Precision* sPAR,       int* sPARi, Precision* ACC, int* ACCi)
+	int tid, int NT, \
+	RegisterStruct &r, double * s, int * si)
 {
-	T      = TD[0]; // Reset the starting point of the simulation from the lower limit of the time domain
-	DOIDX  = 0;     // Reset the start of the filling of dense output from the beggining
-	
-	ACC[0] = X[0];
-	ACC[1] = X[1];
-	ACC[2] = X[0];
-	
-	ACCi[0] = 0; // Event counter of the second event function
+	r.ActualTime      = r.TimeDomain[0]; // Reset the starting point of the simulation from the lower limit of the time domain
+	r.DenseOutputIndex  = 0;     // Reset the start of the filling of dense output from the beggining
+
+	r.Accessories[0] = r.ActualState[0];
+	r.Accessories[1] = r.ActualState[1];
+	r.Accessories[2] = r.ActualState[0];
+
+	r.IntegerAccessories[0] = 0; // Event counter of the second event function
 }
 
-template <class Precision>
 __forceinline__ __device__ void PerThread_Finalization(\
-			int tid, int NT, int& DOIDX, \
-			Precision&    T, Precision&   dT, Precision*    TD, Precision*   X, \
-			Precision* cPAR, Precision* sPAR,       int* sPARi, Precision* ACC, int* ACCi)
+			int tid, int NT, \
+			RegisterStruct &r, double * s, int * si)
 {
-	
+
 }
 
 #endif

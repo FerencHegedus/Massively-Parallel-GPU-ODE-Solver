@@ -33,7 +33,7 @@ __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 
 __forceinline__ __device__ void PerThread_DenseOutputStorageCondition(\
 			RegisterStruct &r, \
-			Struct_SolverOptions<__MPGOS_PERTHREAD_PRECISION> SolverOptions)
+			Struct_SolverOptions SolverOptions)
 {
 	if ( ( r.DenseOutputIndex < __MPGOS_PERTHREAD_NDO ) && ( r.DenseOutputActualTime < r.ActualTime ) && ( r.NumberOfSkippedStores >= (SolverOptions.DenseOutputSaveFrequency-1) ) )
 		r.UpdateDenseOutput = 1;
