@@ -25,6 +25,7 @@ struct RegisterStruct
 	#if __MPGOS_PERTHREAD_NE > 0
 		__MPGOS_PERTHREAD_PRECISION ActualEventValue[__MPGOS_PERTHREAD_NE];
 		__MPGOS_PERTHREAD_PRECISION NextEventValue[__MPGOS_PERTHREAD_NE];
+		__MPGOS_PERTHREAD_PRECISION NewTimeStepTmp;
 	#endif
 	#if __MPGOS_PERTHREAD_NDO > 0
 		__MPGOS_PERTHREAD_PRECISION DenseOutputActualTime;
@@ -70,7 +71,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 	extern __shared__ int DynamicSharedMemory[];
 	int MemoryShift;
 
-	s.SharedParameters = (Precision*)&DynamicSharedMemory;
+	s.SharedParameters = (__MPGOS_PERTHREAD_PRECISION*)&DynamicSharedMemory;
 	MemoryShift = (SharedMemoryUsage.PreferSharedMemory  == 1 ? __MPGOS_PERTHREAD_NSP : 0);
 
 	s.IntegerSharedParameters = (int*)&gs_SharedParameters[MemoryShift];
@@ -91,7 +92,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		}
 	#endif
 
-	// Initialise shared event handling variables
+	// Initialise shared event handling variables if event handling is necessary
 	#if __MPGOS_PERTHREAD_NE > 0
 		const int LaunchesNE = __MPGOS_PERTHREAD_NE / blockDim.x + (__MPGOS_PERTHREAD_NE % blockDim.x == 0 ? 0 : 1);
 		#pragma unroll
@@ -133,331 +134,171 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 	if (tid < ThreadConfiguration.NumberOfActiveThreads)
 	{
 		// REGISTER MEMORY MANAGEMENT -----------------------------------------
-		//    MINIMUM ALLOCABLE MEMORY IS 1
 		RegisterStruct r;
 
+		//always defined
+		r.ActualTime             = GlobalVariables.d_ActualTime[tid];
+		r.TimeStep               = SolverOptions.InitialTimeStep;
+		r.NewTimeStep            = SolverOptions.InitialTimeStep;
+		r.TerminateSimulation    = 0;
+		r.UserDefinedTermination = 0;
 
 		#pragma unroll
 		for (int i=0; i<2; i++)
-			r_TimeDomain[i] = GlobalVariables.d_TimeDomain[tid + i*NT];
+			r.TimeDomain[i] = GlobalVariables.d_TimeDomain[tid + i*__MPGOS_PERTHREAD_NT];
 
 		#pragma unroll
 		for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
-			r_ActualState[i] = GlobalVariables.d_ActualState[tid + i*NT];
+			r.ActualState[i] = GlobalVariables.d_ActualState[tid + i*__MPGOS_PERTHREAD_NT];
 
+		//if control parameters
 		#if __MPGOS_PERTHREAD_NCP > 0
 			#pragma unroll
 			for (int i=0; i<__MPGOS_PERTHREAD_NCP; i++)
-				r_ControlParameters[i] = GlobalVariables.d_ControlParameters[tid + i*NT];
+				r.ControlParameters[i] = GlobalVariables.d_ControlParameters[tid + i*__MPGOS_PERTHREAD_NT];
 		#endif
 
-		#pragma unroll
-		for (int i=0; i<__MPGOS_PERTHREAD_NA; i++)
-			r_Accessories[i] = GlobalVariables.d_Accessories[tid + i*NT];
+		//if accessories
+		#if __MPGOS_PERTHREAD_NA > 0
+			#pragma unroll
+			for (int i=0; i<__MPGOS_PERTHREAD_NA; i++)
+				r.Accessories[i] = GlobalVariables.d_Accessories[tid + i*__MPGOS_PERTHREAD_NT];
+		#endif
 
-		#pragma unroll
-		for (int i=0; i<__MPGOS_PERTHREAD_NIA; i++)
-			r_IntegerAccessories[i] = GlobalVariables.d_IntegerAccessories[tid + i*NT];
+		//if integer accessories
+		#if __MPGOS_PERTHREAD_NIA > 0
+			#pragma unroll
+			for (int i=0; i<__MPGOS_PERTHREAD_NIA; i++)
+				r.IntegerAccessories[i] = GlobalVariables.d_IntegerAccessories[tid + i*__MPGOS_PERTHREAD_NT];
+		#endif
 
-		r_ActualTime             = GlobalVariables.d_ActualTime[tid];
-		r_TimeStep               = SolverOptions.InitialTimeStep;
-		r_NewTimeStep            = SolverOptions.InitialTimeStep;
-		r_DenseOutputIndex       = GlobalVariables.d_DenseOutputIndex[tid];
-		r_UpdateDenseOutput      = 1;
-		r_NumberOfSkippedStores  = 0;
-		r_TerminateSimulation    = 0;
-		r_UserDefinedTermination = 0;
+		//if dense output
+		#if __MPGOS_PERTHREAD_NDO > 0
+			r.DenseOutputIndex       = GlobalVariables.d_DenseOutputIndex[tid];
+			r.UpdateDenseOutput      = 1;
+			r.NumberOfSkippedStores  = 0;
+		#endif
 
 
 		// INITIALISATION -----------------------------------------------------
-		PerThread_Initialization<Precision>(\
-			tid, \
-			NT, \
-			r_DenseOutputIndex, \
-			r_ActualTime, \
-			r_TimeStep, \
-			r_TimeDomain, \
-			r_ActualState, \
-			r_ControlParameters, \
-			gs_SharedParameters, \
-			gs_IntegerSharedParameters, \
-			r_Accessories, \
-			r_IntegerAccessories);
+		PerThread_Initialization(tid,__MPGOS_PERTHREAD_NT,r,s);
 
-		if ( __MPGOS_PERTHREAD_NE > 0 )
-		{
-			PerThread_EventFunction<Precision>(\
-				tid, \
-				NT, \
-				r_ActualEventValue, \
-				r_ActualTime, \
-				r_TimeStep, \
-				r_TimeDomain, \
-				r_ActualState, \
-				r_ControlParameters, \
-				gs_SharedParameters, \
-				gs_IntegerSharedParameters, \
-				r_Accessories, \
-				r_IntegerAccessories);
-		}
+		#if __MPGOS_PERTHREAD_NE > 0
+			PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r,s);
+		#endif
 
-		if ( NDO > 0 )
-		{
-			PerThread_StoreDenseOutput<NT, __MPGOS_PERTHREAD_SD, NDO, Precision>(\
-				tid, \
-				r_UpdateDenseOutput, \
-				r_DenseOutputIndex, \
+		#if __MPGOS_PERTHREAD_NDO > 0
+			PerThread_StoreDenseOutput(tid,r, \
 				GlobalVariables.d_DenseOutputTimeInstances, \
-				r_ActualTime, \
 				GlobalVariables.d_DenseOutputStates, \
-				r_ActualState, \
-				r_NumberOfSkippedStores, \
-				r_DenseOutputActualTime, \
-				SolverOptions.DenseOutputMinimumTimeStep, \
-				r_TimeDomain[1]);
-		}
+				SolverOptions.DenseOutputMinimumTimeStep);
+		#endif
 
 
 		// SOLVER MANAGEMENT --------------------------------------------------
-		while ( r_TerminateSimulation == 0 )
+		while ( r.TerminateSimulation == 0 )
 		{
 			// INITIALISE TIME STEPPING ---------------------------------------
-			r_UpdateStep           = 1;
-			r_IsFinite             = 1;
-			r_EndTimeDomainReached = 0;
+			r.UpdateStep           = 1;
+			r.IsFinite             = 1;
+			r.EndTimeDomainReached = 0;
 
-			r_TimeStep = r_NewTimeStep;
+			r.TimeStep = r.NewTimeStep;
 
-			if ( r_TimeStep > ( r_TimeDomain[1] - r_ActualTime ) )
+			if ( r.TimeStep > ( r.TimeDomain[1] - r.ActualTime ) )
 			{
-				r_TimeStep = r_TimeDomain[1] - r_ActualTime;
-				r_EndTimeDomainReached = 1;
+				r.TimeStep = r.TimeDomain[1] - r.ActualTime;
+				r.EndTimeDomainReached = 1;
 			}
 
 
 			// STEPPER --------------------------------------------------------
-			if ( Algorithm == RK4 )
-			{
-				PerThread_Stepper_RK4<NT,__MPGOS_PERTHREAD_SD,Precision>(\
-					tid, \
-					r_ActualTime, \
-					r_TimeStep, \
-					r_ActualState, \
-					r_NextState, \
-					r_Error, \
-					r_IsFinite, \
-					r_ControlParameters, \
-					gs_SharedParameters, \
-					gs_IntegerSharedParameters, \
-					r_Accessories, \
-					r_IntegerAccessories);
+			#if __MPGOS_PERTHREAD_ALGORITHM == RK4
+				PerThread_Stepper_RK4(tid,r,s);
+				PerThread_ErrorController_RK4(tid,r,SolverOptions.InitialTimeStep);
+			#endif
 
-				PerThread_ErrorController_RK4<Precision>(\
-					tid, \
-					SolverOptions.InitialTimeStep, \
-					r_IsFinite, \
-					r_TerminateSimulation, \
-					r_NewTimeStep);
-			}
-
-			if ( Algorithm == RKCK45 )
-			{
-				PerThread_Stepper_RKCK45<NT,__MPGOS_PERTHREAD_SD,Precision>(\
-					tid, \
-					r_ActualTime, \
-					r_TimeStep, \
-					r_ActualState, \
-					r_NextState, \
-					r_Error, \
-					r_IsFinite, \
-					r_ControlParameters, \
-					gs_SharedParameters, \
-					gs_IntegerSharedParameters, \
-					r_Accessories, \
-					r_IntegerAccessories);
-
-				PerThread_ErrorController_RKCK45<__MPGOS_PERTHREAD_SD,Precision>(\
-					tid, \
-					r_TimeStep, \
-					r_ActualState, \
-					r_NextState, \
-					r_Error, \
-					s_RelativeTolerance, \
-					s_AbsoluteTolerance, \
-					r_UpdateStep, \
-					r_IsFinite, \
-					r_TerminateSimulation, \
-					r_NewTimeStep, \
-					SolverOptions);
-			}
+			#if __MPGOS_PERTHREAD_ALGORITHM == RKCK45
+				PerThread_Stepper_RKCK45(tid,r,s);
+				PerThread_ErrorController_RKCK45(tid,r,s,SolverOptions);
+			#endif
 
 
 			// NEW EVENT VALUE AND TIME STEP CONTROL---------------------------
-			if ( __MPGOS_PERTHREAD_NE > 0 )
-			{
-				PerThread_EventFunction<Precision>(\
-					tid, \
-					NT, \
-					r_NextEventValue, \
-					r_ActualTime+r_TimeStep, \
-					r_TimeStep, \
-					r_TimeDomain, \
-					r_NextState, \
-					r_ControlParameters, \
-					gs_SharedParameters, \
-					gs_IntegerSharedParameters, \
-					r_Accessories, \
-					r_IntegerAccessories);
-
-				PerThread_EventTimeStepControl<__MPGOS_PERTHREAD_NE,Precision>(\
-					tid, \
-					r_UpdateStep, \
-					r_TerminateSimulation, \
-					r_ActualEventValue, \
-					r_NextEventValue, \
-					s_EventTolerance, \
-					s_EventDirection, \
-					r_TimeStep, \
-					r_NewTimeStep, \
-					SolverOptions.MinimumTimeStep);
-			}
+			#if __MPGOS_PERTHREAD_NE > 0
+			r.NewTimeStepTmp = r.ActualTime+r.TimeStep;
+			PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r,s);
+			PerThread_EventTimeStepControl(tid,r,s,SolverOptions.MinimumTimeStep);
+			#endif
 
 
 			// UPDATE PROCESS -------------------------------------------------
-			if ( r_UpdateStep == 1 )
+			if ( r.UpdateStep == 1 )
 			{
-				r_ActualTime += r_TimeStep;
+				r.ActualTime += r.TimeStep;
 
 				for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
-					r_ActualState[i] = r_NextState[i];
+					r.ActualState[i] = r.NextState[i];
 
-				PerThread_ActionAfterSuccessfulTimeStep<Precision>(\
-					tid, \
-					NT, \
-					r_UserDefinedTermination, \
-					r_ActualTime, \
-					r_TimeStep, \
-					r_TimeDomain, \
-					r_ActualState, \
-					r_ControlParameters, \
-					gs_SharedParameters, \
-					gs_IntegerSharedParameters, \
-					r_Accessories, \
-					r_IntegerAccessories);
+				PerThread_ActionAfterSuccessfulTimeStep(tid,__MPGOS_PERTHREAD_NT,r,s);
 
-				if ( __MPGOS_PERTHREAD_NE > 0 )
-				{
+				#if __MPGOS_PERTHREAD_NE > 0
 					for (int i=0; i<__MPGOS_PERTHREAD_NE; i++)
 					{
-						if ( ( ( r_ActualEventValue[i] >  s_EventTolerance[i] ) && ( abs(r_NextEventValue[i]) < s_EventTolerance[i] ) && ( s_EventDirection[i] <= 0 ) ) || \
-							 ( ( r_ActualEventValue[i] < -s_EventTolerance[i] ) && ( abs(r_NextEventValue[i]) < s_EventTolerance[i] ) && ( s_EventDirection[i] >= 0 ) ) )
+						if ( ( ( r.ActualEventValue[i] >  s.EventTolerance[i] ) && ( abs(r.NextEventValue[i]) < s.EventTolerance[i] ) && ( s.EventDirection[i] <= 0 ) ) || \
+							 ( ( r.ActualEventValue[i] < -s.EventTolerance[i] ) && ( abs(r.NextEventValue[i]) < s.EventTolerance[i] ) && ( s.EventDirection[i] >= 0 ) ) )
 						{
-							PerThread_ActionAfterEventDetection<Precision>(\
-								tid, \
-								NT, \
-								i, \
-								r_UserDefinedTermination, \
-								r_ActualTime, \
-								r_TimeStep, \
-								r_TimeDomain, \
-								r_ActualState, \
-								r_ControlParameters, \
-								gs_SharedParameters, \
-								gs_IntegerSharedParameters, \
-								r_Accessories, \
-								r_IntegerAccessories);
+							PerThread_ActionAfterEventDetection(tid,__MPGOS_PERTHREAD_NT,i,r,s);
 						}
 					}
 
-					PerThread_EventFunction<Precision>(\
-						tid, \
-						NT, \
-						r_NextEventValue, \
-						r_ActualTime, \
-						r_TimeStep, \
-						r_TimeDomain, \
-						r_ActualState, \
-						r_ControlParameters, \
-						gs_SharedParameters, \
-						gs_IntegerSharedParameters, \
-						r_Accessories,
-						r_IntegerAccessories);
+					PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r,s);
 
 					for (int i=0; i<__MPGOS_PERTHREAD_NE; i++)
-						r_ActualEventValue[i] = r_NextEventValue[i];
-				}
+						r.ActualEventValue[i] = r.NextEventValue[i];
+				#endif
 
-				if ( NDO > 0 )
-				{
-					PerThread_DenseOutputStorageCondition<NDO, Precision>(\
-						r_ActualTime, \
-						r_DenseOutputActualTime, \
-						r_DenseOutputIndex, \
-						r_NumberOfSkippedStores, \
-						r_EndTimeDomainReached, \
-						r_UserDefinedTermination, \
-						r_UpdateDenseOutput, \
-						SolverOptions);
-
-					PerThread_StoreDenseOutput<NT, __MPGOS_PERTHREAD_SD, NDO, Precision>(\
-						tid, \
-						r_UpdateDenseOutput, \
-						r_DenseOutputIndex, \
+				#if __MPGOS_PERTHREAD_NDO > 0
+					PerThread_DenseOutputStorageCondition(r,SolverOptions);
+					PerThread_StoreDenseOutput(tid,r,
 						GlobalVariables.d_DenseOutputTimeInstances, \
-						r_ActualTime, \
-						GlobalVariables.d_DenseOutputStates, \
-						r_ActualState, \
-						r_NumberOfSkippedStores, \
-						r_DenseOutputActualTime, \
-						SolverOptions.DenseOutputMinimumTimeStep, \
-						r_TimeDomain[1]);
-				}
+						GlobalVariables.d_DenseOutputStates,
+						SolverOptions.DenseOutputMinimumTimeStep);
+				#endif
 
-				if ( ( r_EndTimeDomainReached == 1 ) || ( r_UserDefinedTermination == 1 ) )
-					r_TerminateSimulation = 1;
+				if ( ( r.EndTimeDomainReached == 1 ) || ( r.UserDefinedTermination == 1 ) )
+					r.TerminateSimulation = 1;
 			}
 		}
 
 
 		// FINALISATION -----------------------------------------------------------
-		PerThread_Finalization(\
-			tid, \
-			NT, \
-			r_DenseOutputIndex, \
-			r_ActualTime, \
-			r_TimeStep, \
-			r_TimeDomain, \
-			r_ActualState, \
-			r_ControlParameters, \
-			gs_SharedParameters, \
-			gs_IntegerSharedParameters, \
-			r_Accessories, \
-			r_IntegerAccessories);
+		PerThread_Finalization(tid, __MPGOS_PERTHREAD_NT,r,s);
 
 
 		// WRITE DATA BACK TO GLOBAL MEMORY ---------------------------------------
 		#pragma unroll
 		for (int i=0; i<2; i++)
-			GlobalVariables.d_TimeDomain[tid + i*NT] = r_TimeDomain[i];
+			GlobalVariables.d_TimeDomain[tid + i*__MPGOS_PERTHREAD_NT] = r.TimeDomain[i];
 
 		#pragma unroll
 		for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
-			GlobalVariables.d_ActualState[tid + i*NT] = r_ActualState[i];
+			GlobalVariables.d_ActualState[tid + i*__MPGOS_PERTHREAD_NT] = r.ActualState[i];
 
 		#pragma unroll
 		for (int i=0; i<__MPGOS_PERTHREAD_NCP; i++)
-			GlobalVariables.d_ControlParameters[tid + i*NT] = r_ControlParameters[i];
+			GlobalVariables.d_ControlParameters[tid + i*__MPGOS_PERTHREAD_NT] = r.ControlParameters[i];
 
 		#pragma unroll
 		for (int i=0; i<__MPGOS_PERTHREAD_NA; i++)
-			GlobalVariables.d_Accessories[tid + i*NT] = r_Accessories[i];
+			GlobalVariables.d_Accessories[tid + i*__MPGOS_PERTHREAD_NT] = r.Accessories[i];
 
 		#pragma unroll
 		for (int i=0; i<__MPGOS_PERTHREAD_NIA; i++)
-			GlobalVariables.d_IntegerAccessories[tid + i*NT] = r_IntegerAccessories[i];
+			GlobalVariables.d_IntegerAccessories[tid + i*__MPGOS_PERTHREAD_NT] = r.IntegerAccessories[i];
 
-		GlobalVariables.d_ActualTime[tid]       = r_ActualTime;
-		GlobalVariables.d_DenseOutputIndex[tid] = r_DenseOutputIndex;
+		GlobalVariables.d_ActualTime[tid]       = r.ActualTime;
+		GlobalVariables.d_DenseOutputIndex[tid] = r.DenseOutputIndex;
 	}
 }
 

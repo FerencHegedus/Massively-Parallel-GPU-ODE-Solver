@@ -1,4 +1,4 @@
-#ifndef SINGLESYSTEM_PERTHREAD_INTERFACE_H
+#ifndef#ifndef SINGLESYSTEM_PERTHREAD_INTERFACE_H
 #define SINGLESYSTEM_PERTHREAD_INTERFACE_H
 
 #include <vector>
@@ -68,17 +68,51 @@ void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
 
-#define __MPGOS_PERTHREAD_NT 1
-#define __MPGOS_PERTHREAD_SD 1
-#define __MPGOS_PERTHREAD_NCP 0
-#define __MPGOS_PERTHREAD_NSP 0
-#define __MPGOS_PERTHREAD_NISP 0
-#define __MPGOS_PERTHREAD_NE 0
-#define __MPGOS_PERTHREAD_NA 0
-#define __MPGOS_PERTHREAD_NIA 0
-#define __MPGOS_PERTHREAD_NDO 0
-#define __MPGOS_PERTHREAD_ALGORITHM RK4
-#define __MPGOS_PERTHREAD_PRECISION double
+
+#ifndef __MPGOS_PERTHREAD_NT
+	#define __MPGOS_PERTHREAD_NT 1
+#endif
+
+#ifndef __MPGOS_PERTHREAD_SD
+	#define __MPGOS_PERTHREAD_SD 1
+#endif
+
+#ifndef __MPGOS_PERTHREAD_NCP
+	#define __MPGOS_PERTHREAD_NCP 0
+#endif
+
+#ifndef __MPGOS_PERTHREAD_NSP
+	#define __MPGOS_PERTHREAD_NSP 0
+#endif
+
+#ifndef __MPGOS_PERTHREAD_NISP
+	#define __MPGOS_PERTHREAD_NISP 0
+#endif
+
+#ifndef __MPGOS_PERTHREAD_NE
+	#define __MPGOS_PERTHREAD_NE 0
+#endif
+
+#ifndef __MPGOS_PERTHREAD_NA
+	#define __MPGOS_PERTHREAD_NA 0
+#endif
+
+#ifndef __MPGOS_PERTHREAD_NIA
+	#define __MPGOS_PERTHREAD_NIA 0
+#endif
+
+#ifndef __MPGOS_PERTHREAD_NDO
+	#define __MPGOS_PERTHREAD_NDO 0
+#endif
+
+#ifndef __MPGOS_PERTHREAD_ALGORITHM
+	#define __MPGOS_PERTHREAD_ALGORITHM RK4
+#endif
+
+#ifned __MPGOS_PERTHREAD_PRECISION
+	#define __MPGOS_PERTHREAD_PRECISION double
+#endif
+
 #if __MPGOS_PERTHREAD_ALGORITHM == RK4
 	__MPGOS_PERTHREAD_ADAPTIVE false
 #elif
