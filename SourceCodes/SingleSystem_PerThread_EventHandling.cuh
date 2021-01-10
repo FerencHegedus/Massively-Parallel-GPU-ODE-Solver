@@ -1,7 +1,7 @@
 #ifndef SINGLESYSTEM_PERTHREAD_EVENTHANDLING_H
 #define SINGLESYSTEM_PERTHREAD_EVENTHANDLING_H
 
-
+#if __MPGOS_PERTHREAD_NE > 0
 __forceinline__ __device__ void PerThread_EventTimeStepControl(int tid, \
 			RegisterStruct& r, \
 			SharedStruct s, \
@@ -35,5 +35,6 @@ __forceinline__ __device__ void PerThread_EventTimeStepControl(int tid, \
 		}
 	}
 }
+#endif
 
 #endif

@@ -1,4 +1,4 @@
-#ifndef#ifndef SINGLESYSTEM_PERTHREAD_INTERFACE_H
+#ifndef SINGLESYSTEM_PERTHREAD_INTERFACE_H
 #define SINGLESYSTEM_PERTHREAD_INTERFACE_H
 
 #include <vector>
@@ -29,8 +29,6 @@ DataType* AllocateHostPinnedMemory(int);
 
 template <class DataType>
 DataType* AllocateDeviceMemory(int);
-
-enum Algorithms{ RK4, RKCK45 };
 
 enum ListOfVariables{ All, \
                       TimeDomain, \
@@ -68,56 +66,6 @@ void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
 
-
-#ifndef __MPGOS_PERTHREAD_NT
-	#define __MPGOS_PERTHREAD_NT 1
-#endif
-
-#ifndef __MPGOS_PERTHREAD_SD
-	#define __MPGOS_PERTHREAD_SD 1
-#endif
-
-#ifndef __MPGOS_PERTHREAD_NCP
-	#define __MPGOS_PERTHREAD_NCP 0
-#endif
-
-#ifndef __MPGOS_PERTHREAD_NSP
-	#define __MPGOS_PERTHREAD_NSP 0
-#endif
-
-#ifndef __MPGOS_PERTHREAD_NISP
-	#define __MPGOS_PERTHREAD_NISP 0
-#endif
-
-#ifndef __MPGOS_PERTHREAD_NE
-	#define __MPGOS_PERTHREAD_NE 0
-#endif
-
-#ifndef __MPGOS_PERTHREAD_NA
-	#define __MPGOS_PERTHREAD_NA 0
-#endif
-
-#ifndef __MPGOS_PERTHREAD_NIA
-	#define __MPGOS_PERTHREAD_NIA 0
-#endif
-
-#ifndef __MPGOS_PERTHREAD_NDO
-	#define __MPGOS_PERTHREAD_NDO 0
-#endif
-
-#ifndef __MPGOS_PERTHREAD_ALGORITHM
-	#define __MPGOS_PERTHREAD_ALGORITHM RK4
-#endif
-
-#ifned __MPGOS_PERTHREAD_PRECISION
-	#define __MPGOS_PERTHREAD_PRECISION double
-#endif
-
-#if __MPGOS_PERTHREAD_ALGORITHM == RK4
-	__MPGOS_PERTHREAD_ADAPTIVE false
-#elif
-	__MPGOS_PERTHREAD_ADAPTIVE true
-#endif
 
 // Interface with the kernel
 struct Struct_ThreadConfiguration
@@ -224,27 +172,27 @@ class ProblemSolver
 		// Auxiliary member functions
 		void BoundCheck(std::string, std::string, int, int, int);
 		void SharedMemoryCheck();
-		void WriteToFileGeneral(std::string, int, int, __MPGOS_PERTHREAD_PRECISION*);
+		template <typename T> void WriteToFileGeneral(std::string, int, int, T*);
 
 	public:
 		ProblemSolver(int);
 		~ProblemSolver();
 
-		void SolverOption(ListOfSolverOptions, __MPGOS_PERTHREAD_PRECISION);
-		void SolverOption(ListOfSolverOptions, int, __MPGOS_PERTHREAD_PRECISION);
+		template <typename T> void SolverOption(ListOfSolverOptions, T);
+		template <typename T> void SolverOption(ListOfSolverOptions, int, T);
 
-		void SetHost(int, ListOfVariables, int, __MPGOS_PERTHREAD_PRECISION);      // Unit scope and DenseTime
-		void SetHost(int, ListOfVariables, __MPGOS_PERTHREAD_PRECISION);           // System scope
-		void SetHost(ListOfVariables, int, __MPGOS_PERTHREAD_PRECISION);           // Global scope
-		void SetHost(int, ListOfVariables, int, int, __MPGOS_PERTHREAD_PRECISION); // DenseState
+		template <typename T> void SetHost(int, ListOfVariables, int, T);      // Unit scope and DenseTime
+		template <typename T> void SetHost(int, ListOfVariables, T);           // System scope
+		template <typename T> void SetHost(ListOfVariables, int, T);           // Global scope
+		template <typename T> void SetHost(int, ListOfVariables, int, int, T); // DenseState
 
 		void SynchroniseFromHostToDevice(ListOfVariables);
 		void SynchroniseFromDeviceToHost(ListOfVariables);
 
-		__MPGOS_PERTHREAD_PRECISION GetHost(int, ListOfVariables, int);            // Unit scope and DenseTime
-		__MPGOS_PERTHREAD_PRECISION GetHost(int, ListOfVariables);                 // System scope
-		__MPGOS_PERTHREAD_PRECISION GetHost(ListOfVariables, int);                 // Global scope
-		__MPGOS_PERTHREAD_PRECISION GetHost(int, ListOfVariables, int, int);       // DenseState
+		template <typename T> T GetHost(int, ListOfVariables, int);            // Unit scope and DenseTime
+		template <typename T> T GetHost(int, ListOfVariables);                 // System scope
+		template <typename T> T GetHost(ListOfVariables, int);                 // Global scope
+		template <typename T> T GetHost(int, ListOfVariables, int, int);       // DenseState
 
 		void Print(ListOfVariables);      // General
 		void Print(ListOfVariables, int); // DenseOutput
@@ -653,7 +601,8 @@ void ProblemSolver::SharedMemoryCheck()
 }
 
 // OPTION, single input argument
-void ProblemSolver::SolverOption(ListOfSolverOptions Option, __MPGOS_PERTHREAD_PRECISION Value)
+template<typename T>
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, T Value)
 {
 	switch (Option)
 	{
@@ -708,7 +657,8 @@ void ProblemSolver::SolverOption(ListOfSolverOptions Option, __MPGOS_PERTHREAD_P
 }
 
 // OPTION, double input argument
-void ProblemSolver::SolverOption(ListOfSolverOptions Option, int Index, __MPGOS_PERTHREAD_PRECISION Value)
+template<typename T>
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, int Index, T Value)
 {
 	__MPGOS_PERTHREAD_PRECISION PValue = (__MPGOS_PERTHREAD_PRECISION)Value;
 	int       IValue = (int)Value;
@@ -744,7 +694,8 @@ void ProblemSolver::SolverOption(ListOfSolverOptions Option, int Index, __MPGOS_
 }
 
 // SETHOST, Unit scope and DenseTime
-void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, __MPGOS_PERTHREAD_PRECISION Value)
+template<typename T>
+void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, T Value)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -791,7 +742,8 @@ void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int Ser
 }
 
 // SETHOST, System scope
-void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, __MPGOS_PERTHREAD_PRECISION Value)
+template<typename T>
+void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, T Value)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -817,7 +769,8 @@ void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, __MPGOS
 }
 
 // SETHOST, Global scope
-void ProblemSolver::SetHost(ListOfVariables Variable, int SerialNumber, __MPGOS_PERTHREAD_PRECISION Value)
+template<typename T>
+void ProblemSolver::SetHost(ListOfVariables Variable, int SerialNumber, T Value)
 {
 	switch (Variable)
 	{
@@ -840,7 +793,8 @@ void ProblemSolver::SetHost(ListOfVariables Variable, int SerialNumber, __MPGOS_
 }
 
 // SETHOST, DenseState
-void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber, __MPGOS_PERTHREAD_PRECISION Value)
+template<typename T>
+void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber, T Value)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -996,7 +950,8 @@ void ProblemSolver::SynchroniseFromDeviceToHost(ListOfVariables Variable)
 }
 
 // GETHOST, Unit scope and DenseTime
-__MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber)
+template<typename T>
+T ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -1037,7 +992,8 @@ __MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(int ProblemNumber, ListOfVari
 }
 
 // GETHOST, System scope
-__MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable)
+template<typename T>
+T ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -1060,7 +1016,8 @@ __MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(int ProblemNumber, ListOfVari
 }
 
 // GETHOST, Global scope
-__MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(ListOfVariables Variable, int SerialNumber)
+template<typename T>
+T ProblemSolver::GetHost(ListOfVariables Variable, int SerialNumber)
 {
 	switch (Variable)
 	{
@@ -1081,7 +1038,8 @@ __MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(ListOfVariables Variable, int
 }
 
 // GETHOST, DenseState
-__MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber)
+template<typename T>
+T ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -1103,7 +1061,8 @@ __MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(int ProblemNumber, ListOfVari
 }
 
 // WRITE TO FILE, General
-void ProblemSolver::WriteToFileGeneral(std::string FileName, int NumberOfRows, int NumberOfColumns, __MPGOS_PERTHREAD_PRECISION* Data)
+template<typename T>
+void ProblemSolver::WriteToFileGeneral(std::string FileName, int NumberOfRows, int NumberOfColumns, T* Data)
 {
 	std::ofstream DataFile;
 	DataFile.open (FileName);

@@ -2,7 +2,7 @@
 #define SINGLESYSTEM_PERTHREAD_DENSEOUTPUT_H
 
 
-
+#if __MPGOS_PERTHREAD_NDO > 0
 __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 			int        tid, \
 			RegisterStruct &r, \
@@ -44,4 +44,5 @@ __forceinline__ __device__ void PerThread_DenseOutputStorageCondition(\
 		r.UpdateDenseOutput = 1;
 }
 
+#endif
 #endif

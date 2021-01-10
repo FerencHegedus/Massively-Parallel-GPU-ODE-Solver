@@ -17,7 +17,7 @@ __forceinline__ __device__ void PerThread_ErrorController_RK4(int tid,RegisterSt
 __forceinline__ __device__ void PerThread_ErrorController_RKCK45(int tid, \
 		RegisterStruct &r,  \
 		SharedStruct s, \
-		Struct_SolverOptions SolverOptions);
+		Struct_SolverOptions SolverOptions)
 {
 	__MPGOS_PERTHREAD_PRECISION RelativeError = 1e30;
 	__MPGOS_PERTHREAD_PRECISION ErrorTolerance;
