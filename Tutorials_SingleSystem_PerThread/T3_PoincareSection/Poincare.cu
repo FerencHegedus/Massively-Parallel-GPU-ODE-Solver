@@ -25,7 +25,7 @@ void SaveData(ProblemSolver&, ofstream&, int);
 
 int main()
 {
-	int NumberOfProblems = 1<<12;
+	int NumberOfProblems = __MPGOS_PERTHREAD_NT;
 	int BlockSize        = 64;
 
 	ListCUDADevices();

@@ -47,14 +47,11 @@ enum Algorithms{ RK4, RKCK45 };
 	#define __MPGOS_PERTHREAD_PRECISION double
 #endif
 
-#ifndef __MPGOS_PERTHREAD_ADAPTIVE
- #define __MPGOS_PERTHREAD_ADAPTIVE 0
-#endif
 #if __MPGOS_PERTHREAD_ALGORITHM == 1
 	#define __MPGOS_PERTHREAD_ADAPTIVE 1
 #elif
   #define __MPGOS_PERTHREAD_ADAPTIVE 0
-#endif*/
+#endif
 
 struct RegisterStruct
 {
