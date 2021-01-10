@@ -316,7 +316,7 @@ void PrintPropertiesOfSpecificDevice(int SelectedDevice)
 // --- PROBLEM SOLVER OBJECT ---
 
 // CONSTRUCTOR
-ProblemSolver(int AssociatedDevice)
+ProblemSolver::ProblemSolver(int AssociatedDevice)
 {
   std::cout << "---------------------------" << std::endl;
 	std::cout << "Creating a SolverObject ..." << std::endl;
@@ -371,8 +371,8 @@ ProblemSolver(int AssociatedDevice)
 	SizeOfIntegerAccessories       = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NIA;
 	SizeOfEvents                   = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NE;
 	SizeOfDenseOutputIndex         = __MPGOS_PERTHREAD_NT;
-	SizeOfDenseOutputTimeInstances = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_ND0;
-	SizeOfDenseOutputStates        = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_SD * __MPGOS_PERTHREAD_ND0;
+	SizeOfDenseOutputTimeInstances = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NDO;
+	SizeOfDenseOutputStates        = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_SD * __MPGOS_PERTHREAD_NDO;
 
 	GlobalMemoryRequired = sizeof(__MPGOS_PERTHREAD_PRECISION) * ( SizeOfTimeDomain + \
 												 SizeOfActualState + \
@@ -527,7 +527,7 @@ ProblemSolver(int AssociatedDevice)
 }
 
 // DESTRUCTOR
-~ProblemSolver()
+ProblemSolver::~ProblemSolver()
 {
     gpuErrCHK( cudaSetDevice(Device) );
 
@@ -570,7 +570,7 @@ ProblemSolver(int AssociatedDevice)
 }
 
 // BOUND CHECK, set/get host, options
-void BoundCheck(std::string Function, std::string Variable, int Value, int LowerLimit, int UpperLimit)
+void ProblemSolver::BoundCheck(std::string Function, std::string Variable, int Value, int LowerLimit, int UpperLimit)
 {
 	if ( ( Value < LowerLimit ) || ( Value > UpperLimit ) )
 	{
@@ -588,7 +588,7 @@ void BoundCheck(std::string Function, std::string Variable, int Value, int Lower
 }
 
 // SHARED MEMORY CHECK
-void SharedMemoryCheck()
+void ProblemSolver::SharedMemoryCheck()
 {
 	std::cout << "SHARED MEMORY MANAGEMENT CHANGED BY SOLVER OPTION:" << std::endl;
 
@@ -614,7 +614,7 @@ void SharedMemoryCheck()
 }
 
 // OPTION, single input argument
-void SolverOption(ListOfSolverOptions Option, __MPGOS_PERTHREAD_PRECISION Value)
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, __MPGOS_PERTHREAD_PRECISION Value)
 {
 	switch (Option)
 	{
@@ -669,7 +669,7 @@ void SolverOption(ListOfSolverOptions Option, __MPGOS_PERTHREAD_PRECISION Value)
 }
 
 // OPTION, double input argument
-void SolverOption(ListOfSolverOptions Option, int Index, __MPGOS_PERTHREAD_PRECISION Value)
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, int Index, __MPGOS_PERTHREAD_PRECISION Value)
 {
 	__MPGOS_PERTHREAD_PRECISION PValue = (__MPGOS_PERTHREAD_PRECISION)Value;
 	int       IValue = (int)Value;
@@ -705,7 +705,7 @@ void SolverOption(ListOfSolverOptions Option, int Index, __MPGOS_PERTHREAD_PRECI
 }
 
 // SETHOST, Unit scope and DenseTime
-void SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, __MPGOS_PERTHREAD_PRECISION Value)
+void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, __MPGOS_PERTHREAD_PRECISION Value)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -739,7 +739,7 @@ void SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, __MP
 			break;
 
 		case DenseTime:
-			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, __MPGOS_PERTHREAD_ND0-1 );
+			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
 			h_DenseOutputTimeInstances[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
 
@@ -752,7 +752,7 @@ void SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, __MP
 }
 
 // SETHOST, System scope
-void SetHost(int ProblemNumber, ListOfVariables Variable, __MPGOS_PERTHREAD_PRECISION Value)
+void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, __MPGOS_PERTHREAD_PRECISION Value)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -765,7 +765,7 @@ void SetHost(int ProblemNumber, ListOfVariables Variable, __MPGOS_PERTHREAD_PREC
 			break;
 
 		case DenseIndex:
-			BoundCheck("SetHost", "DenseIndex-Value", (int)Value, 0, __MPGOS_PERTHREAD_ND0-1 );
+			BoundCheck("SetHost", "DenseIndex-Value", (int)Value, 0, __MPGOS_PERTHREAD_NDO-1 );
 			h_DenseOutputIndex[idx] = (int)Value;
 			break;
 
@@ -778,7 +778,7 @@ void SetHost(int ProblemNumber, ListOfVariables Variable, __MPGOS_PERTHREAD_PREC
 }
 
 // SETHOST, Global scope
-void SetHost(ListOfVariables Variable, int SerialNumber, __MPGOS_PERTHREAD_PRECISION Value)
+void ProblemSolver::SetHost(ListOfVariables Variable, int SerialNumber, __MPGOS_PERTHREAD_PRECISION Value)
 {
 	switch (Variable)
 	{
@@ -801,7 +801,7 @@ void SetHost(ListOfVariables Variable, int SerialNumber, __MPGOS_PERTHREAD_PRECI
 }
 
 // SETHOST, DenseState
-void SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber, __MPGOS_PERTHREAD_PRECISION Value)
+void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber, __MPGOS_PERTHREAD_PRECISION Value)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -811,7 +811,7 @@ void SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int 
 	{
 		case DenseState:
 			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
-			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_ND0-1 );
+			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
 			h_DenseOutputStates[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
 
@@ -824,7 +824,7 @@ void SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int 
 }
 
 // SYNCHRONISE, Host -> Device
-void SynchroniseFromHostToDevice(ListOfVariables Variable)
+void ProblemSolver::SynchroniseFromHostToDevice(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 
@@ -891,7 +891,7 @@ void SynchroniseFromHostToDevice(ListOfVariables Variable)
 }
 
 // SYNCHRONISE, Device -> Host
-void SynchroniseFromDeviceToHost(ListOfVariables Variable)
+void ProblemSolver::SynchroniseFromDeviceToHost(ListOfVariables Variable)
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 
@@ -957,7 +957,7 @@ void SynchroniseFromDeviceToHost(ListOfVariables Variable)
 }
 
 // GETHOST, Unit scope and DenseTime
-__MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber)
+__MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -986,7 +986,7 @@ __MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable,
 			return (__MPGOS_PERTHREAD_PRECISION)h_IntegerAccessories[idx];
 
 		case DenseTime:
-			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, __MPGOS_PERTHREAD_ND0-1 );
+			BoundCheck("SetHost", "DenseTime", SerialNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
 			return (__MPGOS_PERTHREAD_PRECISION)h_DenseOutputTimeInstances[idx];
 
 		default:
@@ -998,7 +998,7 @@ __MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable,
 }
 
 // GETHOST, System scope
-__MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable)
+__MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -1021,7 +1021,7 @@ __MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable)
 }
 
 // GETHOST, Global scope
-__MPGOS_PERTHREAD_PRECISION GetHost(ListOfVariables Variable, int SerialNumber)
+__MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(ListOfVariables Variable, int SerialNumber)
 {
 	switch (Variable)
 	{
@@ -1042,7 +1042,7 @@ __MPGOS_PERTHREAD_PRECISION GetHost(ListOfVariables Variable, int SerialNumber)
 }
 
 // GETHOST, DenseState
-__MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber)
+__MPGOS_PERTHREAD_PRECISION ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, int TimeStepNumber)
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -1052,7 +1052,7 @@ __MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable,
 	{
 		case DenseState:
 			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
-			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_ND0-1 );
+			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
 			return (__MPGOS_PERTHREAD_PRECISION)h_DenseOutputStates[idx];
 
 		default:
@@ -1064,7 +1064,7 @@ __MPGOS_PERTHREAD_PRECISION GetHost(int ProblemNumber, ListOfVariables Variable,
 }
 
 // WRITE TO FILE, General
-void WriteToFileGeneral(std::string FileName, int NumberOfRows, int NumberOfColumns, __MPGOS_PERTHREAD_PRECISION* Data)
+void ProblemSolver::WriteToFileGeneral(std::string FileName, int NumberOfRows, int NumberOfColumns, __MPGOS_PERTHREAD_PRECISION* Data)
 {
 	std::ofstream DataFile;
 	DataFile.open (FileName);
@@ -1091,7 +1091,7 @@ void WriteToFileGeneral(std::string FileName, int NumberOfRows, int NumberOfColu
 }
 
 // PRINT, General
-void Print(ListOfVariables Variable)
+void ProblemSolver::Print(ListOfVariables Variable)
 {
 	std::string FileName;
 	int NumberOfRows;
@@ -1164,7 +1164,7 @@ void Print(ListOfVariables Variable)
 }
 
 // PRINT, DenseOutput
-void Print(ListOfVariables Variable, int ThreadID)
+void ProblemSolver::Print(ListOfVariables Variable, int ThreadID)
 {
 	BoundCheck("Print", "Thread", ThreadID, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -1234,7 +1234,7 @@ void Print(ListOfVariables Variable, int ThreadID)
 	DataFile << "\n\n";
 
 	DataFile << "Time series:\n";
-	if ( __MPGOS_PERTHREAD_ND0 > 0 )
+	if ( __MPGOS_PERTHREAD_NDO > 0 )
 	{
 		for (int i=0; i<(h_DenseOutputIndex[ThreadID]); i++)
 		{
@@ -1256,7 +1256,7 @@ void Print(ListOfVariables Variable, int ThreadID)
 }
 
 // SOLVE
-void Solve()
+void ProblemSolver::Solve()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 
@@ -1264,7 +1264,7 @@ void Solve()
 }
 
 // SYNCHRONISE DEVICE
-void SynchroniseDevice()
+void ProblemSolver::SynchroniseDevice()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 
@@ -1272,7 +1272,7 @@ void SynchroniseDevice()
 }
 
 // INSERT SYNCHRONISATION POINT
-void InsertSynchronisationPoint()
+void ProblemSolver::InsertSynchronisationPoint()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 
@@ -1280,7 +1280,7 @@ void InsertSynchronisationPoint()
 }
 
 // SYNCHRONISE SOLVER
-void SynchroniseSolver()
+void ProblemSolver::SynchroniseSolver()
 {
 	gpuErrCHK( cudaSetDevice(Device) );
 
