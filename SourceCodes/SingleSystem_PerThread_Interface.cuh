@@ -66,52 +66,6 @@ void ListCUDADevices();
 int  SelectDeviceByClosestRevision(int, int);
 void PrintPropertiesOfSpecificDevice(int);
 
-
-// Interface with the kernel
-struct Struct_ThreadConfiguration
-{
-	int GridSize;
-	int BlockSize;
-	int NumberOfActiveThreads;
-};
-
-struct Struct_GlobalVariables
-{
-	__MPGOS_PERTHREAD_PRECISION* d_TimeDomain;
-	__MPGOS_PERTHREAD_PRECISION* d_ActualState;
-	__MPGOS_PERTHREAD_PRECISION* d_ActualTime;
-	__MPGOS_PERTHREAD_PRECISION* d_ControlParameters;
-	__MPGOS_PERTHREAD_PRECISION* d_SharedParameters;
-	int*       d_IntegerSharedParameters;
-	__MPGOS_PERTHREAD_PRECISION* d_Accessories;
-	int*       d_IntegerAccessories;
-	__MPGOS_PERTHREAD_PRECISION* d_RelativeTolerance;
-	__MPGOS_PERTHREAD_PRECISION* d_AbsoluteTolerance;
-	__MPGOS_PERTHREAD_PRECISION* d_EventTolerance;
-	int*       d_EventDirection;
-	int*       d_DenseOutputIndex;
-	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputTimeInstances;
-	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputStates;
-};
-
-struct Struct_SharedMemoryUsage
-{
-	int PreferSharedMemory;  // Default: ON
-	int IsAdaptive;
-};
-
-
-struct Struct_SolverOptions
-{
-	__MPGOS_PERTHREAD_PRECISION InitialTimeStep;
-	__MPGOS_PERTHREAD_PRECISION MaximumTimeStep;
-	__MPGOS_PERTHREAD_PRECISION MinimumTimeStep;
-	__MPGOS_PERTHREAD_PRECISION TimeStepGrowLimit;
-	__MPGOS_PERTHREAD_PRECISION TimeStepShrinkLimit;
-	int       DenseOutputSaveFrequency;
-	__MPGOS_PERTHREAD_PRECISION DenseOutputMinimumTimeStep;
-};
-
 class ProblemSolver
 {
     private:
@@ -424,22 +378,12 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	// SHARED MEMORY MANAGEMENT
 	std::cout << "SHARED MEMORY MANAGEMENT:" << std::endl;
 
-	switch (__MPGOS_PERTHREAD_ALGORITHM)
-	{
-		case RK4:
-			SharedMemoryUsage.IsAdaptive = 0;
-			break;
-		default:
-			SharedMemoryUsage.IsAdaptive = 1;
-			break;
-	}
-
 	SharedMemoryUsage.PreferSharedMemory = 1; // Default: ON
 	SharedMemoryRequiredSharedVariables  = sizeof(__MPGOS_PERTHREAD_PRECISION)*(__MPGOS_PERTHREAD_NSP) + sizeof(int)*(__MPGOS_PERTHREAD_NISP);
 	DynamicSharedMemoryRequired          = SharedMemoryUsage.PreferSharedMemory * SharedMemoryRequiredSharedVariables;
 
-	StaticSharedMemoryRequired           = sizeof(__MPGOS_PERTHREAD_PRECISION)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : __MPGOS_PERTHREAD_SD ) + \
-										   sizeof(__MPGOS_PERTHREAD_PRECISION)*( SharedMemoryUsage.IsAdaptive==0 ? 1 : __MPGOS_PERTHREAD_SD ) + \
+	StaticSharedMemoryRequired           = sizeof(__MPGOS_PERTHREAD_PRECISION)*( __MPGOS_PERTHREAD_ADAPTIVE==0 ? 1 : __MPGOS_PERTHREAD_SD ) + \
+										   sizeof(__MPGOS_PERTHREAD_PRECISION)*( __MPGOS_PERTHREAD_ADAPTIVE==0 ? 1 : __MPGOS_PERTHREAD_SD ) + \
 										   sizeof(__MPGOS_PERTHREAD_PRECISION)*( __MPGOS_PERTHREAD_NE==0 ? 1 : __MPGOS_PERTHREAD_NE ) + \
 										   sizeof(int)*( __MPGOS_PERTHREAD_NE==0 ? 1 : __MPGOS_PERTHREAD_NE );
 
