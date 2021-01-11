@@ -3,9 +3,7 @@
 
 
 // RK4 ------------------------------------------------------------------------
-__forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r, \
-		__MPGOS_PERTHREAD_PRECISION * SharedParameters, \
-		int * IntegerSharedParameters)
+__forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r, SharedParametersStruct SharedMemoryPointers)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
@@ -17,7 +15,7 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 
 
 	// K1 ---------------------------------------------------------------------
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,r.NextState,r.ActualState, r.ActualTime,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,r.NextState,r.ActualState, r.ActualTime,r,SharedMemoryPointers);
 
 	// K2 ---------------------------------------------------------------------
 	T  = r.ActualTime + dTp2;
@@ -26,7 +24,7 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 		X[i] = r.ActualState[i] + r.NextState[i] * dTp2;
 
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
 
 	// K3 ---------------------------------------------------------------------
 	#pragma unroll
@@ -36,7 +34,7 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 		X[i] = r.ActualState[i] + k1[i] * dTp2;
 	}
 
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
 
 
 	// K4 ---------------------------------------------------------------------
@@ -49,7 +47,7 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 		X[i] = r.ActualState[i] + k1[i] * r.TimeStep;
 	}
 
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
 
 
 	// NEW STATE --------------------------------------------------------------
@@ -65,9 +63,7 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 
 
 // RKCK 45 --------------------------------------------------------------------
-__forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct &r, \
-		__MPGOS_PERTHREAD_PRECISION * SharedParameters, \
-		int * IntegerSharedParameters)
+__forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct &r, SharedParametersStruct SharedMemoryPointers)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
@@ -82,7 +78,7 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 
 
 	// K1 ---------------------------------------------------------------------
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,r.ActualState,r.ActualTime,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,r.ActualState,r.ActualTime,r,SharedMemoryPointers);
 
 	// K2 ---------------------------------------------------------------------
 	T = r.ActualTime + r.TimeStep * static_cast<__MPGOS_PERTHREAD_PRECISION>(1.0/5.0);
@@ -91,7 +87,7 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 		X[i] = r.ActualState[i] + r.TimeStep * ( static_cast<__MPGOS_PERTHREAD_PRECISION>(1.0/5.0) * k1[i] );
 
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k2,X,T,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k2,X,T,r,SharedMemoryPointers);
 
 	// K3 ---------------------------------------------------------------------
 	T = r.ActualTime + r.TimeStep * static_cast<__MPGOS_PERTHREAD_PRECISION>(3.0/10.0);
@@ -101,7 +97,7 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 		X[i] = r.ActualState[i] + r.TimeStep * ( static_cast<__MPGOS_PERTHREAD_PRECISION>(3.0/40.0) * k1[i] + \
 	                                             static_cast<__MPGOS_PERTHREAD_PRECISION>(9.0/40.0) * k2[i] );
 
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k3,X,T,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k3,X,T,r,SharedMemoryPointers);
 
 
 	// K4 ---------------------------------------------------------------------
@@ -113,7 +109,7 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 	                                             static_cast<__MPGOS_PERTHREAD_PRECISION>(-9.0/10.0) * k2[i] + \
 												 static_cast<__MPGOS_PERTHREAD_PRECISION>(6.0/5.0)   * k3[i] );
 
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k4,X,T,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k4,X,T,r,SharedMemoryPointers);
 
 
 	// K5 ---------------------------------------------------------------------
@@ -126,7 +122,7 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 												 static_cast<__MPGOS_PERTHREAD_PRECISION>(-70.0/27.0) * k3[i] + \
 												 static_cast<__MPGOS_PERTHREAD_PRECISION>(35.0/27.0)  * k4[i] );
 
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k5,X,T,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k5,X,T,r,SharedMemoryPointers);
 
 
 	// K6 ---------------------------------------------------------------------
@@ -140,7 +136,7 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 												 static_cast<__MPGOS_PERTHREAD_PRECISION>(44275.0/110592.0) * k4[i] + \
 												 static_cast<__MPGOS_PERTHREAD_PRECISION>(253.0/4096.0)     * k5[i] );
 
-	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k6,X,T,r,SharedParameters,IntegerSharedParameters);
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k6,X,T,r,SharedMemoryPointers);
 
 
 	// NEW STATE AND ERROR ----------------------------------------------------

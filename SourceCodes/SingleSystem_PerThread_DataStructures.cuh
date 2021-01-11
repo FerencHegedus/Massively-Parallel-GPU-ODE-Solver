@@ -173,7 +173,6 @@ struct RegisterStruct
 		int  UpdateDenseOutput;
 		int  NumberOfSkippedStores;
 	#endif
-
 };
 
 struct SharedStruct
@@ -186,6 +185,12 @@ struct SharedStruct
 		__MPGOS_PERTHREAD_PRECISION EventTolerance[__MPGOS_PERTHREAD_NE];
 		int EventDirection[__MPGOS_PERTHREAD_NE];
 	#endif
+};
+
+struct SharedParametersStruct
+{
+	__MPGOS_PERTHREAD_PRECISION *sp;
+	int* spi ;
 };
 
 

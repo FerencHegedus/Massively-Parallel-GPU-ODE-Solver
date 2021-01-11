@@ -16,17 +16,19 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 	// SHARED MEMORY MANAGEMENT -----------------------------------------------
 	//    DUE TO REQUIRED MEMORY ALIGMENT: PRECISONS FIRST, INTS NEXT IN DYNAMICALLY ALLOCATED SHARED MEMORY
 	//    MINIMUM ALLOCABLE MEMORY IS 1
-	__shared__ SharedStruct s;
-	__MPGOS_PERTHREAD_PRECISION* SharedParameters;
-	int* IntegerSharedParameters;
+	__shared__ SharedStruct SharedSettings;
+
+
+
+	SharedParametersStruct SharedMemoryPointers;
 
 	extern __shared__ int DynamicSharedMemory[];
 	int MemoryShift;
 
-	SharedParameters = (__MPGOS_PERTHREAD_PRECISION*)&DynamicSharedMemory;
+	SharedMemoryPointers.sp = (__MPGOS_PERTHREAD_PRECISION*)&DynamicSharedMemory;
 	MemoryShift = (SharedMemoryUsage.PreferSharedMemory  == 1 ? __MPGOS_PERTHREAD_NSP : 0);
 
-	IntegerSharedParameters = (int*)&SharedParameters[MemoryShift];
+	SharedMemoryPointers.spi = (int*)&SharedMemoryPointers.sp[MemoryShift];
 
 	// Initialise tolerances of adaptive solvers
 	#if __MPGOS_PERTHREAD_ADAPTIVE
@@ -38,8 +40,8 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 
 			if ( ltid < __MPGOS_PERTHREAD_SD)
 			{
-				s.RelativeTolerance[ltid] = GlobalVariables.d_RelativeTolerance[ltid];
-				s.AbsoluteTolerance[ltid] = GlobalVariables.d_AbsoluteTolerance[ltid];
+				SharedSettings.RelativeTolerance[ltid] = GlobalVariables.d_RelativeTolerance[ltid];
+				SharedSettings.AbsoluteTolerance[ltid] = GlobalVariables.d_AbsoluteTolerance[ltid];
 			}
 		}
 	#endif
@@ -54,8 +56,8 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 
 			if ( ltid < __MPGOS_PERTHREAD_SD)
 			{
-				s.EventTolerance[ltid] = GlobalVariables.d_EventTolerance[ltid];
-				s.EventDirection[ltid] = GlobalVariables.d_EventDirection[ltid];
+				SharedSettings.EventTolerance[ltid] = GlobalVariables.d_EventTolerance[ltid];
+				SharedSettings.EventDirection[ltid] = GlobalVariables.d_EventDirection[ltid];
 			}
 		}
 	#endif
@@ -63,8 +65,8 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 	// Initialise shared parameters
 	if ( SharedMemoryUsage.PreferSharedMemory == 0 )
 	{
-		SharedParameters        = GlobalVariables.d_SharedParameters;
-		IntegerSharedParameters = GlobalVariables.d_IntegerSharedParameters;
+		SharedMemoryPointers.sp        = GlobalVariables.d_SharedParameters;
+		SharedMemoryPointers.spi = GlobalVariables.d_IntegerSharedParameters;
 	} else
 	{
 		const int MaxElementNumber = max( __MPGOS_PERTHREAD_NSP, __MPGOS_PERTHREAD_NISP );
@@ -76,10 +78,10 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			int ltid = threadIdx.x + i*blockDim.x;
 
 			if ( ltid < __MPGOS_PERTHREAD_NSP )
-				SharedParameters[ltid] = GlobalVariables.d_SharedParameters[ltid];
+				SharedMemoryPointers.sp[ltid] = GlobalVariables.d_SharedParameters[ltid];
 
 			if ( ltid < __MPGOS_PERTHREAD_NISP )
-				IntegerSharedParameters[ltid] = GlobalVariables.d_IntegerSharedParameters[ltid];
+				SharedMemoryPointers.spi[ltid] = GlobalVariables.d_IntegerSharedParameters[ltid];
 		}
 	}
 
@@ -133,10 +135,10 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 
 
 		// INITIALISATION -----------------------------------------------------
-		PerThread_Initialization(tid,__MPGOS_PERTHREAD_NT,r,SharedParameters,IntegerSharedParameters);
+		PerThread_Initialization(tid,__MPGOS_PERTHREAD_NT,r,SharedMemoryPointers);
 
 		#if __MPGOS_PERTHREAD_NE > 0
-			PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualEventValue,r,SharedParameters,IntegerSharedParameters);
+			PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualEventValue,r,SharedMemoryPointers);
 		#endif
 
 		#if __MPGOS_PERTHREAD_NDO > 0
@@ -166,21 +168,21 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 
 			// STEPPER --------------------------------------------------------
 			#if __MPGOS_PERTHREAD_ALGORITHM == 0
-				PerThread_Stepper_RK4(tid,r,SharedParameters,IntegerSharedParameters);
+				PerThread_Stepper_RK4(tid,r,SharedMemoryPointers);
 				PerThread_ErrorController_RK4(tid,r,SolverOptions.InitialTimeStep);
 			#endif
 
 			#if __MPGOS_PERTHREAD_ALGORITHM == 1
-				PerThread_Stepper_RKCK45(tid,r,SharedParameters,IntegerSharedParameters);
-				PerThread_ErrorController_RKCK45(tid,r,s,SolverOptions);
+				PerThread_Stepper_RKCK45(tid,r,SharedMemoryPointers);
+				PerThread_ErrorController_RKCK45(tid,r,SharedSettings,SolverOptions);
 			#endif
 
 
 			// NEW EVENT VALUE AND TIME STEP CONTROL---------------------------
 			#if __MPGOS_PERTHREAD_NE > 0
 				r.NewTimeStepTmp = r.ActualTime+r.TimeStep;
-				PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualEventValue,r,SharedParameters,IntegerSharedParameters);
-				PerThread_EventTimeStepControl(tid,r,s,SolverOptions.MinimumTimeStep);
+				PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualEventValue,r,SharedMemoryPointers);
+				PerThread_EventTimeStepControl(tid,r,SharedSettings,SolverOptions.MinimumTimeStep);
 			#endif
 
 
@@ -192,19 +194,19 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 				for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 					r.ActualState[i] = r.NextState[i];
 
-				PerThread_ActionAfterSuccessfulTimeStep(tid,__MPGOS_PERTHREAD_NT,r,SharedParameters,IntegerSharedParameters);
+				PerThread_ActionAfterSuccessfulTimeStep(tid,__MPGOS_PERTHREAD_NT,r,SharedMemoryPointers);
 
 				#if __MPGOS_PERTHREAD_NE > 0
 					for (int i=0; i<__MPGOS_PERTHREAD_NE; i++)
 					{
-						if ( ( ( r.ActualEventValue[i] >  s.EventTolerance[i] ) && ( abs(r.NextEventValue[i]) < s.EventTolerance[i] ) && ( s.EventDirection[i] <= 0 ) ) || \
-							 ( ( r.ActualEventValue[i] < -s.EventTolerance[i] ) && ( abs(r.NextEventValue[i]) < s.EventTolerance[i] ) && ( s.EventDirection[i] >= 0 ) ) )
+						if ( ( ( r.ActualEventValue[i] >  SharedSettings.EventTolerance[i] ) && ( abs(r.NextEventValue[i]) < SharedSettings.EventTolerance[i] ) && ( SharedSettings.EventDirection[i] <= 0 ) ) || \
+							 ( ( r.ActualEventValue[i] < -SharedSettings.EventTolerance[i] ) && ( abs(r.NextEventValue[i]) < SharedSettings.EventTolerance[i] ) && ( SharedSettings.EventDirection[i] >= 0 ) ) )
 						{
-							PerThread_ActionAfterEventDetection(tid,__MPGOS_PERTHREAD_NT,i,r,SharedParameters,IntegerSharedParameters);
+							PerThread_ActionAfterEventDetection(tid,__MPGOS_PERTHREAD_NT,i,r,SharedMemoryPointers);
 						}
 					}
 
-					PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualEventValue,r,SharedParameters,IntegerSharedParameters);
+					PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualEventValue,r,SharedMemoryPointers);
 
 					for (int i=0; i<__MPGOS_PERTHREAD_NE; i++)
 						r.ActualEventValue[i] = r.NextEventValue[i];
@@ -225,7 +227,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 
 
 		// FINALISATION -----------------------------------------------------------
-		PerThread_Finalization(tid, __MPGOS_PERTHREAD_NT,r,SharedParameters,IntegerSharedParameters);
+		PerThread_Finalization(tid, __MPGOS_PERTHREAD_NT,r,SharedMemoryPointers);
 
 
 		// WRITE DATA BACK TO GLOBAL MEMORY ---------------------------------------
