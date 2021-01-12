@@ -7,6 +7,8 @@
 #include "SingleSystem_PerThread_ExplicitRungeKutta_ErrorControllers.cuh"
 #include "SingleSystem_PerThread_EventHandling.cuh"
 
+__device__ void SharedStructLoad(SharedStruct &, Struct_GlobalVariables);
+
 __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfiguration, Struct_GlobalVariables GlobalVariables, Struct_SharedMemoryUsage SharedMemoryUsage, Struct_SolverOptions SolverOptions)
 {
 	// THREAD MANAGEMENT ------------------------------------------------------
@@ -14,124 +16,15 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 
 
 	// SHARED MEMORY MANAGEMENT -----------------------------------------------
-	//    DUE TO REQUIRED MEMORY ALIGMENT: PRECISONS FIRST, INTS NEXT IN DYNAMICALLY ALLOCATED SHARED MEMORY
-	//    MINIMUM ALLOCABLE MEMORY IS 1
 	__shared__ SharedStruct SharedSettings;
+	SharedStructLoad(SharedSettings, GlobalVariables);
+	SharedParametersStruct SharedMemoryPointers(GlobalVariables,SharedMemoryUsage);
 
-
-
-	SharedParametersStruct SharedMemoryPointers;
-
-	extern __shared__ int DynamicSharedMemory[];
-	int MemoryShift;
-
-	SharedMemoryPointers.sp = (__MPGOS_PERTHREAD_PRECISION*)&DynamicSharedMemory;
-	MemoryShift = (SharedMemoryUsage.PreferSharedMemory  == 1 ? __MPGOS_PERTHREAD_NSP : 0);
-
-	SharedMemoryPointers.spi = (int*)&SharedMemoryPointers.sp[MemoryShift];
-
-	// Initialise tolerances of adaptive solvers
-	#if __MPGOS_PERTHREAD_ADAPTIVE
-		const int LaunchesSD = __MPGOS_PERTHREAD_SD / blockDim.x + (__MPGOS_PERTHREAD_SD % blockDim.x == 0 ? 0 : 1);
-		#pragma unroll
-		for (int j=0; j<LaunchesSD; j++)
-		{
-			int ltid = threadIdx.x + j*blockDim.x;
-
-			if ( ltid < __MPGOS_PERTHREAD_SD)
-			{
-				SharedSettings.RelativeTolerance[ltid] = GlobalVariables.d_RelativeTolerance[ltid];
-				SharedSettings.AbsoluteTolerance[ltid] = GlobalVariables.d_AbsoluteTolerance[ltid];
-			}
-		}
-	#endif
-
-	// Initialise shared event handling variables if event handling is necessary
-	#if __MPGOS_PERTHREAD_NE > 0
-		const int LaunchesNE = __MPGOS_PERTHREAD_NE / blockDim.x + (__MPGOS_PERTHREAD_NE % blockDim.x == 0 ? 0 : 1);
-		#pragma unroll
-		for (int j=0; j<LaunchesNE; j++)
-		{
-			int ltid = threadIdx.x + j*blockDim.x;
-
-			if ( ltid < __MPGOS_PERTHREAD_SD)
-			{
-				SharedSettings.EventTolerance[ltid] = GlobalVariables.d_EventTolerance[ltid];
-				SharedSettings.EventDirection[ltid] = GlobalVariables.d_EventDirection[ltid];
-			}
-		}
-	#endif
-
-	// Initialise shared parameters
-	if ( SharedMemoryUsage.PreferSharedMemory == 0 )
-	{
-		SharedMemoryPointers.sp        = GlobalVariables.d_SharedParameters;
-		SharedMemoryPointers.spi = GlobalVariables.d_IntegerSharedParameters;
-	} else
-	{
-		const int MaxElementNumber = max( __MPGOS_PERTHREAD_NSP, __MPGOS_PERTHREAD_NISP );
-		const int LaunchesSP       = MaxElementNumber / blockDim.x + (MaxElementNumber % blockDim.x == 0 ? 0 : 1);
-
-		#pragma unroll
-		for (int i=0; i<LaunchesSP; i++)
-		{
-			int ltid = threadIdx.x + i*blockDim.x;
-
-			if ( ltid < __MPGOS_PERTHREAD_NSP )
-				SharedMemoryPointers.sp[ltid] = GlobalVariables.d_SharedParameters[ltid];
-
-			if ( ltid < __MPGOS_PERTHREAD_NISP )
-				SharedMemoryPointers.spi[ltid] = GlobalVariables.d_IntegerSharedParameters[ltid];
-		}
-	}
 
 	if (tid < ThreadConfiguration.NumberOfActiveThreads)
 	{
 		// REGISTER MEMORY MANAGEMENT -----------------------------------------
-		RegisterStruct r;
-
-		//always defined
-		r.ActualTime             = GlobalVariables.d_ActualTime[tid];
-		r.TimeStep               = SolverOptions.InitialTimeStep;
-		r.NewTimeStep            = SolverOptions.InitialTimeStep;
-		r.TerminateSimulation    = 0;
-		r.UserDefinedTermination = 0;
-
-		#pragma unroll
-		for (int i=0; i<2; i++)
-			r.TimeDomain[i] = GlobalVariables.d_TimeDomain[tid + i*__MPGOS_PERTHREAD_NT];
-
-		#pragma unroll
-		for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
-			r.ActualState[i] = GlobalVariables.d_ActualState[tid + i*__MPGOS_PERTHREAD_NT];
-
-		//if control parameters
-		#if __MPGOS_PERTHREAD_NCP > 0
-			#pragma unroll
-			for (int i=0; i<__MPGOS_PERTHREAD_NCP; i++)
-				r.ControlParameters[i] = GlobalVariables.d_ControlParameters[tid + i*__MPGOS_PERTHREAD_NT];
-		#endif
-
-		//if accessories
-		#if __MPGOS_PERTHREAD_NA > 0
-			#pragma unroll
-			for (int i=0; i<__MPGOS_PERTHREAD_NA; i++)
-				r.Accessories[i] = GlobalVariables.d_Accessories[tid + i*__MPGOS_PERTHREAD_NT];
-		#endif
-
-		//if integer accessories
-		#if __MPGOS_PERTHREAD_NIA > 0
-			#pragma unroll
-			for (int i=0; i<__MPGOS_PERTHREAD_NIA; i++)
-				r.IntegerAccessories[i] = GlobalVariables.d_IntegerAccessories[tid + i*__MPGOS_PERTHREAD_NT];
-		#endif
-
-		//if dense output
-		#if __MPGOS_PERTHREAD_NDO > 0
-			r.DenseOutputIndex       = GlobalVariables.d_DenseOutputIndex[tid];
-			r.UpdateDenseOutput      = 1;
-			r.NumberOfSkippedStores  = 0;
-		#endif
+		RegisterStruct r(GlobalVariables,SolverOptions,tid);
 
 
 		// INITIALISATION -----------------------------------------------------
@@ -231,41 +124,45 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 
 
 		// WRITE DATA BACK TO GLOBAL MEMORY ---------------------------------------
-		//always
-		GlobalVariables.d_ActualTime[tid]       = r.ActualTime;
-		#pragma unroll
-		for (int i=0; i<2; i++)
-			GlobalVariables.d_TimeDomain[tid + i*__MPGOS_PERTHREAD_NT] = r.TimeDomain[i];
-
-		#pragma unroll
-		for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
-			GlobalVariables.d_ActualState[tid + i*__MPGOS_PERTHREAD_NT] = r.ActualState[i];
-
-		//if control parameters
-		#if __MPGOS_PERTHREAD_NCP > 0
-			#pragma unroll
-			for (int i=0; i<__MPGOS_PERTHREAD_NCP; i++)
-				GlobalVariables.d_ControlParameters[tid + i*__MPGOS_PERTHREAD_NT] = r.ControlParameters[i];
-		#endif
-
-		//if accessories
-		#if __MPGOS_PERTHREAD_NA > 0
-			#pragma unroll
-			for (int i=0; i<__MPGOS_PERTHREAD_NA; i++)
-				GlobalVariables.d_Accessories[tid + i*__MPGOS_PERTHREAD_NT] = r.Accessories[i];
-		#endif
-
-		//if integere accessories
-		#if __MPGOS_PERTHREAD_NIA > 0
-			#pragma unroll
-			for (int i=0; i<__MPGOS_PERTHREAD_NIA; i++)
-				GlobalVariables.d_IntegerAccessories[tid + i*__MPGOS_PERTHREAD_NT] = r.IntegerAccessories[i];
-		#endif
-
-		#if __MPGOS_PERTHREAD_NDO > 0
-			GlobalVariables.d_DenseOutputIndex[tid] = r.DenseOutputIndex;
-		#endif
+		r.WriteToGlobalVariables(GlobalVariables,tid);
 	}
 }
+
+
+__device__ void SharedStructLoad(SharedStruct &SharedSettings, Struct_GlobalVariables GlobalVariables)
+{
+	// Initialise tolerances of adaptive solvers
+	#if __MPGOS_PERTHREAD_ADAPTIVE
+		const int LaunchesSD = __MPGOS_PERTHREAD_SD / blockDim.x + (__MPGOS_PERTHREAD_SD % blockDim.x == 0 ? 0 : 1);
+		#pragma unroll
+		for (int j=0; j<LaunchesSD; j++)
+		{
+			int ltid = threadIdx.x + j*blockDim.x;
+
+			if ( ltid < __MPGOS_PERTHREAD_SD)
+			{
+				SharedSettings.RelativeTolerance[ltid] = GlobalVariables.d_RelativeTolerance[ltid];
+				SharedSettings.AbsoluteTolerance[ltid] = GlobalVariables.d_AbsoluteTolerance[ltid];
+			}
+		}
+	#endif
+
+	// Initialise shared event handling variables if event handling is necessary
+	#if __MPGOS_PERTHREAD_NE > 0
+		const int LaunchesNE = __MPGOS_PERTHREAD_NE / blockDim.x + (__MPGOS_PERTHREAD_NE % blockDim.x == 0 ? 0 : 1);
+		#pragma unroll
+		for (int j=0; j<LaunchesNE; j++)
+		{
+			int ltid = threadIdx.x + j*blockDim.x;
+
+			if ( ltid < __MPGOS_PERTHREAD_SD)
+			{
+				SharedSettings.EventTolerance[ltid] = GlobalVariables.d_EventTolerance[ltid];
+				SharedSettings.EventDirection[ltid] = GlobalVariables.d_EventDirection[ltid];
+			}
+		}
+	#endif
+}
+
 
 #endif

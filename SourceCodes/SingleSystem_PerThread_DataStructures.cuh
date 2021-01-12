@@ -173,6 +173,90 @@ struct RegisterStruct
 		int  UpdateDenseOutput;
 		int  NumberOfSkippedStores;
 	#endif
+
+	__device__ RegisterStruct(Struct_GlobalVariables GlobalVariables, Struct_SolverOptions SolverOptions, int tid)
+	{
+		//always defined
+		ActualTime             = GlobalVariables.d_ActualTime[tid];
+		TimeStep               = SolverOptions.InitialTimeStep;
+		NewTimeStep            = SolverOptions.InitialTimeStep;
+		TerminateSimulation    = 0;
+		UserDefinedTermination = 0;
+
+		#pragma unroll
+		for (int i=0; i<2; i++)
+			TimeDomain[i] = GlobalVariables.d_TimeDomain[tid + i*__MPGOS_PERTHREAD_NT];
+
+		#pragma unroll
+		for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+			ActualState[i] = GlobalVariables.d_ActualState[tid + i*__MPGOS_PERTHREAD_NT];
+
+		//if control parameters
+		#if __MPGOS_PERTHREAD_NCP > 0
+			#pragma unroll
+			for (int i=0; i<__MPGOS_PERTHREAD_NCP; i++)
+				ControlParameters[i] = GlobalVariables.d_ControlParameters[tid + i*__MPGOS_PERTHREAD_NT];
+		#endif
+
+		//if accessories
+		#if __MPGOS_PERTHREAD_NA > 0
+			#pragma unroll
+			for (int i=0; i<__MPGOS_PERTHREAD_NA; i++)
+				Accessories[i] = GlobalVariables.d_Accessories[tid + i*__MPGOS_PERTHREAD_NT];
+		#endif
+
+		//if integer accessories
+		#if __MPGOS_PERTHREAD_NIA > 0
+			#pragma unroll
+			for (int i=0; i<__MPGOS_PERTHREAD_NIA; i++)
+				IntegerAccessories[i] = GlobalVariables.d_IntegerAccessories[tid + i*__MPGOS_PERTHREAD_NT];
+		#endif
+
+		//if dense output
+		#if __MPGOS_PERTHREAD_NDO > 0
+			DenseOutputIndex       = GlobalVariables.d_DenseOutputIndex[tid];
+			UpdateDenseOutput      = 1;
+			NumberOfSkippedStores  = 0;
+		#endif
+	}
+
+	__device__ void WriteToGlobalVariables(Struct_GlobalVariables &GlobalVariables, int tid)
+	{
+		//always
+		GlobalVariables.d_ActualTime[tid]       = ActualTime;
+		#pragma unroll
+		for (int i=0; i<2; i++)
+			GlobalVariables.d_TimeDomain[tid + i*__MPGOS_PERTHREAD_NT] = TimeDomain[i];
+
+		#pragma unroll
+		for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+			GlobalVariables.d_ActualState[tid + i*__MPGOS_PERTHREAD_NT] = ActualState[i];
+
+		//if control parameters
+		#if __MPGOS_PERTHREAD_NCP > 0
+			#pragma unroll
+			for (int i=0; i<__MPGOS_PERTHREAD_NCP; i++)
+				GlobalVariables.d_ControlParameters[tid + i*__MPGOS_PERTHREAD_NT] = ControlParameters[i];
+		#endif
+
+		//if accessories
+		#if __MPGOS_PERTHREAD_NA > 0
+			#pragma unroll
+			for (int i=0; i<__MPGOS_PERTHREAD_NA; i++)
+				GlobalVariables.d_Accessories[tid + i*__MPGOS_PERTHREAD_NT] = Accessories[i];
+		#endif
+
+		//if integere accessories
+		#if __MPGOS_PERTHREAD_NIA > 0
+			#pragma unroll
+			for (int i=0; i<__MPGOS_PERTHREAD_NIA; i++)
+				GlobalVariables.d_IntegerAccessories[tid + i*__MPGOS_PERTHREAD_NT] = IntegerAccessories[i];
+		#endif
+
+		#if __MPGOS_PERTHREAD_NDO > 0
+			GlobalVariables.d_DenseOutputIndex[tid] = DenseOutputIndex;
+		#endif
+	}
 };
 
 struct SharedStruct
@@ -185,12 +269,49 @@ struct SharedStruct
 		__MPGOS_PERTHREAD_PRECISION EventTolerance[__MPGOS_PERTHREAD_NE];
 		int EventDirection[__MPGOS_PERTHREAD_NE];
 	#endif
+
 };
 
 struct SharedParametersStruct
 {
 	__MPGOS_PERTHREAD_PRECISION *sp;
 	int* spi ;
+
+	__device__ SharedParametersStruct(Struct_GlobalVariables GlobalVariables, Struct_SharedMemoryUsage SharedMemoryUsage)
+	{
+		extern __shared__ int DynamicSharedMemory[];
+		int MemoryShift;
+
+		sp = (__MPGOS_PERTHREAD_PRECISION*)&DynamicSharedMemory;
+		MemoryShift = (SharedMemoryUsage.PreferSharedMemory  == 1 ? __MPGOS_PERTHREAD_NSP : 0);
+
+		spi = (int*)&sp[MemoryShift];
+
+
+
+		// Initialise shared parameters
+		if ( SharedMemoryUsage.PreferSharedMemory == 0 )
+		{
+			sp        = GlobalVariables.d_SharedParameters;
+			spi = GlobalVariables.d_IntegerSharedParameters;
+		} else
+		{
+			const int MaxElementNumber = max( __MPGOS_PERTHREAD_NSP, __MPGOS_PERTHREAD_NISP );
+			const int LaunchesSP       = MaxElementNumber / blockDim.x + (MaxElementNumber % blockDim.x == 0 ? 0 : 1);
+
+			#pragma unroll
+			for (int i=0; i<LaunchesSP; i++)
+			{
+				int ltid = threadIdx.x + i*blockDim.x;
+
+				if ( ltid < __MPGOS_PERTHREAD_NSP )
+					sp[ltid] = GlobalVariables.d_SharedParameters[ltid];
+
+				if ( ltid < __MPGOS_PERTHREAD_NISP )
+					spi[ltid] = GlobalVariables.d_IntegerSharedParameters[ltid];
+			}
+		}
+	}
 };
 
 
