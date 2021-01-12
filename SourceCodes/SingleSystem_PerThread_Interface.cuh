@@ -42,7 +42,8 @@ enum ListOfVariables{ All, \
 					  DenseOutput, \
 					  DenseIndex, \
 					  DenseTime, \
-					  DenseState};
+					  DenseState,
+						DenseDerivative};
 
 enum ListOfSolverOptions{ ThreadsPerBlock, \
 						  InitialTimeStep, \
@@ -95,6 +96,7 @@ class ProblemSolver
 		long SizeOfDenseOutputIndex;
 		long SizeOfDenseOutputTimeInstances;
 		long SizeOfDenseOutputStates;
+		long SizeOfDenseOutputDerivatives;
 
 		__MPGOS_PERTHREAD_PRECISION* h_TimeDomain;
 		__MPGOS_PERTHREAD_PRECISION* h_ActualState;
@@ -107,6 +109,7 @@ class ProblemSolver
 		int*       h_DenseOutputIndex;
 		__MPGOS_PERTHREAD_PRECISION* h_DenseOutputTimeInstances;
 		__MPGOS_PERTHREAD_PRECISION* h_DenseOutputStates;
+		__MPGOS_PERTHREAD_PRECISION* h_DenseOutputDerivatives;
 
 		Struct_GlobalVariables GlobalVariables;
 
@@ -314,6 +317,7 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	SizeOfDenseOutputIndex         = __MPGOS_PERTHREAD_NT;
 	SizeOfDenseOutputTimeInstances = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NDO;
 	SizeOfDenseOutputStates        = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_SD * __MPGOS_PERTHREAD_NDO;
+	SizeOfDenseOutputDerivatives   = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_SD * __MPGOS_PERTHREAD_NDO;
 
 	GlobalMemoryRequired = sizeof(__MPGOS_PERTHREAD_PRECISION) * ( SizeOfTimeDomain + \
 												 SizeOfActualState + \
@@ -323,6 +327,7 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 												 SizeOfAccessories + \
 												 SizeOfDenseOutputTimeInstances + \
 												 SizeOfDenseOutputStates + \
+												 SizeOfDenseOutputDerivatives + \
 												 2*__MPGOS_PERTHREAD_SD + __MPGOS_PERTHREAD_NE) + \
 						   sizeof(int) * ( SizeOfIntegerSharedParameters + \
 										   SizeOfIntegerAccessories + \
@@ -357,6 +362,7 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	h_DenseOutputIndex         = AllocateHostPinnedMemory<int>( SizeOfDenseOutputIndex );
 	h_DenseOutputTimeInstances = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputTimeInstances );
 	h_DenseOutputStates        = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputStates );
+	h_DenseOutputDerivatives   = AllocateHostPinnedMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputDerivatives );
 
 	GlobalVariables.d_TimeDomain               = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfTimeDomain );
 	GlobalVariables.d_ActualState              = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfActualState );
@@ -373,6 +379,7 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	GlobalVariables.d_DenseOutputIndex         = AllocateDeviceMemory<int>( SizeOfDenseOutputIndex );
 	GlobalVariables.d_DenseOutputTimeInstances = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputTimeInstances );
 	GlobalVariables.d_DenseOutputStates        = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputStates );
+	GlobalVariables.d_DenseOutputDerivatives   = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputDerivatives );
 
 
 	// SHARED MEMORY MANAGEMENT
@@ -476,6 +483,7 @@ ProblemSolver::~ProblemSolver()
 	gpuErrCHK( cudaFreeHost(h_DenseOutputIndex) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputTimeInstances) );
 	gpuErrCHK( cudaFreeHost(h_DenseOutputStates) );
+	gpuErrCHK( cudaFreeHost(h_DenseOutputDerivatives) );
 
 	gpuErrCHK( cudaFree(GlobalVariables.d_TimeDomain) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_ActualState) );
@@ -492,6 +500,7 @@ ProblemSolver::~ProblemSolver()
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputIndex) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputTimeInstances) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputStates) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputDerivatives) );
 
 	std::cout << "--------------------------------------" << std::endl;
 	std::cout << "Object for Parameters scan is deleted!" << std::endl;
@@ -752,6 +761,12 @@ void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int Ser
 			h_DenseOutputStates[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
 
+		case DenseDerivative:
+			BoundCheck("SetHost", "DenseDerivative/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
+			BoundCheck("SetHost", "DenseDerivative/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
+			h_DenseOutputDerivatives[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
+			break;
+
 		default:
 			std::cerr << "ERROR: In solver member function SetHost!" << std::endl;
 			std::cerr << "       Option: " << VariablesToString(Variable) << std::endl;
@@ -803,6 +818,7 @@ void ProblemSolver::SynchroniseFromHostToDevice(ListOfVariables Variable)
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputDerivatives, h_DenseOutputDerivatives, SizeOfDenseOutputDerivatives*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			break;
 
 		case All:
@@ -817,7 +833,8 @@ void ProblemSolver::SynchroniseFromHostToDevice(ListOfVariables Variable)
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputIndex, h_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputTimeInstances, h_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputStates, h_DenseOutputStates, SizeOfDenseOutputStates*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
-			break;
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseOutputDerivatives, h_DenseOutputDerivatives, SizeOfDenseOutputDerivatives*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+		break;
 
 		default:
 			std::cerr << "ERROR: In solver member function SynchroniseFromHostToDevice!" << std::endl;
@@ -870,6 +887,7 @@ void ProblemSolver::SynchroniseFromDeviceToHost(ListOfVariables Variable)
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, GlobalVariables.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, GlobalVariables.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputDerivatives, GlobalVariables.d_DenseOutputDerivatives, SizeOfDenseOutputDerivatives*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
 
 		case All:
@@ -884,6 +902,7 @@ void ProblemSolver::SynchroniseFromDeviceToHost(ListOfVariables Variable)
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputIndex, GlobalVariables.d_DenseOutputIndex, SizeOfDenseOutputIndex*sizeof(int), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputTimeInstances, GlobalVariables.d_DenseOutputTimeInstances, SizeOfDenseOutputTimeInstances*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputStates, GlobalVariables.d_DenseOutputStates, SizeOfDenseOutputStates*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(h_DenseOutputDerivatives, GlobalVariables.d_DenseOutputDerivatives, SizeOfDenseOutputDerivatives*sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyDeviceToHost, Stream) );
 			break;
 
 		default:
@@ -995,6 +1014,11 @@ T ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable, int Serial
 			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
 			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
 			return (__MPGOS_PERTHREAD_PRECISION)h_DenseOutputStates[idx];
+
+		case DenseDerivative:
+			BoundCheck("SetHost", "DenseDerivative/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
+			BoundCheck("SetHost", "DenseDerivative/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
+			return (__MPGOS_PERTHREAD_PRECISION)h_DenseOutputDerivatives[idx];
 
 		default:
 				std::cerr << "ERROR: In solver member function GetHost!" << std::endl;
@@ -1186,7 +1210,8 @@ void ProblemSolver::Print(ListOfVariables Variable, int ThreadID)
 			for (int j=0; j<__MPGOS_PERTHREAD_SD; j++)
 			{
 				idx = ThreadID + j*__MPGOS_PERTHREAD_NT + i*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
-				DataFile.width(Width); DataFile << h_DenseOutputStates[idx];
+				DataFile.width(Width); DataFile << h_DenseOutputStates[idx] << ',';
+				DataFile.width(Width); DataFile << h_DenseOutputDerivatives[idx];
 				if ( j<(__MPGOS_PERTHREAD_SD-1) )
 					DataFile << ',';
 			}
@@ -1344,6 +1369,8 @@ std::string VariablesToString(ListOfVariables Option)
 			return "DenseTime";
 		case DenseState:
 			return "DenseState";
+		case DenseDerivative:
+			return "DenseDerivative";
 		default:
 			return "Non-existent variable!";
 	}

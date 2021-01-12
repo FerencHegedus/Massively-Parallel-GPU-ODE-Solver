@@ -8,6 +8,7 @@ __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 			RegisterStruct &r, \
 			__MPGOS_PERTHREAD_PRECISION* d_DenseOutputTimeInstances, \
 			__MPGOS_PERTHREAD_PRECISION* d_DenseOutputStates, \
+			__MPGOS_PERTHREAD_PRECISION* d_DenseOutputDerivatives, \
 			__MPGOS_PERTHREAD_PRECISION  DenseOutputMinimumTimeStep)
 {
 	if ( r.UpdateDenseOutput == 1 )
@@ -20,6 +21,15 @@ __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 			d_DenseOutputStates[DenseOutputStateIndex] = r.ActualState[i];
 			DenseOutputStateIndex += __MPGOS_PERTHREAD_NT;
 		}
+
+		#if __MPGOS_PERTHREAD_CONTINUOUS
+			int DenseOutputDerivativeIndex = tid + r.DenseOutputIndex*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
+			for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+			{
+				d_DenseOutputDerivatives[DenseOutputDerivativeIndex] = r.ActualDerivative[i];
+				DenseOutputDerivativeIndex += __MPGOS_PERTHREAD_NT;
+			}
+		#endif
 
 		r.DenseOutputIndex++;
 		r.NumberOfSkippedStores = 0;

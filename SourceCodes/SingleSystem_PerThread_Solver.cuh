@@ -35,9 +35,13 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		#endif
 
 		#if __MPGOS_PERTHREAD_NDO > 0
+			#if __MPGOS_PERTHREAD_CONTINUOUS == 1
+				PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualDerivative,r.ActualState, r.ActualTime,r,SharedMemoryPointers);
+			#endif
 			PerThread_StoreDenseOutput(tid,r, \
 				GlobalVariables.d_DenseOutputTimeInstances, \
 				GlobalVariables.d_DenseOutputStates, \
+				GlobalVariables.d_DenseOutputDerivatives, \
 				SolverOptions.DenseOutputMinimumTimeStep);
 		#endif
 
@@ -68,6 +72,11 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			#if __MPGOS_PERTHREAD_ALGORITHM == 1
 				PerThread_Stepper_RKCK45(tid,r,SharedMemoryPointers);
 				PerThread_ErrorController_RKCK45(tid,r,SharedSettings,SolverOptions);
+			#endif
+
+			#if __MPGOS_PERTHREAD_ALGORITHM == 2
+				PerThread_Stepper_DDE4(tid,r,SharedMemoryPointers);
+				PerThread_ErrorController_DDE4(tid,r,SolverOptions.InitialTimeStep);
 			#endif
 
 
@@ -110,6 +119,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 					PerThread_StoreDenseOutput(tid,r, \
 						GlobalVariables.d_DenseOutputTimeInstances, \
 						GlobalVariables.d_DenseOutputStates, \
+						GlobalVariables.d_DenseOutputDerivatives, \
 						SolverOptions.DenseOutputMinimumTimeStep);
 				#endif
 

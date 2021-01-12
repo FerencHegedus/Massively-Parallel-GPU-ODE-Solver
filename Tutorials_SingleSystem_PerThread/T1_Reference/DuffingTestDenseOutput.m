@@ -9,7 +9,7 @@ B  = dlmread( strcat('DenseOutput_',num2str(ThreadID),'.txt'), ',', [3 0 3 0]);
 Data  = dlmread( strcat('DenseOutput_',num2str(ThreadID),'.txt'), ',', 12, 0);
 
 TimeDomain=[0 2*pi];
-InitialCondition=[Data(1,2) Data(1,3)];
+InitialCondition=[Data(1,2) Data(1,4)];
 options = odeset('RelTol',1e-9,'AbsTol',1e-9,'InitialStep',1e-2,'Stats','on');
     [T,Y] = ode45(@OdeFunction,TimeDomain,InitialCondition,options);
 

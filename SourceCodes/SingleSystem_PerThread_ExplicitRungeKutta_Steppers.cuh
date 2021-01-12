@@ -3,6 +3,7 @@
 
 
 // RK4 ------------------------------------------------------------------------
+#if __MPGOS_PERTHREAD_ALGORITHM == 0
 __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r, SharedParametersStruct SharedMemoryPointers)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
@@ -60,9 +61,10 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 			r.IsFinite = 0;
 	}
 }
-
+#endif
 
 // RKCK 45 --------------------------------------------------------------------
+#if __MPGOS_PERTHREAD_ALGORITHM == 1
 __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct &r, SharedParametersStruct SharedMemoryPointers)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
@@ -159,5 +161,75 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 			r.IsFinite = 0;
 	}
 }
+#endif
+
+// DDE4 ------------------------------------------------------------------------
+#if __MPGOS_PERTHREAD_ALGORITHM == 2
+__forceinline__ __device__ void PerThread_Stepper_DDE4(int tid, RegisterStruct &r, SharedParametersStruct SharedMemoryPointers)
+{
+	// MEMORY MANAGEMENT ------------------------------------------------------
+	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
+	__MPGOS_PERTHREAD_PRECISION k1[__MPGOS_PERTHREAD_SD];
+
+	__MPGOS_PERTHREAD_PRECISION T;
+	__MPGOS_PERTHREAD_PRECISION dTp2 = static_cast<__MPGOS_PERTHREAD_PRECISION>(0.5)     * r.TimeStep;
+	__MPGOS_PERTHREAD_PRECISION dTp6 = static_cast<__MPGOS_PERTHREAD_PRECISION>(1.0/6.0) * r.TimeStep;
+
+
+	// K1 ---------------------------------------------------------------------
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,r.NextState,r.ActualState, r.ActualTime,r,SharedMemoryPointers);
+
+	// K2 ---------------------------------------------------------------------
+	T  = r.ActualTime + dTp2;
+
+	#pragma unroll
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+		X[i] = r.ActualState[i] + r.NextState[i] * dTp2;
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
+
+	// K3 ---------------------------------------------------------------------
+	#pragma unroll
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+	{
+		r.NextState[i] = r.NextState[i] + static_cast<__MPGOS_PERTHREAD_PRECISION>(2.0)*k1[i];
+		X[i] = r.ActualState[i] + k1[i] * dTp2;
+	}
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
+
+
+	// K4 ---------------------------------------------------------------------
+	T = r.ActualTime + r.TimeStep;
+
+	#pragma unroll
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+	{
+		r.NextState[i] = r.NextState[i] + static_cast<__MPGOS_PERTHREAD_PRECISION>(2.0)*k1[i];
+		X[i] = r.ActualState[i] + k1[i] * r.TimeStep;
+	}
+
+	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
+
+	//save derivatives
+	#pragma unroll
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+	{
+		r.ActualDerivative[i] = k1[i];
+	}
+
+
+	// NEW STATE --------------------------------------------------------------
+	#pragma unroll
+	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
+	{
+		r.NextState[i] = r.ActualState[i] + dTp6 * ( r.NextState[i] + k1[i] );
+
+		if ( isfinite( r.NextState[i] ) == 0 )
+			r.IsFinite = 0;
+	}
+}
+#endif
+
 
 #endif

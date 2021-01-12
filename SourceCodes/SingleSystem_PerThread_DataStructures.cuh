@@ -48,8 +48,19 @@
 #if __MPGOS_PERTHREAD_ALGORITHM == 1
 	#define __MPGOS_PERTHREAD_ADAPTIVE 1
 #endif
-#if __MPGOS_PERTHREAD_ALGORITHM == 0
+#if __MPGOS_PERTHREAD_ALGORITHM == 0 || __MPGOS_PERTHREAD_ALGORITHM == 2
 	#define __MPGOS_PERTHREAD_ADAPTIVE 0
+#endif
+
+#if __MPGOS_PERTHREAD_ALGORITHM == 2
+	#ifndef __MPGOS_PERTHREAD_CONTINUOUS
+		#define __MPGOS_PERTHREAD_CONTINUOUS 1
+	#endif
+#endif
+#if __MPGOS_PERTHREAD_ALGORITHM == 0 || __MPGOS_PERTHREAD_ALGORITHM == 1
+	#ifndef __MPGOS_PERTHREAD_CONTINUOUS
+		#define __MPGOS_PERTHREAD_CONTINUOUS 0
+	#endif
 #endif
 
 //-----------------------Interface with the kernel------------------------------
@@ -77,6 +88,7 @@ struct Struct_GlobalVariables
 	int*       d_DenseOutputIndex;
 	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputTimeInstances;
 	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputStates;
+	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputDerivatives;
 };
 
 struct Struct_SharedMemoryUsage
@@ -173,6 +185,11 @@ struct RegisterStruct
 		int  DenseOutputIndex;
 		int  UpdateDenseOutput;
 		int  NumberOfSkippedStores;
+	#endif
+
+	//if continous output
+	#if __MPGOS_PERTHREAD_CONTINUOUS
+		__MPGOS_PERTHREAD_PRECISION ActualDerivative[__MPGOS_PERTHREAD_SD];
 	#endif
 
 	__device__ RegisterStruct(Struct_GlobalVariables GlobalVariables, Struct_SolverOptions SolverOptions, int tid)

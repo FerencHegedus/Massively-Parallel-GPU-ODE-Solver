@@ -71,5 +71,17 @@ __forceinline__ __device__ void PerThread_ErrorController_RKCK45(int tid, \
 }
 #endif
 
+#if __MPGOS_PERTHREAD_ALGORITHM == 2
+__forceinline__ __device__ void PerThread_ErrorController_DDE4(int tid,RegisterStruct &r, __MPGOS_PERTHREAD_PRECISION  InitialTimeStep)
+{
+	if ( r.IsFinite == 0 )
+	{
+		printf("Error: State is not a finite number. Try to use smaller step size. (thread id: %d)\n", tid);
+		r.TerminateSimulation = 1;
+	}
+
+	r.NewTimeStep = InitialTimeStep;
+}
+#endif
 
 #endif
