@@ -1,7 +1,7 @@
 #ifndef SINGLESYSTEM_PERTHREAD_EXPLICITRUNGEKUTTA_ERRORCONTROLLERS_H
 #define SINGLESYSTEM_PERTHREAD_EXPLICITRUNGEKUTTA_ERRORCONTROLLERS_H
 
-
+#if __MPGOS_PERTHREAD_ALGORITHM == 0
 __forceinline__ __device__ void PerThread_ErrorController_RK4(int tid,RegisterStruct &r, __MPGOS_PERTHREAD_PRECISION  InitialTimeStep)
 {
 	if ( r.IsFinite == 0 )
@@ -12,8 +12,9 @@ __forceinline__ __device__ void PerThread_ErrorController_RK4(int tid,RegisterSt
 
 	r.NewTimeStep = InitialTimeStep;
 }
+#endif
 
-
+#if __MPGOS_PERTHREAD_ALGORITHM == 1
 __forceinline__ __device__ void PerThread_ErrorController_RKCK45(int tid, \
 		RegisterStruct &r,  \
 		SharedStruct s, \
@@ -68,5 +69,7 @@ __forceinline__ __device__ void PerThread_ErrorController_RKCK45(int tid, \
 	r.NewTimeStep = MPGOS::FMIN(r.NewTimeStep, SolverOptions.MaximumTimeStep);
 	r.NewTimeStep = MPGOS::FMAX(r.NewTimeStep, SolverOptions.MinimumTimeStep);
 }
+#endif
+
 
 #endif

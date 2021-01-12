@@ -47,8 +47,9 @@
 
 #if __MPGOS_PERTHREAD_ALGORITHM == 1
 	#define __MPGOS_PERTHREAD_ADAPTIVE 1
-#elif
-  #define __MPGOS_PERTHREAD_ADAPTIVE 0
+#endif
+#if __MPGOS_PERTHREAD_ALGORITHM == 0
+	#define __MPGOS_PERTHREAD_ADAPTIVE 0
 #endif
 
 //-----------------------Interface with the kernel------------------------------
