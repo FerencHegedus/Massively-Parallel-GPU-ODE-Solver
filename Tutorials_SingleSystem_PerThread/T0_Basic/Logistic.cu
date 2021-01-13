@@ -6,7 +6,7 @@
 #include <fstream>
 
 // Solver Configuration
-#define __MPGOS_PERTHREAD_ALGORITHM 0 //RK4 solver
+#define __MPGOS_PERTHREAD_SOLVER_RK4
 #define __MPGOS_PERTHREAD_PRECISION float
 #define __MPGOS_PERTHREAD_NT    46080 // NumberOfThreads
 #define __MPGOS_PERTHREAD_SD    1     // SystemDimension

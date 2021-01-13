@@ -37,14 +37,36 @@
 	#define __MPGOS_PERTHREAD_NDO 0
 #endif
 
-#ifndef __MPGOS_PERTHREAD_ALGORITHM
-	#define __MPGOS_PERTHREAD_ALGORITHM 0
-#endif
-
 #ifndef __MPGOS_PERTHREAD_PRECISION
 	#define __MPGOS_PERTHREAD_PRECISION double
 #endif
 
+//define algorithm based on solver
+#ifdef __MPGOS_PERTHREAD_SOLVER_RK4
+  #ifndef __MPGOS_PERTHREAD_ALGORITHM
+    #define __MPGOS_PERTHREAD_ALGORITHM 0
+  #else
+     #error Multiply defined solvers
+  #endif
+#endif
+
+#ifdef __MPGOS_PERTHREAD_SOLVER_RKCK45
+  #ifndef __MPGOS_PERTHREAD_ALGORITHM
+    #define __MPGOS_PERTHREAD_ALGORITHM 1
+  #else
+     #error Multiply defined solvers
+  #endif
+#endif
+
+#ifdef __MPGOS_PERTHREAD_SOLVER_DDE4
+  #ifndef __MPGOS_PERTHREAD_ALGORITHM
+    #define __MPGOS_PERTHREAD_ALGORITHM 2
+  #else
+     #error Multiply defined solvers
+  #endif
+#endif
+
+//ALgorithm settings
 #if __MPGOS_PERTHREAD_ALGORITHM == 1
 	#define __MPGOS_PERTHREAD_ADAPTIVE 1
 #endif

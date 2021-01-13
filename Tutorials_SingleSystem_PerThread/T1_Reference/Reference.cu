@@ -5,7 +5,7 @@
 #include <fstream>
 
 // Solver Configuration
-#define __MPGOS_PERTHREAD_ALGORITHM 1
+#define __MPGOS_PERTHREAD_SOLVER_RKCK45
 #define __MPGOS_PERTHREAD_NT    23040 // NumberOfThreads
 #define __MPGOS_PERTHREAD_SD    2     // SystemDimension
 #define __MPGOS_PERTHREAD_NCP   1     // NumberOfControlParameters
