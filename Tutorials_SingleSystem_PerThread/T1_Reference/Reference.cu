@@ -6,8 +6,10 @@
 
 // Solver Configuration
 #define __MPGOS_PERTHREAD_SOLVER_RKCK45
+#define __MPGOS_PERTHREAD_INTERPOLATION 1
 #define __MPGOS_PERTHREAD_NT    23040 // NumberOfThreads
 #define __MPGOS_PERTHREAD_SD    2     // SystemDimension
+#define __MPGOS_PERTHREAD_DOD   2     // DenseDimension
 #define __MPGOS_PERTHREAD_NCP   1     // NumberOfControlParameters
 #define __MPGOS_PERTHREAD_NSP   1     // NumberOfSharedParameters
 #define __MPGOS_PERTHREAD_NE    2     // NumberOfEvents
@@ -30,13 +32,13 @@ void SaveData(ProblemSolver&, ofstream&, int);
 
 int main()
 {
-	int NumberOfProblems = 46080; // 2*NT;
+	int NumberOfProblems = __MPGOS_PERTHREAD_NT*2; // 2*NT;
 	int BlockSize        = 64;
 
 	ListCUDADevices();
 
-	int MajorRevision  = 3;
-	int MinorRevision  = 5;
+	int MajorRevision  = 6;
+	int MinorRevision  = 1;
 	int SelectedDevice = SelectDeviceByClosestRevision(MajorRevision, MinorRevision);
 
 	PrintPropertiesOfSpecificDevice(SelectedDevice);
@@ -48,9 +50,9 @@ int main()
 
 	int NumberOfParameters_k = NumberOfProblems;
 	double kRangeLower = 0.2;
-    double kRangeUpper = 0.3;
-		vector<double> Parameters_k_Values(NumberOfParameters_k,0);
-		Linspace(Parameters_k_Values, kRangeLower, kRangeUpper, NumberOfParameters_k);
+  double kRangeUpper = 0.3;
+	vector<double> Parameters_k_Values(NumberOfParameters_k,0);
+	Linspace(Parameters_k_Values, kRangeLower, kRangeUpper, NumberOfParameters_k);
 
 
 	ProblemSolver ScanDuffing(SelectedDevice);
@@ -60,8 +62,9 @@ int main()
 	ScanDuffing.SolverOption(InitialTimeStep, 1.0e-2);
 	ScanDuffing.SolverOption(ActiveNumberOfThreads, __MPGOS_PERTHREAD_NT);
 
-	ScanDuffing.SolverOption(DenseOutputMinimumTimeStep, 0.0);
-	ScanDuffing.SolverOption(DenseOutputSaveFrequency, 1);
+	ScanDuffing.SolverOption(DenseOutputTimeStep, 0.5);
+	ScanDuffing.SolverOption(DenseOutputVariableIndex, 0, 0);
+	ScanDuffing.SolverOption(DenseOutputVariableIndex, 1, 1);
 
 	ScanDuffing.SolverOption(MaximumTimeStep, 1.0e3);
 	ScanDuffing.SolverOption(MinimumTimeStep, 1.0e-14);
@@ -99,6 +102,10 @@ int main()
 		TransientStart = clock();
 		for (int i=0; i<1024; i++)
 		{
+			if(i%200==0)
+			{
+				std::cout << i << std::endl;
+			}
 			ScanDuffing.Solve();
 			ScanDuffing.InsertSynchronisationPoint();
 			ScanDuffing.SynchroniseSolver();
@@ -120,11 +127,15 @@ int main()
 	clock_t SimulationEnd = clock();
 		cout << "Total simulation time: " << 1000.0*(SimulationEnd-SimulationStart) / CLOCKS_PER_SEC << "ms" << endl << endl;
 
+	DataFile.flush();
 	DataFile.close();
 
+
 	ScanDuffing.Print(DenseOutput, 0);
-	ScanDuffing.Print(DenseOutput, 4789);
-	ScanDuffing.Print(DenseOutput, 15479);
+	ScanDuffing.Print(DenseOutput, 12);
+	ScanDuffing.Print(DenseOutput, 999);
+	/*ScanDuffing.Print(DenseOutput, 4789);
+	ScanDuffing.Print(DenseOutput, 15479);*/
 
 	cout << "Test finished!" << endl;
 }

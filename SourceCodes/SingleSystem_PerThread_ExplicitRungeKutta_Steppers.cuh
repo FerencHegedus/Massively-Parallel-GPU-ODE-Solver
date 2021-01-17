@@ -4,7 +4,7 @@
 
 // RK4 ------------------------------------------------------------------------
 #if __MPGOS_PERTHREAD_ALGORITHM == 0
-__forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r, SharedParametersStruct SharedMemoryPointers)
+__forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r,SharedStruct s, SharedParametersStruct SharedMemoryPointers)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
@@ -49,6 +49,9 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 	}
 
 	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
+	#if __MPGOS_PERTHREAD_INTERPOLATION
+		PerThread_SystemToDense(k1,r.NextDerivative,s);
+	#endif
 
 
 	// NEW STATE --------------------------------------------------------------
@@ -65,7 +68,7 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 
 // RKCK 45 --------------------------------------------------------------------
 #if __MPGOS_PERTHREAD_ALGORITHM == 1
-__forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct &r, SharedParametersStruct SharedMemoryPointers)
+__forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct &r, SharedStruct s, SharedParametersStruct SharedMemoryPointers)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
@@ -126,6 +129,10 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 
 	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k5,X,T,r,SharedMemoryPointers);
 
+	#if __MPGOS_PERTHREAD_INTERPOLATION
+		PerThread_SystemToDense(k5,r.NextDerivative,s);
+	#endif
+
 
 	// K6 ---------------------------------------------------------------------
 	T = r.ActualTime + r.TimeStep * static_cast<__MPGOS_PERTHREAD_PRECISION>(7.0/8.0);
@@ -165,7 +172,7 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 
 // DDE4 ------------------------------------------------------------------------
 #if __MPGOS_PERTHREAD_ALGORITHM == 2
-__forceinline__ __device__ void PerThread_Stepper_DDE4(int tid, RegisterStruct &r, SharedParametersStruct SharedMemoryPointers)
+__forceinline__ __device__ void PerThread_Stepper_DDE4(int tid, RegisterStruct &r, SharedStruct s, SharedParametersStruct SharedMemoryPointers)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
@@ -212,11 +219,7 @@ __forceinline__ __device__ void PerThread_Stepper_DDE4(int tid, RegisterStruct &
 	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
 
 	//save derivatives
-	#pragma unroll
-	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
-	{
-		r.ActualDerivative[i] = k1[i];
-	}
+	PerThread_SystemToDense(k1,r.NextDerivative,s);
 
 
 	// NEW STATE --------------------------------------------------------------

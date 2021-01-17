@@ -48,7 +48,7 @@ enum ListOfVariables{ All, \
 enum ListOfSolverOptions{ ThreadsPerBlock, \
 						  InitialTimeStep, \
 						  ActiveNumberOfThreads, \
-                          MaximumTimeStep, \
+              MaximumTimeStep, \
 						  MinimumTimeStep, \
 						  TimeStepGrowLimit, \
 						  TimeStepShrinkLimit, \
@@ -56,8 +56,8 @@ enum ListOfSolverOptions{ ThreadsPerBlock, \
 						  AbsoluteTolerance, \
 						  EventTolerance, \
 						  EventDirection, \
-						  DenseOutputMinimumTimeStep, \
-						  DenseOutputSaveFrequency, \
+							DenseOutputTimeStep, \
+						  DenseOutputVariableIndex, \
 						  PreferSharedMemory};
 
 std::string SolverOptionsToString(ListOfSolverOptions);
@@ -316,8 +316,8 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	SizeOfEvents                   = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NE;
 	SizeOfDenseOutputIndex         = __MPGOS_PERTHREAD_NT;
 	SizeOfDenseOutputTimeInstances = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NDO;
-	SizeOfDenseOutputStates        = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_SD * __MPGOS_PERTHREAD_NDO;
-	SizeOfDenseOutputDerivatives   = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_SD * __MPGOS_PERTHREAD_NDO;
+	SizeOfDenseOutputStates        = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_DOD * __MPGOS_PERTHREAD_NDO;
+	SizeOfDenseOutputDerivatives   = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_DOD * __MPGOS_PERTHREAD_NDO;
 
 	GlobalMemoryRequired = sizeof(__MPGOS_PERTHREAD_PRECISION) * ( SizeOfTimeDomain + \
 												 SizeOfActualState + \
@@ -380,6 +380,7 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	GlobalVariables.d_DenseOutputTimeInstances = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputTimeInstances );
 	GlobalVariables.d_DenseOutputStates        = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputStates );
 	GlobalVariables.d_DenseOutputDerivatives   = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputDerivatives );
+	GlobalVariables.d_DenseToSystemIndex   = AllocateDeviceMemory<int>( __MPGOS_PERTHREAD_DOD );
 
 
 	// SHARED MEMORY MANAGEMENT
@@ -389,10 +390,7 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	SharedMemoryRequiredSharedVariables  = sizeof(__MPGOS_PERTHREAD_PRECISION)*(__MPGOS_PERTHREAD_NSP) + sizeof(int)*(__MPGOS_PERTHREAD_NISP);
 	DynamicSharedMemoryRequired          = SharedMemoryUsage.PreferSharedMemory * SharedMemoryRequiredSharedVariables;
 
-	StaticSharedMemoryRequired           = sizeof(__MPGOS_PERTHREAD_PRECISION)*( __MPGOS_PERTHREAD_ADAPTIVE==0 ? 1 : __MPGOS_PERTHREAD_SD ) + \
-										   sizeof(__MPGOS_PERTHREAD_PRECISION)*( __MPGOS_PERTHREAD_ADAPTIVE==0 ? 1 : __MPGOS_PERTHREAD_SD ) + \
-										   sizeof(__MPGOS_PERTHREAD_PRECISION)*( __MPGOS_PERTHREAD_NE==0 ? 1 : __MPGOS_PERTHREAD_NE ) + \
-										   sizeof(int)*( __MPGOS_PERTHREAD_NE==0 ? 1 : __MPGOS_PERTHREAD_NE );
+	StaticSharedMemoryRequired           = sizeof(SharedStruct);
 
 	SharedMemoryRequiredUpperLimit       = StaticSharedMemoryRequired + SharedMemoryRequiredSharedVariables;
 	SharedMemoryRequired                 = DynamicSharedMemoryRequired + StaticSharedMemoryRequired;
@@ -424,8 +422,7 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	SolverOptions.MinimumTimeStep            = 1.0e-12;
 	SolverOptions.TimeStepGrowLimit          = 5.0;
 	SolverOptions.TimeStepShrinkLimit        = 0.1;
-	SolverOptions.DenseOutputMinimumTimeStep = 0.0;
-	SolverOptions.DenseOutputSaveFrequency   = 1;
+	SolverOptions.DenseOutputTimeStep = 0.0;
 
 	__MPGOS_PERTHREAD_PRECISION DefaultAlgorithmTolerances = 1e-8;
 	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
@@ -449,8 +446,7 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	std::cout << "   Minimum time step:                        " << std::setw(6) << SolverOptions.MinimumTimeStep << std::endl;
 	std::cout << "   Time step grow limit:                     " << std::setw(6) << SolverOptions.TimeStepGrowLimit << std::endl;
 	std::cout << "   Time step shrink limit:                   " << std::setw(6) << SolverOptions.TimeStepShrinkLimit << std::endl;
-	std::cout << "   Dense output minimum time step:           " << std::setw(6) << SolverOptions.DenseOutputMinimumTimeStep << std::endl;
-	std::cout << "   Dense output save frequency:              " << std::setw(6) << SolverOptions.DenseOutputSaveFrequency << std::endl;
+	std::cout << "   Dense output time step:           " << std::setw(6) << SolverOptions.DenseOutputTimeStep << std::endl;
 	std::cout << "   Algorithm absolute tolerance (all comp.): " << std::setw(6) << 1e-8 << std::endl;
 	std::cout << "   Algorithm relative tolerance (all comp.): " << std::setw(6) << 1e-8 << std::endl;
 	std::cout << "   Event absolute tolerance:                 " << std::setw(6) << 1e-6 << std::endl;
@@ -501,6 +497,7 @@ ProblemSolver::~ProblemSolver()
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputTimeInstances) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputStates) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputDerivatives) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_DenseToSystemIndex) );
 
 	std::cout << "--------------------------------------" << std::endl;
 	std::cout << "Object for Parameters scan is deleted!" << std::endl;
@@ -588,12 +585,8 @@ void ProblemSolver::SolverOption(ListOfSolverOptions Option, T Value)
 			SolverOptions.TimeStepShrinkLimit = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
 
-		case DenseOutputMinimumTimeStep:
-			SolverOptions.DenseOutputMinimumTimeStep = (__MPGOS_PERTHREAD_PRECISION)Value;
-			break;
-
-		case DenseOutputSaveFrequency:
-			SolverOptions.DenseOutputSaveFrequency = (int)Value;
+		case DenseOutputTimeStep:
+			SolverOptions.DenseOutputTimeStep = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
 
 		case PreferSharedMemory:
@@ -636,6 +629,12 @@ void ProblemSolver::SolverOption(ListOfSolverOptions Option, int Index, T Value)
 		case EventDirection:
 			BoundCheck("SolverOption", "EventDirection", Index, 0, __MPGOS_PERTHREAD_NE-1);
 			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_EventDirection+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			break;
+
+		case DenseOutputVariableIndex:
+			BoundCheck("SolverOption", "DenseOutputVariableIndex", Index, 0, __MPGOS_PERTHREAD_DOD-1);
+			BoundCheck("SolverOption", "DenseOutputVariableIndex", IValue, 0, __MPGOS_PERTHREAD_SD-1);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DenseToSystemIndex+Index, &IValue, sizeof(int), cudaMemcpyHostToDevice, Stream) );
 			break;
 
 		default:
@@ -1207,7 +1206,7 @@ void ProblemSolver::Print(ListOfVariables Variable, int ThreadID)
 			idx = ThreadID + i*__MPGOS_PERTHREAD_NT;
 			DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx] << ',';
 
-			for (int j=0; j<__MPGOS_PERTHREAD_SD; j++)
+			for (int j=0; j<__MPGOS_PERTHREAD_DOD; j++)
 			{
 				idx = ThreadID + j*__MPGOS_PERTHREAD_NT + i*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
 				DataFile.width(Width); DataFile << h_DenseOutputStates[idx] << ',';
@@ -1328,10 +1327,8 @@ std::string SolverOptionsToString(ListOfSolverOptions Option)
 			return "EventTolerance";
 		case EventDirection:
 			return "EventDirection";
-		case DenseOutputMinimumTimeStep:
-			return "DenseOutputMinimumTimeStep";
-		case DenseOutputSaveFrequency:
-			return "DenseOutputSaveFrequency";
+		case DenseOutputTimeStep:
+			return "DenseOutputTimeStep";
 		case PreferSharedMemory:
 			return "PreferSharedMemory";
 		default:

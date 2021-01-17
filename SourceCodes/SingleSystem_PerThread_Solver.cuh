@@ -18,14 +18,15 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 	// SHARED MEMORY MANAGEMENT -----------------------------------------------
 	__shared__ SharedStruct SharedSettings;
 	SharedStructLoad(SharedSettings, GlobalVariables);
-	SharedParametersStruct SharedMemoryPointers(GlobalVariables,SharedMemoryUsage);
 
+	SharedParametersStruct SharedMemoryPointers;
+	SharedMemoryPointers.ReadFromGlobalVariables(GlobalVariables,SharedMemoryUsage);
 
 	if (tid < ThreadConfiguration.NumberOfActiveThreads)
 	{
 		// REGISTER MEMORY MANAGEMENT -----------------------------------------
-		RegisterStruct r(GlobalVariables,SolverOptions,tid);
-
+		RegisterStruct r;
+		r.ReadFromGlobalVariables(GlobalVariables,SolverOptions,tid);
 
 		// INITIALISATION -----------------------------------------------------
 		PerThread_Initialization(tid,__MPGOS_PERTHREAD_NT,r,SharedMemoryPointers);
@@ -35,15 +36,21 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 		#endif
 
 		#if __MPGOS_PERTHREAD_NDO > 0
-			#if __MPGOS_PERTHREAD_CONTINUOUS == 1
-				PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualDerivative,r.ActualState, r.ActualTime,r,SharedMemoryPointers);
+			#if __MPGOS_PERTHREAD_INTERPOLATION
+				PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,r.NextState,r.ActualState, r.ActualTime,r,SharedMemoryPointers);
+				PerThread_SystemToDense(r.NextState,r.NextDerivative,SharedSettings);
+				PerThread_SystemToDense(r.NextState,r.ActualDerivative,SharedSettings);
 			#endif
-			PerThread_StoreDenseOutput(tid,r, \
+
+			PerThread_SystemToDense(r.ActualState,r.NextDenseState,SharedSettings);
+			PerThread_SystemToDense(r.ActualState,r.ActualDenseState,SharedSettings);
+			PerThread_StoreDenseOutput(tid,r,SharedSettings, \
 				GlobalVariables.d_DenseOutputTimeInstances, \
 				GlobalVariables.d_DenseOutputStates, \
 				GlobalVariables.d_DenseOutputDerivatives, \
-				SolverOptions.DenseOutputMinimumTimeStep);
+				SolverOptions.DenseOutputTimeStep);
 		#endif
+
 
 
 		// SOLVER MANAGEMENT --------------------------------------------------
@@ -65,17 +72,17 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 
 			// STEPPER --------------------------------------------------------
 			#if __MPGOS_PERTHREAD_ALGORITHM == 0
-				PerThread_Stepper_RK4(tid,r,SharedMemoryPointers);
+				PerThread_Stepper_RK4(tid,r,SharedSettings,SharedMemoryPointers);
 				PerThread_ErrorController_RK4(tid,r,SolverOptions.InitialTimeStep);
 			#endif
 
 			#if __MPGOS_PERTHREAD_ALGORITHM == 1
-				PerThread_Stepper_RKCK45(tid,r,SharedMemoryPointers);
+				PerThread_Stepper_RKCK45(tid,r,SharedSettings,SharedMemoryPointers);
 				PerThread_ErrorController_RKCK45(tid,r,SharedSettings,SolverOptions);
 			#endif
 
 			#if __MPGOS_PERTHREAD_ALGORITHM == 2
-				PerThread_Stepper_DDE4(tid,r,SharedMemoryPointers);
+				PerThread_Stepper_DDE4(tid,r,SharedSettings,SharedMemoryPointers);
 				PerThread_ErrorController_DDE4(tid,r,SolverOptions.InitialTimeStep);
 			#endif
 
@@ -83,7 +90,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			// NEW EVENT VALUE AND TIME STEP CONTROL---------------------------
 			#if __MPGOS_PERTHREAD_NE > 0
 				r.NewTimeStepTmp = r.ActualTime+r.TimeStep;
-				PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualEventValue,r,SharedMemoryPointers);
+				PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.NextEventValue,r,SharedMemoryPointers);
 				PerThread_EventTimeStepControl(tid,r,SharedSettings,SolverOptions.MinimumTimeStep);
 			#endif
 
@@ -92,6 +99,10 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			if ( r.UpdateStep == 1 )
 			{
 				r.ActualTime += r.TimeStep;
+
+				#if __MPGOS_PERTHREAD_NDO > 0
+					PerThread_SystemToDense(r.NextState,r.NextDenseState,SharedSettings);
+				#endif
 
 				for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 					r.ActualState[i] = r.NextState[i];
@@ -108,19 +119,27 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 						}
 					}
 
-					PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.ActualEventValue,r,SharedMemoryPointers);
+					PerThread_EventFunction(tid,__MPGOS_PERTHREAD_NT,r.NextEventValue,r,SharedMemoryPointers);
 
 					for (int i=0; i<__MPGOS_PERTHREAD_NE; i++)
 						r.ActualEventValue[i] = r.NextEventValue[i];
 				#endif
 
 				#if __MPGOS_PERTHREAD_NDO > 0
-					PerThread_DenseOutputStorageCondition(r,SolverOptions);
-					PerThread_StoreDenseOutput(tid,r, \
+					PerThread_DenseOutputStorageCondition(r,SharedSettings,SolverOptions);
+					PerThread_StoreDenseOutput(tid,r,SharedSettings, \
 						GlobalVariables.d_DenseOutputTimeInstances, \
 						GlobalVariables.d_DenseOutputStates, \
 						GlobalVariables.d_DenseOutputDerivatives, \
-						SolverOptions.DenseOutputMinimumTimeStep);
+						SolverOptions.DenseOutputTimeStep);
+				#endif
+
+				#if __MPGOS_PERTHREAD_INTERPOLATION
+					for (int i = 0; i < __MPGOS_PERTHREAD_DOD; i++)
+					{
+						r.ActualDerivative[i] = r.NextDerivative[i];
+						r.ActualDenseState[i] = r.NextDenseState[i];
+					}
 				#endif
 
 				if ( ( r.EndTimeDomainReached == 1 ) || ( r.UserDefinedTermination == 1 ) )
@@ -169,6 +188,23 @@ __device__ void SharedStructLoad(SharedStruct &SharedSettings, Struct_GlobalVari
 			{
 				SharedSettings.EventTolerance[ltid] = GlobalVariables.d_EventTolerance[ltid];
 				SharedSettings.EventDirection[ltid] = GlobalVariables.d_EventDirection[ltid];
+			}
+		}
+	#endif
+
+
+	// Initialise shared dense output variables if dense output is necessary
+	#if __MPGOS_PERTHREAD_NDO > 0
+		const int LaunchesNDO = __MPGOS_PERTHREAD_DOD / blockDim.x + (__MPGOS_PERTHREAD_DOD % blockDim.x == 0 ? 0 : 1);
+
+		for (int j=0; j<LaunchesNDO; j++)
+		{
+			int ltid = threadIdx.x + j*blockDim.x;
+
+			if ( ltid < __MPGOS_PERTHREAD_DOD)
+			{
+				SharedSettings.DenseToSystemIndex[ltid] = GlobalVariables.d_DenseToSystemIndex[ltid];
+				//printf("j=%d    ltid = %d     denseToSys = %d\n",j,ltid,SharedSettings.DenseToSystemIndex[ltid]);
 			}
 		}
 	#endif

@@ -37,6 +37,10 @@
 	#define __MPGOS_PERTHREAD_NDO 0
 #endif
 
+#ifndef __MPGOS_PERTHREAD_DOD
+	#define __MPGOS_PERTHREAD_DOD __MPGOS_PERTHREAD_SD
+#endif
+
 #ifndef __MPGOS_PERTHREAD_PRECISION
 	#define __MPGOS_PERTHREAD_PRECISION double
 #endif
@@ -75,13 +79,13 @@
 #endif
 
 #if __MPGOS_PERTHREAD_ALGORITHM == 2
-	#ifndef __MPGOS_PERTHREAD_CONTINUOUS
-		#define __MPGOS_PERTHREAD_CONTINUOUS 1
+	#ifndef __MPGOS_PERTHREAD_INTERPOLATION
+		#define __MPGOS_PERTHREAD_INTERPOLATION 1
 	#endif
 #endif
 #if __MPGOS_PERTHREAD_ALGORITHM == 0 || __MPGOS_PERTHREAD_ALGORITHM == 1
-	#ifndef __MPGOS_PERTHREAD_CONTINUOUS
-		#define __MPGOS_PERTHREAD_CONTINUOUS 0
+	#ifndef __MPGOS_PERTHREAD_INTERPOLATION
+		#define __MPGOS_PERTHREAD_INTERPOLATION 0
 	#endif
 #endif
 
@@ -111,6 +115,7 @@ struct Struct_GlobalVariables
 	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputTimeInstances;
 	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputStates;
 	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputDerivatives;
+	int* d_DenseToSystemIndex;
 };
 
 struct Struct_SharedMemoryUsage
@@ -128,7 +133,7 @@ struct Struct_SolverOptions
 	__MPGOS_PERTHREAD_PRECISION TimeStepGrowLimit;
 	__MPGOS_PERTHREAD_PRECISION TimeStepShrinkLimit;
 	int       DenseOutputSaveFrequency;
-	__MPGOS_PERTHREAD_PRECISION DenseOutputMinimumTimeStep;
+	__MPGOS_PERTHREAD_PRECISION DenseOutputTimeStep;
 };
 
 
@@ -192,29 +197,27 @@ struct RegisterStruct
 
 	//if events
 	#if __MPGOS_PERTHREAD_NE > 0
-		union{
-			__MPGOS_PERTHREAD_PRECISION ActualEventValue[__MPGOS_PERTHREAD_NE];
-			__MPGOS_PERTHREAD_PRECISION ef[__MPGOS_PERTHREAD_NE];
-		};
-
+		__MPGOS_PERTHREAD_PRECISION ActualEventValue[__MPGOS_PERTHREAD_NE];
 		__MPGOS_PERTHREAD_PRECISION NextEventValue[__MPGOS_PERTHREAD_NE];
 		__MPGOS_PERTHREAD_PRECISION NewTimeStepTmp;
 	#endif
 
 	//if dense output
 	#if __MPGOS_PERTHREAD_NDO > 0
-		__MPGOS_PERTHREAD_PRECISION DenseOutputActualTime;
 		int  DenseOutputIndex;
 		int  UpdateDenseOutput;
-		int  NumberOfSkippedStores;
+		__MPGOS_PERTHREAD_PRECISION NextDenseState[__MPGOS_PERTHREAD_DOD];
+		__MPGOS_PERTHREAD_PRECISION ActualDenseState[__MPGOS_PERTHREAD_DOD];
 	#endif
 
 	//if continous output
-	#if __MPGOS_PERTHREAD_CONTINUOUS
-		__MPGOS_PERTHREAD_PRECISION ActualDerivative[__MPGOS_PERTHREAD_SD];
+	#if __MPGOS_PERTHREAD_INTERPOLATION
+		__MPGOS_PERTHREAD_PRECISION DenseOutputActualTime;
+		__MPGOS_PERTHREAD_PRECISION NextDerivative[__MPGOS_PERTHREAD_DOD];
+		__MPGOS_PERTHREAD_PRECISION ActualDerivative[__MPGOS_PERTHREAD_DOD];
 	#endif
 
-	__device__ RegisterStruct(Struct_GlobalVariables GlobalVariables, Struct_SolverOptions SolverOptions, int tid)
+	__device__ void ReadFromGlobalVariables(Struct_GlobalVariables GlobalVariables, Struct_SolverOptions SolverOptions, int tid)
 	{
 		//always defined
 		ActualTime             = GlobalVariables.d_ActualTime[tid];
@@ -255,8 +258,13 @@ struct RegisterStruct
 		//if dense output
 		#if __MPGOS_PERTHREAD_NDO > 0
 			DenseOutputIndex       = GlobalVariables.d_DenseOutputIndex[tid];
-			UpdateDenseOutput      = 1;
-			NumberOfSkippedStores  = 0;
+
+			#if __MPGOS_PERTHREAD_INTERPOLATION
+				DenseOutputActualTime = TimeDomain[0];
+				UpdateDenseOutput      = 0; //update at the end of step
+			#else
+				UpdateDenseOutput      = 1;
+			#endif
 		#endif
 	}
 
@@ -310,6 +318,9 @@ struct SharedStruct
 		int EventDirection[__MPGOS_PERTHREAD_NE];
 	#endif
 
+	#if __MPGOS_PERTHREAD_NDO > 0
+		int DenseToSystemIndex[__MPGOS_PERTHREAD_DOD];
+	#endif
 };
 
 struct SharedParametersStruct
@@ -317,7 +328,7 @@ struct SharedParametersStruct
 	__MPGOS_PERTHREAD_PRECISION *sp;
 	int* spi ;
 
-	__device__ SharedParametersStruct(Struct_GlobalVariables GlobalVariables, Struct_SharedMemoryUsage SharedMemoryUsage)
+	__device__ void ReadFromGlobalVariables(Struct_GlobalVariables GlobalVariables, Struct_SharedMemoryUsage SharedMemoryUsage)
 	{
 		extern __shared__ int DynamicSharedMemory[];
 		int MemoryShift;
