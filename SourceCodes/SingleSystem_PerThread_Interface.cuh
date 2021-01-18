@@ -317,7 +317,7 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	SizeOfDenseOutputIndex         = __MPGOS_PERTHREAD_NT;
 	SizeOfDenseOutputTimeInstances = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_NDO;
 	SizeOfDenseOutputStates        = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_DOD * __MPGOS_PERTHREAD_NDO;
-	SizeOfDenseOutputDerivatives   = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_DOD * __MPGOS_PERTHREAD_NDO;
+	SizeOfDenseOutputDerivatives   = __MPGOS_PERTHREAD_NT * __MPGOS_PERTHREAD_DOD * __MPGOS_PERTHREAD_NDO *__MPGOS_PERTHREAD_SAVEDERIVATIVES;
 
 	GlobalMemoryRequired = sizeof(__MPGOS_PERTHREAD_PRECISION) * ( SizeOfTimeDomain + \
 												 SizeOfActualState + \
@@ -762,7 +762,7 @@ void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int Ser
 
 		case DenseDerivative:
 			BoundCheck("SetHost", "DenseDerivative/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
-			BoundCheck("SetHost", "DenseDerivative/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
+			BoundCheck("SetHost", "DenseDerivative/TimeStepNumber", TimeStepNumber, 0, (__MPGOS_PERTHREAD_NDO-1)*__MPGOS_PERTHREAD_SAVEDERIVATIVES );
 			h_DenseOutputDerivatives[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
 
@@ -1016,7 +1016,7 @@ T ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable, int Serial
 
 		case DenseDerivative:
 			BoundCheck("SetHost", "DenseDerivative/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
-			BoundCheck("SetHost", "DenseDerivative/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
+			BoundCheck("SetHost", "DenseDerivative/TimeStepNumber", TimeStepNumber, 0, (__MPGOS_PERTHREAD_NDO-1)*__MPGOS_PERTHREAD_SAVEDERIVATIVES );
 			return (__MPGOS_PERTHREAD_PRECISION)h_DenseOutputDerivatives[idx];
 
 		default:
@@ -1204,15 +1204,16 @@ void ProblemSolver::Print(ListOfVariables Variable, int ThreadID)
 		for (int i=0; i<(h_DenseOutputIndex[ThreadID]); i++)
 		{
 			idx = ThreadID + i*__MPGOS_PERTHREAD_NT;
-			DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx] << ',';
+			DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx];
 
 			for (int j=0; j<__MPGOS_PERTHREAD_DOD; j++)
 			{
 				idx = ThreadID + j*__MPGOS_PERTHREAD_NT + i*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
-				DataFile.width(Width); DataFile << h_DenseOutputStates[idx] << ',';
-				DataFile.width(Width); DataFile << h_DenseOutputDerivatives[idx];
-				if ( j<(__MPGOS_PERTHREAD_SD-1) )
-					DataFile << ',';
+				DataFile  << ','; DataFile.width(Width); DataFile  << h_DenseOutputStates[idx];
+				if(__MPGOS_PERTHREAD_SAVEDERIVATIVES)
+				{
+						DataFile  << ','; DataFile.width(Width); DataFile << h_DenseOutputDerivatives[idx];
+				}
 			}
 			DataFile << '\n';
 		}

@@ -41,7 +41,7 @@ __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 			DenseOutputStateIndex += __MPGOS_PERTHREAD_NT;
 		}
 
-		#if __MPGOS_PERTHREAD_INTERPOLATION
+		#if __MPGOS_PERTHREAD_SAVEDERIVATIVES
 			int DenseOutputDerivativeIndex = tid + r.DenseOutputIndex*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_DOD;
 			for (int i=0; i<__MPGOS_PERTHREAD_DOD; i++)
 			{
@@ -90,6 +90,8 @@ __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 			r.DenseOutputActualTime = MPGOS::FMIN(r.DenseOutputActualTime+DenseOutputTimeStep, r.TimeDomain[1]);
 		}
 	}
+
+
 	#endif
 }
 
