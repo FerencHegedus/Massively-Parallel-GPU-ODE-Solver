@@ -208,6 +208,26 @@ __device__ void SharedStructLoad(SharedStruct &SharedSettings, Struct_GlobalVari
 			}
 		}
 	#endif
+
+	// Initialise shared delay variables if delays are necessary
+	#if __MPGOS_PERTHREAD_ALGORITHM == 2
+		const int LaunchesDEL = __MPGOS_PERTHREAD_NDELAY / blockDim.x + (__MPGOS_PERTHREAD_NDELAY % blockDim.x == 0 ? 0 : 1);
+
+		for (int j=0; j<LaunchesDEL; j++)
+		{
+			int ltid = threadIdx.x + j*blockDim.x;
+
+			if ( ltid < __MPGOS_PERTHREAD_NDELAY)
+			{
+				SharedSettings.DelayToDenseIndex[ltid] = GlobalVariables.d_DelayToDenseIndex[ltid];
+				SharedSettings.DelayTime[ltid] = GlobalVariables.d_DelayTime[ltid];
+				SharedSettings.DelayMemoryIndex[ltid] = 0;
+				printf("delay=%d    dense = %d     tau = %f\n",ltid,SharedSettings.DelayToDenseIndex[ltid],SharedSettings.DelayTime[ltid]);
+			}
+		}
+
+
+	#endif
 }
 
 

@@ -42,7 +42,7 @@ enum ListOfVariables{ All, \
 					  DenseOutput, \
 					  DenseIndex, \
 					  DenseTime, \
-					  DenseState,
+					  DenseState, \
 						DenseDerivative};
 
 enum ListOfSolverOptions{ ThreadsPerBlock, \
@@ -57,7 +57,8 @@ enum ListOfSolverOptions{ ThreadsPerBlock, \
 						  EventTolerance, \
 						  EventDirection, \
 							DenseOutputTimeStep, \
-						  DenseOutputVariableIndex, \
+							DenseOutputVariableIndex, \
+						  Delay, \
 						  PreferSharedMemory};
 
 std::string SolverOptionsToString(ListOfSolverOptions);
@@ -137,6 +138,7 @@ class ProblemSolver
 
 		template <typename T> void SolverOption(ListOfSolverOptions, T);
 		template <typename T> void SolverOption(ListOfSolverOptions, int, T);
+		template <typename T> void SolverOption(ListOfSolverOptions, int, int, T);
 
 		template <typename T> void SetHost(int, ListOfVariables, int, T);      // Unit scope and DenseTime
 		template <typename T> void SetHost(int, ListOfVariables, T);           // System scope
@@ -381,6 +383,8 @@ ProblemSolver::ProblemSolver(int AssociatedDevice)
 	GlobalVariables.d_DenseOutputStates        = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputStates );
 	GlobalVariables.d_DenseOutputDerivatives   = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( SizeOfDenseOutputDerivatives );
 	GlobalVariables.d_DenseToSystemIndex   = AllocateDeviceMemory<int>( __MPGOS_PERTHREAD_DOD );
+	GlobalVariables.d_DelayToDenseIndex   = AllocateDeviceMemory<int>( __MPGOS_PERTHREAD_NDELAY );
+	GlobalVariables.d_DelayTime   = AllocateDeviceMemory<__MPGOS_PERTHREAD_PRECISION>( __MPGOS_PERTHREAD_NDELAY );
 
 
 	// SHARED MEMORY MANAGEMENT
@@ -498,6 +502,8 @@ ProblemSolver::~ProblemSolver()
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputStates) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseOutputDerivatives) );
 	gpuErrCHK( cudaFree(GlobalVariables.d_DenseToSystemIndex) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_DelayTime) );
+	gpuErrCHK( cudaFree(GlobalVariables.d_DelayToDenseIndex) );
 
 	std::cout << "--------------------------------------" << std::endl;
 	std::cout << "Object for Parameters scan is deleted!" << std::endl;
@@ -645,6 +651,26 @@ void ProblemSolver::SolverOption(ListOfSolverOptions Option, int Index, T Value)
 	}
 }
 
+template<typename T>
+void ProblemSolver::SolverOption(ListOfSolverOptions Option, int Index, int ToIndex, T Value)
+{
+	__MPGOS_PERTHREAD_PRECISION PValue = (__MPGOS_PERTHREAD_PRECISION)Value;
+	switch (Option)
+	{
+		case Delay:
+			BoundCheck("SolverOption", "Delay/Index", Index, 0, __MPGOS_PERTHREAD_NDELAY-1);
+			BoundCheck("SolverOption", "Delay/ToIndex", ToIndex, 0, __MPGOS_PERTHREAD_DOD-1);
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DelayToDenseIndex+Index, &ToIndex, sizeof(int), cudaMemcpyHostToDevice, Stream) );
+			gpuErrCHK( cudaMemcpyAsync(GlobalVariables.d_DelayTime+Index, &Value, sizeof(__MPGOS_PERTHREAD_PRECISION), cudaMemcpyHostToDevice, Stream) );
+			break;
+
+		default:
+			std::cerr << "ERROR: In solver member function SolverOption!" << std::endl;
+			std::cerr << "       Option: " << SolverOptionsToString(Option) << std::endl;
+			std::cerr << "       This option needs 1 input arguments or not applicable!" << std::endl;
+			exit(EXIT_FAILURE);
+	}
+}
 // SETHOST, Unit scope and DenseTime
 template<typename T>
 void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int SerialNumber, T Value)

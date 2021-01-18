@@ -37,6 +37,10 @@
 	#define __MPGOS_PERTHREAD_NDO 0
 #endif
 
+#ifndef __MPGOS_PERTHREAD_NDELAY
+	#define __MPGOS_PERTHREAD_NDELAY 0
+#endif
+
 #ifndef __MPGOS_PERTHREAD_SAVEDERIVATIVES
 	#define __MPGOS_PERTHREAD_SAVEDERIVATIVES 0
 #endif
@@ -72,6 +76,9 @@
   #else
      #error Multiply defined solvers
   #endif
+	#if __MPGOS_PERTHREAD_NDELAY == 0
+		#error Number of delays should be specified. Specify a delay, or use RK4 instead
+	#endif
 #endif
 
 //ALgorithm settings
@@ -121,6 +128,8 @@ struct Struct_GlobalVariables
 	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputStates;
 	__MPGOS_PERTHREAD_PRECISION* d_DenseOutputDerivatives;
 	int* d_DenseToSystemIndex;
+	int* d_DelayToDenseIndex;
+	__MPGOS_PERTHREAD_PRECISION * d_DelayTime;
 };
 
 struct Struct_SharedMemoryUsage
@@ -220,6 +229,15 @@ struct RegisterStruct
 		__MPGOS_PERTHREAD_PRECISION DenseOutputActualTime;
 		__MPGOS_PERTHREAD_PRECISION NextDerivative[__MPGOS_PERTHREAD_DOD];
 		__MPGOS_PERTHREAD_PRECISION ActualDerivative[__MPGOS_PERTHREAD_DOD];
+	#endif
+
+	//if delayed solver
+	#if __MPGOS_PERTHREAD_ALGORITHM == 2
+		union
+		{
+			__MPGOS_PERTHREAD_PRECISION DelayedState[__MPGOS_PERTHREAD_NDELAY];
+			__MPGOS_PERTHREAD_PRECISION xdelay[__MPGOS_PERTHREAD_NDELAY];
+		};
 	#endif
 
 	__device__ void ReadFromGlobalVariables(Struct_GlobalVariables GlobalVariables, Struct_SolverOptions SolverOptions, int tid)
@@ -325,6 +343,12 @@ struct SharedStruct
 
 	#if __MPGOS_PERTHREAD_NDO > 0
 		int DenseToSystemIndex[__MPGOS_PERTHREAD_DOD];
+	#endif
+
+	#if __MPGOS_PERTHREAD_ALGORITHM == 2
+		__MPGOS_PERTHREAD_PRECISION DelayTime[__MPGOS_PERTHREAD_NDELAY];
+		int DelayToDenseIndex[__MPGOS_PERTHREAD_NDELAY];
+		int DelayMemoryIndex[__MPGOS_PERTHREAD_NDELAY];
 	#endif
 };
 
