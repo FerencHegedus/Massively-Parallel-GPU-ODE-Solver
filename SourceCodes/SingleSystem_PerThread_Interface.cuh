@@ -776,18 +776,18 @@ void ProblemSolver::SetHost(int ProblemNumber, ListOfVariables Variable, int Ser
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
-	int idx = ProblemNumber + SerialNumber*__MPGOS_PERTHREAD_NT + TimeStepNumber*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
+	int idx = ProblemNumber + SerialNumber*__MPGOS_PERTHREAD_NT + TimeStepNumber*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_DOD;
 
 	switch (Variable)
 	{
 		case DenseState:
-			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
+			BoundCheck("SetHost", "DenseState/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_DOD-1 );
 			BoundCheck("SetHost", "DenseState/TimeStepNumber", TimeStepNumber, 0, __MPGOS_PERTHREAD_NDO-1 );
 			h_DenseOutputStates[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
 
 		case DenseDerivative:
-			BoundCheck("SetHost", "DenseDerivative/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_SD-1 );
+			BoundCheck("SetHost", "DenseDerivative/ComponentNumber", SerialNumber, 0, __MPGOS_PERTHREAD_DOD-1 );
 			BoundCheck("SetHost", "DenseDerivative/TimeStepNumber", TimeStepNumber, 0, (__MPGOS_PERTHREAD_NDO-1)*__MPGOS_PERTHREAD_SAVEDERIVATIVES );
 			h_DenseOutputDerivatives[idx] = (__MPGOS_PERTHREAD_PRECISION)Value;
 			break;
@@ -1031,7 +1031,7 @@ T ProblemSolver::GetHost(int ProblemNumber, ListOfVariables Variable, int Serial
 {
 	BoundCheck("SetHost", "ProblemNumber", ProblemNumber, 0, __MPGOS_PERTHREAD_NT-1 );
 
-	int idx = ProblemNumber + SerialNumber*__MPGOS_PERTHREAD_NT + TimeStepNumber*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
+	int idx = ProblemNumber + SerialNumber*__MPGOS_PERTHREAD_NT + TimeStepNumber*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_DOD;
 
 	switch (Variable)
 	{

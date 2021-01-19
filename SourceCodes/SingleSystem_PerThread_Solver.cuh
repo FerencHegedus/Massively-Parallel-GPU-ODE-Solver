@@ -26,7 +26,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 	{
 		// REGISTER MEMORY MANAGEMENT -----------------------------------------
 		RegisterStruct r;
-		r.ReadFromGlobalVariables(GlobalVariables,SolverOptions,tid);
+		r.ReadFromGlobalVariables(SharedSettings,GlobalVariables,SolverOptions,tid);
 
 		// INITIALISATION -----------------------------------------------------
 		PerThread_Initialization(tid,__MPGOS_PERTHREAD_NT,r,SharedMemoryPointers);
@@ -49,6 +49,10 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 				GlobalVariables.d_DenseOutputStates, \
 				GlobalVariables.d_DenseOutputDerivatives, \
 				SolverOptions.DenseOutputTimeStep);
+		#endif
+
+		#if __MPGOS_PERTHREAD_ALGORITHM == 2
+			PerThread_CalculateDelayToTime(tid,r.ActualTime,r,SharedSettings,GlobalVariables);
 		#endif
 
 
@@ -82,7 +86,7 @@ __global__ void SingleSystem_PerThread(Struct_ThreadConfiguration ThreadConfigur
 			#endif
 
 			#if __MPGOS_PERTHREAD_ALGORITHM == 2
-				PerThread_Stepper_DDE4(tid,r,SharedSettings,SharedMemoryPointers);
+				PerThread_Stepper_DDE4(tid,r,SharedSettings,SharedMemoryPointers,GlobalVariables);
 				PerThread_ErrorController_DDE4(tid,r,SolverOptions.InitialTimeStep);
 			#endif
 
@@ -221,8 +225,7 @@ __device__ void SharedStructLoad(SharedStruct &SharedSettings, Struct_GlobalVari
 			{
 				SharedSettings.DelayToDenseIndex[ltid] = GlobalVariables.d_DelayToDenseIndex[ltid];
 				SharedSettings.DelayTime[ltid] = GlobalVariables.d_DelayTime[ltid];
-				SharedSettings.DelayMemoryIndex[ltid] = 0;
-				printf("delay=%d    dense = %d     tau = %f\n",ltid,SharedSettings.DelayToDenseIndex[ltid],SharedSettings.DelayTime[ltid]);
+				//printf("delay=%d    dense = %d     tau = %f\n",ltid,SharedSettings.DelayToDenseIndex[ltid],SharedSettings.DelayTime[ltid]);
 			}
 		}
 

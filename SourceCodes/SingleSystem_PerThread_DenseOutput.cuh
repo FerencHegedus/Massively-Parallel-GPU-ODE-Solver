@@ -68,10 +68,10 @@ __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 			__MPGOS_PERTHREAD_PRECISION theta = (r.DenseOutputActualTime-(r.ActualTime-r.TimeStep))/r.TimeStep;
 			__MPGOS_PERTHREAD_PRECISION thetaM1 = theta - 1;
 
-			/*if(tid == 0)
+			/*if(tid == 5)
 			{
-				printf("theta=%lf\t dt=%lf\t t=%lf\t tb=%lf\t tn=%lf\t xb=%lf\t xn=%lf\t xdb=%lf\t xdn=%lf\n", \
-					theta,r.TimeStep,r.DenseOutputActualTime,r.ActualTime-r.TimeStep,r.ActualTime, \
+				printf("%d  theta=%lf\t dt=%lf\t t=%lf\t tb=%lf\t tn=%lf\t xb=%lf\t xn=%lf\t xdb=%lf\t xdn=%lf\n", \
+					i,theta,r.TimeStep,r.DenseOutputActualTime,r.ActualTime-r.TimeStep,r.ActualTime, \
 					r.ActualDenseState[0],r.NextDenseState[0], \
 					r.ActualDerivative[0],r.NextDerivative[0]);
 			}*/
@@ -123,6 +123,74 @@ __forceinline__ __device__ void PerThread_DenseOutputStorageCondition(\
 
 }
 
+#if __MPGOS_PERTHREAD_ALGORITHM == 2
+__forceinline__ __device__ void PerThread_CalculateDelayToTime(int tid, __MPGOS_PERTHREAD_PRECISION T, RegisterStruct &r, SharedStruct SharedSettings, Struct_GlobalVariables GlobalVariables)
+{
+	for (int i = 0; i < __MPGOS_PERTHREAD_NDELAY; i++)
+	{
+		__MPGOS_PERTHREAD_PRECISION Tneed = T - SharedSettings.DelayTime[i];
+		int Iterations = 0;
+		int GlobalMemoryTimeIdx = tid + __MPGOS_PERTHREAD_NT*r.DelayMemoryIndex[i];
+
+		//calculate how many increments are necessary for the i. DelayMemoryIndex
+		while(GlobalVariables.d_DenseOutputTimeInstances[GlobalMemoryTimeIdx] <= Tneed)
+		{
+			GlobalMemoryTimeIdx += __MPGOS_PERTHREAD_NT;
+			Iterations++;
+		}
+
+		//update data if necessary
+		if(Iterations > 0) //data must be up updated
+		{
+			r.DelayMemoryIndex[i] += Iterations;
+
+			int DenseIndex = SharedSettings.DelayToDenseIndex[i];
+			int GlobalMemoryStateIdx = tid + r.DelayMemoryIndex[i]*__MPGOS_PERTHREAD_DOD*__MPGOS_PERTHREAD_NT+DenseIndex*__MPGOS_PERTHREAD_NT;
+
+			if(Iterations == 1) //data can be pushed
+			{
+				r.StateBeforeDelay[i] = r.StateAfterDelay[i];
+				r.DerivativeBeforeDelay[i] = r.DerivativeAfterDelay[i];
+				r.TimeBeforeDelay[i] = r.TimeAfterDelay[i];
+
+				r.TimeAfterDelay[i] = 	GlobalVariables.d_DenseOutputTimeInstances[GlobalMemoryTimeIdx];
+				r.StateAfterDelay[i] = 	GlobalVariables.d_DenseOutputStates[GlobalMemoryStateIdx];
+				r.DerivativeAfterDelay[i] = 	GlobalVariables.d_DenseOutputDerivatives[GlobalMemoryStateIdx];
+
+				r.PerStepSizeByDelay[i] = 1.0/(r.TimeAfterDelay[i]-r.TimeBeforeDelay[i]);
+			}
+			else //full reload from global memory
+			{
+				r.TimeAfterDelay[i] = 	GlobalVariables.d_DenseOutputTimeInstances[GlobalMemoryTimeIdx];
+				r.StateAfterDelay[i] = 	GlobalVariables.d_DenseOutputStates[GlobalMemoryStateIdx];
+				r.DerivativeAfterDelay[i] = 	GlobalVariables.d_DenseOutputDerivatives[GlobalMemoryStateIdx];
+
+				//previous step
+				GlobalMemoryTimeIdx -= __MPGOS_PERTHREAD_NT;
+				GlobalMemoryStateIdx -= __MPGOS_PERTHREAD_DOD*__MPGOS_PERTHREAD_NT;
+				r.TimeBeforeDelay[i] = 	GlobalVariables.d_DenseOutputTimeInstances[GlobalMemoryTimeIdx];
+				r.StateBeforeDelay[i] = 	GlobalVariables.d_DenseOutputStates[GlobalMemoryStateIdx];
+				r.DerivativeBeforeDelay[i] = 	GlobalVariables.d_DenseOutputDerivatives[GlobalMemoryStateIdx];
+
+
+				r.PerStepSizeByDelay[i] = 1.0/(r.TimeAfterDelay[i]-r.TimeBeforeDelay[i]);
+			}
+		}
+
+		//interpolate
+		__MPGOS_PERTHREAD_PRECISION Theta = (Tneed - r.TimeBeforeDelay[i])*r.PerStepSizeByDelay[i];
+		__MPGOS_PERTHREAD_PRECISION ThetaM1 = Theta - 1;
+
+		//if(tid==1)
+		//printf("i=%d    idx=%d   tneed=%lf    tb=%lf    tn=%lf   pdt=%lf   theta=%lf    xb=%lf    xn=%lf\n",i,r.DelayMemoryIndex[i],Tneed,r.TimeBeforeDelay[i],r.TimeAfterDelay[i],r.PerStepSizeByDelay[i],Theta,r.StateBeforeDelay[i],r.StateAfterDelay[i]);
+
+
+		PerThread_HermiteInterpolation(r.DelayedState[i],Theta,ThetaM1,r.TimeAfterDelay[i]-r.TimeBeforeDelay[i], \
+									r.StateBeforeDelay[i],r.StateAfterDelay[i], \
+									r.DerivativeBeforeDelay[i],r.DerivativeAfterDelay[i]);
+	}
+}
+#endif
 
 #endif
 #endif

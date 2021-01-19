@@ -4,7 +4,7 @@
 
 // RK4 ------------------------------------------------------------------------
 #if __MPGOS_PERTHREAD_ALGORITHM == 0
-__forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r,SharedStruct s, SharedParametersStruct SharedMemoryPointers)
+__forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r,SharedStruct SharedSettings, SharedParametersStruct SharedMemoryPointers)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
@@ -50,7 +50,7 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 
 	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
 	#if __MPGOS_PERTHREAD_INTERPOLATION
-		PerThread_SystemToDense(k1,r.NextDerivative,s);
+		PerThread_SystemToDense(k1,r.NextDerivative,SharedSettings);
 	#endif
 
 
@@ -68,7 +68,7 @@ __forceinline__ __device__ void PerThread_Stepper_RK4(int tid, RegisterStruct &r
 
 // RKCK 45 --------------------------------------------------------------------
 #if __MPGOS_PERTHREAD_ALGORITHM == 1
-__forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct &r, SharedStruct s, SharedParametersStruct SharedMemoryPointers)
+__forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct &r, SharedStruct SharedSettings, SharedParametersStruct SharedMemoryPointers)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
@@ -130,7 +130,7 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k5,X,T,r,SharedMemoryPointers);
 
 	#if __MPGOS_PERTHREAD_INTERPOLATION
-		PerThread_SystemToDense(k5,r.NextDerivative,s);
+		PerThread_SystemToDense(k5,r.NextDerivative,SharedSettings);
 	#endif
 
 
@@ -172,7 +172,7 @@ __forceinline__ __device__ void PerThread_Stepper_RKCK45(int tid, RegisterStruct
 
 // DDE4 ------------------------------------------------------------------------
 #if __MPGOS_PERTHREAD_ALGORITHM == 2
-__forceinline__ __device__ void PerThread_Stepper_DDE4(int tid, RegisterStruct &r, SharedStruct s, SharedParametersStruct SharedMemoryPointers)
+__forceinline__ __device__ void PerThread_Stepper_DDE4(int tid, RegisterStruct &r, SharedStruct SharedSettings, SharedParametersStruct SharedMemoryPointers, Struct_GlobalVariables GlobalVariables)
 {
 	// MEMORY MANAGEMENT ------------------------------------------------------
 	__MPGOS_PERTHREAD_PRECISION X[__MPGOS_PERTHREAD_SD];
@@ -189,6 +189,7 @@ __forceinline__ __device__ void PerThread_Stepper_DDE4(int tid, RegisterStruct &
 	// K2 ---------------------------------------------------------------------
 	T  = r.ActualTime + dTp2;
 
+	PerThread_CalculateDelayToTime(tid,T,r,SharedSettings,GlobalVariables);
 	#pragma unroll
 	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 		X[i] = r.ActualState[i] + r.NextState[i] * dTp2;
@@ -209,6 +210,7 @@ __forceinline__ __device__ void PerThread_Stepper_DDE4(int tid, RegisterStruct &
 	// K4 ---------------------------------------------------------------------
 	T = r.ActualTime + r.TimeStep;
 
+	PerThread_CalculateDelayToTime(tid,T,r,SharedSettings,GlobalVariables);
 	#pragma unroll
 	for (int i=0; i<__MPGOS_PERTHREAD_SD; i++)
 	{
@@ -219,7 +221,7 @@ __forceinline__ __device__ void PerThread_Stepper_DDE4(int tid, RegisterStruct &
 	PerThread_OdeFunction(tid,__MPGOS_PERTHREAD_NT,k1,X,T,r,SharedMemoryPointers);
 
 	//save derivatives
-	PerThread_SystemToDense(k1,r.NextDerivative,s);
+	PerThread_SystemToDense(k1,r.NextDerivative,SharedSettings);
 
 
 	// NEW STATE --------------------------------------------------------------

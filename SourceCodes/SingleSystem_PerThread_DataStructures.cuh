@@ -153,6 +153,27 @@ struct Struct_SolverOptions
 
 
 //-------------------------Structs for the kernel-------------------------------
+struct SharedStruct
+{
+	#if __MPGOS_PERTHREAD_ADAPTIVE
+		__MPGOS_PERTHREAD_PRECISION RelativeTolerance[__MPGOS_PERTHREAD_SD];
+		__MPGOS_PERTHREAD_PRECISION AbsoluteTolerance[__MPGOS_PERTHREAD_SD];
+	#endif
+	#if __MPGOS_PERTHREAD_NE > 0
+		__MPGOS_PERTHREAD_PRECISION EventTolerance[__MPGOS_PERTHREAD_NE];
+		int EventDirection[__MPGOS_PERTHREAD_NE];
+	#endif
+
+	#if __MPGOS_PERTHREAD_NDO > 0
+		int DenseToSystemIndex[__MPGOS_PERTHREAD_DOD];
+	#endif
+
+	#if __MPGOS_PERTHREAD_ALGORITHM == 2
+		__MPGOS_PERTHREAD_PRECISION DelayTime[__MPGOS_PERTHREAD_NDELAY];
+		int DelayToDenseIndex[__MPGOS_PERTHREAD_NDELAY];
+	#endif
+};
+
 struct RegisterStruct
 {
 	//always define
@@ -238,9 +259,17 @@ struct RegisterStruct
 			__MPGOS_PERTHREAD_PRECISION DelayedState[__MPGOS_PERTHREAD_NDELAY];
 			__MPGOS_PERTHREAD_PRECISION xdelay[__MPGOS_PERTHREAD_NDELAY];
 		};
+		int DelayMemoryIndex[__MPGOS_PERTHREAD_NDELAY];
+		__MPGOS_PERTHREAD_PRECISION StateBeforeDelay[__MPGOS_PERTHREAD_NDELAY];
+		__MPGOS_PERTHREAD_PRECISION StateAfterDelay[__MPGOS_PERTHREAD_NDELAY];
+		__MPGOS_PERTHREAD_PRECISION DerivativeBeforeDelay[__MPGOS_PERTHREAD_NDELAY];
+		__MPGOS_PERTHREAD_PRECISION DerivativeAfterDelay[__MPGOS_PERTHREAD_NDELAY];
+		__MPGOS_PERTHREAD_PRECISION TimeBeforeDelay[__MPGOS_PERTHREAD_NDELAY];
+		__MPGOS_PERTHREAD_PRECISION TimeAfterDelay[__MPGOS_PERTHREAD_NDELAY];
+		__MPGOS_PERTHREAD_PRECISION PerStepSizeByDelay[__MPGOS_PERTHREAD_NDELAY];
 	#endif
 
-	__device__ void ReadFromGlobalVariables(Struct_GlobalVariables GlobalVariables, Struct_SolverOptions SolverOptions, int tid)
+	__device__ void ReadFromGlobalVariables(SharedStruct SharedSettings,Struct_GlobalVariables GlobalVariables, Struct_SolverOptions SolverOptions, int tid)
 	{
 		//always defined
 		ActualTime             = GlobalVariables.d_ActualTime[tid];
@@ -289,6 +318,28 @@ struct RegisterStruct
 				UpdateDenseOutput      = 1;
 			#endif
 		#endif
+
+		//if delayed solver, load the first 2 instances of the dense output to the memory
+		#if __MPGOS_PERTHREAD_ALGORITHM == 2
+			for (int i = 0; i < __MPGOS_PERTHREAD_NDELAY; i++)
+			{
+				int GlobalMemoryTimeIdx = tid;
+				TimeBeforeDelay[i] = GlobalVariables.d_DenseOutputTimeInstances[tid];
+				TimeAfterDelay[i] = GlobalVariables.d_DenseOutputTimeInstances[tid+__MPGOS_PERTHREAD_NT];
+				PerStepSizeByDelay[i] = 1.0/(TimeAfterDelay[i]-TimeBeforeDelay[i]);
+
+				DelayMemoryIndex[i] = 1;
+				int DenseIndex = SharedSettings.DelayToDenseIndex[i];
+				int GlobalMemoryStateIdx = tid + DenseIndex*__MPGOS_PERTHREAD_NT;
+
+				StateBeforeDelay[i] = GlobalVariables.d_DenseOutputStates[GlobalMemoryStateIdx];
+				DerivativeBeforeDelay[i] = GlobalVariables.d_DenseOutputDerivatives[GlobalMemoryStateIdx];
+				GlobalMemoryStateIdx += __MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_DOD;
+				StateAfterDelay[i] = GlobalVariables.d_DenseOutputStates[GlobalMemoryStateIdx];
+				DerivativeAfterDelay[i] = GlobalVariables.d_DenseOutputDerivatives[GlobalMemoryStateIdx];
+			}
+		#endif
+
 	}
 
 	__device__ void WriteToGlobalVariables(Struct_GlobalVariables &GlobalVariables, int tid)
@@ -330,27 +381,7 @@ struct RegisterStruct
 	}
 };
 
-struct SharedStruct
-{
-	#if __MPGOS_PERTHREAD_ADAPTIVE
-		__MPGOS_PERTHREAD_PRECISION RelativeTolerance[__MPGOS_PERTHREAD_SD];
-		__MPGOS_PERTHREAD_PRECISION AbsoluteTolerance[__MPGOS_PERTHREAD_SD];
-	#endif
-	#if __MPGOS_PERTHREAD_NE > 0
-		__MPGOS_PERTHREAD_PRECISION EventTolerance[__MPGOS_PERTHREAD_NE];
-		int EventDirection[__MPGOS_PERTHREAD_NE];
-	#endif
 
-	#if __MPGOS_PERTHREAD_NDO > 0
-		int DenseToSystemIndex[__MPGOS_PERTHREAD_DOD];
-	#endif
-
-	#if __MPGOS_PERTHREAD_ALGORITHM == 2
-		__MPGOS_PERTHREAD_PRECISION DelayTime[__MPGOS_PERTHREAD_NDELAY];
-		int DelayToDenseIndex[__MPGOS_PERTHREAD_NDELAY];
-		int DelayMemoryIndex[__MPGOS_PERTHREAD_NDELAY];
-	#endif
-};
 
 struct SharedParametersStruct
 {
