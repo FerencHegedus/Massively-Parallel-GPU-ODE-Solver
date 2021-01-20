@@ -30,6 +30,12 @@ __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 	//printf("%lf\n",DenseOutputTimeStep);
 	if ( r.UpdateDenseOutput == 1 ) //dense output without interpolation, store for DDE
 	{
+
+		//if(tid==0)
+			//printf("idx=%d t=%lf x=%lf xd=%lf\n",r.DenseOutputIndex,r.ActualTime,r.NextDenseState[0],r.NextDerivative[0]);
+
+
+
 		//save time
 		d_DenseOutputTimeInstances[tid + r.DenseOutputIndex*__MPGOS_PERTHREAD_NT] = r.ActualTime;
 
@@ -50,7 +56,6 @@ __forceinline__ __device__ void PerThread_StoreDenseOutput(\
 			}
 		#endif
 
-		//printf("idx=%d t=%lf x=%lf xd=%lf\n",r.DenseOutputIndex,r.ActualTime,r.NextDenseState[0],r.NextDerivative[0]);
 		r.DenseOutputIndex++;
 	}
 
@@ -101,6 +106,15 @@ __forceinline__ __device__ void PerThread_DenseOutputStorageCondition(\
 			SharedStruct &s, \
 			Struct_SolverOptions SolverOptions)
 {
+	//reset dense output counter
+	#if __MPGOS_PERTHREAD_ALGORITHM == 2
+		if(r.DenseOutputIndex >= __MPGOS_PERTHREAD_NDO)
+		{
+			r.DenseOutputIndex = 0;
+		}
+	#endif
+
+
 	if(SolverOptions.DenseOutputTimeStep <= 0 &&  r.DenseOutputIndex < __MPGOS_PERTHREAD_NDO) //dense output stepped over
 	{
 		r.UpdateDenseOutput = 1;
@@ -130,22 +144,24 @@ __forceinline__ __device__ void PerThread_CalculateDelayToTime(int tid, __MPGOS_
 	{
 		__MPGOS_PERTHREAD_PRECISION Tneed = T - SharedSettings.DelayTime[i];
 		int Iterations = 0;
-		int GlobalMemoryTimeIdx = tid + __MPGOS_PERTHREAD_NT*r.DelayMemoryIndex[i];
 
 		//calculate how many increments are necessary for the i. DelayMemoryIndex
-		while(GlobalVariables.d_DenseOutputTimeInstances[GlobalMemoryTimeIdx] <= Tneed)
+		while(GlobalVariables.d_DenseOutputTimeInstances[tid + __MPGOS_PERTHREAD_NT*r.DelayMemoryIndex[i]] <= Tneed)
 		{
-			GlobalMemoryTimeIdx += __MPGOS_PERTHREAD_NT;
+			r.DelayMemoryIndex[i]++;
+			if(r.DelayMemoryIndex[i] == __MPGOS_PERTHREAD_NDO) //reset delay counter
+			{
+				r.DelayMemoryIndex[i] = 0;
+			}
 			Iterations++;
 		}
 
 		//update data if necessary
 		if(Iterations > 0) //data must be up updated
 		{
-			r.DelayMemoryIndex[i] += Iterations;
-
 			int DenseIndex = SharedSettings.DelayToDenseIndex[i];
 			int GlobalMemoryStateIdx = tid + r.DelayMemoryIndex[i]*__MPGOS_PERTHREAD_DOD*__MPGOS_PERTHREAD_NT+DenseIndex*__MPGOS_PERTHREAD_NT;
+			int GlobalMemoryTimeIdx = tid + __MPGOS_PERTHREAD_NT*r.DelayMemoryIndex[i];
 
 			if(Iterations == 1) //data can be pushed
 			{
@@ -166,8 +182,16 @@ __forceinline__ __device__ void PerThread_CalculateDelayToTime(int tid, __MPGOS_
 				r.DerivativeAfterDelay[i] = 	GlobalVariables.d_DenseOutputDerivatives[GlobalMemoryStateIdx];
 
 				//previous step
-				GlobalMemoryTimeIdx -= __MPGOS_PERTHREAD_NT;
-				GlobalMemoryStateIdx -= __MPGOS_PERTHREAD_DOD*__MPGOS_PERTHREAD_NT;
+				if(r.DelayMemoryIndex == 0) //special case - previous step is at __MPGOS_PERTHREAD_NDO-1
+				{
+					GlobalMemoryTimeIdx =  tid + (__MPGOS_PERTHREAD_NDO-1)*__MPGOS_PERTHREAD_NT;
+					GlobalMemoryStateIdx = tid + (__MPGOS_PERTHREAD_NDO-1)*__MPGOS_PERTHREAD_DOD*__MPGOS_PERTHREAD_NT+DenseIndex*__MPGOS_PERTHREAD_NT;
+				}
+				else
+				{
+					GlobalMemoryTimeIdx -= __MPGOS_PERTHREAD_NT;
+					GlobalMemoryStateIdx -= __MPGOS_PERTHREAD_DOD*__MPGOS_PERTHREAD_NT;
+				}
 				r.TimeBeforeDelay[i] = 	GlobalVariables.d_DenseOutputTimeInstances[GlobalMemoryTimeIdx];
 				r.StateBeforeDelay[i] = 	GlobalVariables.d_DenseOutputStates[GlobalMemoryStateIdx];
 				r.DerivativeBeforeDelay[i] = 	GlobalVariables.d_DenseOutputDerivatives[GlobalMemoryStateIdx];
@@ -181,8 +205,8 @@ __forceinline__ __device__ void PerThread_CalculateDelayToTime(int tid, __MPGOS_
 		__MPGOS_PERTHREAD_PRECISION Theta = (Tneed - r.TimeBeforeDelay[i])*r.PerStepSizeByDelay[i];
 		__MPGOS_PERTHREAD_PRECISION ThetaM1 = Theta - 1;
 
-		//if(tid==1)
-		//printf("i=%d    idx=%d   tneed=%lf    tb=%lf    tn=%lf   pdt=%lf   theta=%lf    xb=%lf    xn=%lf\n",i,r.DelayMemoryIndex[i],Tneed,r.TimeBeforeDelay[i],r.TimeAfterDelay[i],r.PerStepSizeByDelay[i],Theta,r.StateBeforeDelay[i],r.StateAfterDelay[i]);
+		//if(tid==0)
+				//printf("i=%d    idx=%d   tneed=%lf    tb=%lf    tn=%lf   pdt=%lf   theta=%lf    xb=%lf    xn=%lf\n",i,r.DelayMemoryIndex[i],Tneed,r.TimeBeforeDelay[i],r.TimeAfterDelay[i],r.PerStepSizeByDelay[i],Theta,r.StateBeforeDelay[i],r.StateAfterDelay[i]);
 
 
 		PerThread_HermiteInterpolation(r.DelayedState[i],Theta,ThetaM1,r.TimeAfterDelay[i]-r.TimeBeforeDelay[i], \

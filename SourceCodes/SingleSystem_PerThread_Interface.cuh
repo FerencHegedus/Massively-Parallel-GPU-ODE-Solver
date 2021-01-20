@@ -154,7 +154,7 @@ class ProblemSolver
 		template <typename T> T GetHost(int, ListOfVariables, int, int);       // DenseState
 
 		void Print(ListOfVariables);      // General
-		void Print(ListOfVariables, int); // DenseOutput
+		void Print(ListOfVariables, int, int); // DenseOutput
 
 		void Solve();
 
@@ -1155,7 +1155,7 @@ void ProblemSolver::Print(ListOfVariables Variable)
 }
 
 // PRINT, DenseOutput
-void ProblemSolver::Print(ListOfVariables Variable, int ThreadID)
+void ProblemSolver::Print(ListOfVariables Variable, int ThreadID, int All = 0)
 {
 	BoundCheck("Print", "Thread", ThreadID, 0, __MPGOS_PERTHREAD_NT-1 );
 
@@ -1227,14 +1227,19 @@ void ProblemSolver::Print(ListOfVariables Variable, int ThreadID)
 	DataFile << "Time series:\n";
 	if ( __MPGOS_PERTHREAD_NDO > 0 )
 	{
-		for (int i=0; i<(h_DenseOutputIndex[ThreadID]); i++)
+		int LastIndex = h_DenseOutputIndex[ThreadID];
+		if(All == 1)
+		{
+			LastIndex = __MPGOS_PERTHREAD_NDO;
+		}
+		for (int i=0; i<LastIndex; i++)
 		{
 			idx = ThreadID + i*__MPGOS_PERTHREAD_NT;
 			DataFile.width(Width); DataFile << h_DenseOutputTimeInstances[idx];
 
 			for (int j=0; j<__MPGOS_PERTHREAD_DOD; j++)
 			{
-				idx = ThreadID + j*__MPGOS_PERTHREAD_NT + i*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_SD;
+				idx = ThreadID + j*__MPGOS_PERTHREAD_NT + i*__MPGOS_PERTHREAD_NT*__MPGOS_PERTHREAD_DOD;
 				DataFile  << ','; DataFile.width(Width); DataFile  << h_DenseOutputStates[idx];
 				if(__MPGOS_PERTHREAD_SAVEDERIVATIVES)
 				{
